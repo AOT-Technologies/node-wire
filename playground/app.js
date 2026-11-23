@@ -1012,9 +1012,9 @@ document.addEventListener('DOMContentLoaded', () => {
             config: {},
             auth: {
                 provider: 'static_token',
-                secret_key: 'stripe_api_key',
-                header_name: 'Authorization',
-                prefix: '',
+                secret_key: 'STRIPE_BASIC_AUTH',
+                prefix: 'Basic',
+                encoding: 'base64',
             },
         },
         salesforce: {
@@ -1048,7 +1048,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { key: 'SLACK_BOT_TOKEN', label: 'Bot token', type: 'text', required: true },
         ],
         stripe: [
-            { key: 'stripe_api_key', label: 'API key', type: 'text', required: true },
+            { key: 'STRIPE_BASIC_AUTH', label: 'Secret key + ":" (sk_test_...:)', type: 'text', required: true },
         ],
         salesforce: [
             { key: 'SALESFORCE_CLIENT_ID', label: 'Client ID', type: 'text', required: true },

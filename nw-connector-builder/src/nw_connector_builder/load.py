@@ -213,6 +213,16 @@ def resolve_and_validate(
             "Internal error: RefResolver requires a base_url for fragment $ref resolution"
         )
 
+    # Simplified: validate the document before $refs are inlined. Inlining turns a shared
+    # schema graph into a tree for the validator; Stripe's (2.5k schemas) never finishes.
+    try:
+        from openapi_spec_validator import validate
+
+        validate(doc)
+        pre_valid = True
+    except Exception:  # noqa: BLE001 - fall back to per-part validation after resolving
+        pre_valid = False
+
     cut_refs: set[str] = set()
 
     def _cut_recursive_ref(_limit: int, parsed_url: Any, _recursions: Any = ()) -> dict[str, Any]:
@@ -247,7 +257,8 @@ def resolve_and_validate(
                 "Repaired draft-4 schema constructs invalid in OpenAPI 3.0: %s",
                 ", ".join(f"{k}={v}" for k, v in sorted(repaired.items())),
             )
-        _validate_dropping_invalid_parts(resolved)
+        if not pre_valid:
+            _validate_dropping_invalid_parts(resolved)
     except SpecLoadError:
         raise
     except Exception as exc:  # noqa: BLE001

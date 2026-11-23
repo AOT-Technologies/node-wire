@@ -80,6 +80,9 @@ def test_connector_without_auth_schemes_is_unaffected() -> None:
     """The overwhelming majority of connectors never set auth_schemes at all — must
     still validate and round-trip with zero behavior change."""
     store = ConnectorConfigStore()
-    doc = {"name": "default", "auth": {"provider": "static_token", "secret_key": "stripe_api_key"}}
+    doc = {
+        "name": "default",
+        "auth": {"provider": "static_token", "secret_key": "STRIPE_BASIC_AUTH"},
+    }
     record = store.create("__default__", "stripe", doc)
     assert "auth_schemes" not in record.raw
