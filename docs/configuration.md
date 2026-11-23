@@ -39,6 +39,7 @@ Each connector reads its credentials from the following variables:
 | **FHIR Cerner** | `CERNER_FHIR_BASE_URL`, `CERNER_TOKEN_URL`, `CERNER_CLIENT_ID`, `CERNER_KID`, `CERNER_PRIVATE_KEY`, `CERNER_SCOPES` | Cerner EHR integration |
 | **Google Drive** | `GOOGLE_DRIVE_SA_JSON`, `GOOGLE_DRIVE_FOLDER_ID` | Google Drive connector |
 | **SMTP** | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USE_TLS`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `FROM_EMAIL` | Sending emails; relay pinned to env (not request payload) |
+| **Postgres** | `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DATABASE`, `POSTGRES_SSLMODE`, `POSTGRES_USERNAME`, `POSTGRES_PASSWORD`; optional `NW_POSTGRES_MODE`, `NW_POSTGRES_STATEMENT_TIMEOUT_MS`, `NW_POSTGRES_MAX_ROWS`, `NW_POSTGRES_POOL_MAX`, `NW_POSTGRES_ALLOWED_SCHEMAS`, `NW_POSTGRES_ALLOWED_TABLES` | Postgres connector; connection target is server-side only |
 | **Slack** | `SLACK_BOT_TOKEN` | Sending Slack messages |
 | **Stripe** | `STRIPE_BASIC_AUTH` | Stripe payments |
 | **Salesforce** | `SALESFORCE_INSTANCE_URL`, `SALESFORCE_TOKEN_URL`, `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_REFRESH_TOKEN` | Salesforce CRM integration |
