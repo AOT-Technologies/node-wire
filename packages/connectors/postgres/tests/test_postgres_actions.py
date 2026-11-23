@@ -60,8 +60,9 @@ class FakeCursor:
     async def __aexit__(self, *exc: Any) -> None:
         return None
 
-    async def execute(self, query: Any, params: Any = None) -> None:
+    async def execute(self, query: Any, params: Any = None, **kwargs: Any) -> None:
         self.conn.statements.append((query, params))
+        self.conn.execute_kwargs.append(kwargs)
         if not self.conn.has_result:
             self.description = None
 
@@ -78,6 +79,7 @@ class FakeConn:
         self.statements: list[tuple[Any, Any]] = []
         self.autocommit = False
         self.rolled_back = False
+        self.execute_kwargs: list[dict[str, Any]] = []
         self.has_result = True
         self.many = False
         self.blocks = [b"a,b\n", b"1,2\n"]
@@ -320,6 +322,17 @@ async def test_explain_analyze_is_rolled_back(conn: FakeConn) -> None:
 async def test_read_actions_use_a_read_only_transaction(conn: FakeConn) -> None:
     await make().run({"action": "query", **SQL})
     assert "SET TRANSACTION READ ONLY" in [s for s, _ in conn.statements if isinstance(s, str)]
+
+
+async def test_raw_sql_is_prepared_so_the_server_refuses_extra_statements(conn: FakeConn) -> None:
+    """E'..' strings can hide a ';' from the regex check; prepare=True makes the server enforce one
+    statement (checked on a real server: "cannot insert multiple commands into a prepared statement")."""
+    sneaky = r"update shop.orders set note = E'\'' ; commit; select 'a'"
+    assert (
+        policy.single_statement(sneaky) is None
+    )  # the regex is fooled; the server is what stops it
+    await make().run({"action": "execute", "sql": sneaky})
+    assert conn.execute_kwargs[-1] == {"prepare": True}
 
 
 async def test_autocommit_session_is_restored(conn: FakeConn) -> None:

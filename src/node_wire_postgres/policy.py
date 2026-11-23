@@ -147,7 +147,8 @@ _TYPE = re.compile(r"^[A-Za-z_][A-Za-z0-9_. ]*(\(\s*\d+(\s*,\s*\d+)?\s*\))?(\[\]
 
 
 def single_statement(query: str) -> None:
-    """Reject ``a; b``. The read-only transaction and the DB role still apply to the one statement."""
+    """Early, friendly rejection of ``a; b``. It only approximates the SQL lexer (E'..' strings escape
+    quotes differently), so the server enforces it for real: see ``prepare=True`` in run()."""
     if ";" in _QUOTED.sub(" ", query).strip().rstrip(";"):
         raise PostgresPolicyError("Only one statement is allowed; use the transaction action")
 
@@ -327,7 +328,9 @@ async def run(
         cap = min(max_rows or s.max_rows, s.max_rows)
         cursor = conn.cursor(name="nw_cursor", row_factory=dict_row) if stream else None
         async with cursor or conn.cursor(row_factory=dict_row) as cur:
-            await cur.execute(query, params or None)
+            # prepare=True makes the server parse the text as ONE statement and refuse "a; b" (the
+            # simple protocol would run both). A server-side cursor already does the same.
+            await cur.execute(query, params or None, **({} if stream else {"prepare": True}))
             if cur.description:
                 rows = await cur.fetchmany(cap + 1)
                 out = PostgresOutput(
@@ -361,7 +364,7 @@ async def run_many(
         async with conn.cursor() as cur:
             for i, (query, params) in enumerate(statements):
                 single_statement(query)
-                await cur.execute(query, params or None)
+                await cur.execute(query, params or None, prepare=True)  # see run()
                 rows.append({"statement": i, "row_count": cur.rowcount})
     _log(connector, trace_id, mode, started, len(rows))
     return PostgresOutput(columns=["statement", "row_count"], rows=rows, row_count=len(rows))
