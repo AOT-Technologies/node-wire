@@ -109,7 +109,7 @@ class PostgresConnector(BaseConnector):
     """Postgres connector: structured and raw SQL actions over a pooled psycopg 3 connection.
 
     Each action names the lowest mode it needs (read_only < read_write < admin); the
-    connector mode defaults to admin and can be lowered in connectors.yaml.
+    connector mode defaults to read_only and can be raised in connectors.yaml.
     """
 
     connector_id = "postgres"

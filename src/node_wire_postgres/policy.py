@@ -98,7 +98,7 @@ def settings(config: dict[str, Any]) -> Settings:
         host=str(host),
         port=int(get("port", "POSTGRES_PORT", 5432)),
         database=str(database),
-        sslmode=str(get("sslmode", "POSTGRES_SSLMODE", "prefer")),
+        sslmode=str(get("sslmode", "POSTGRES_SSLMODE", "require")),
         mode=mode,
         timeout_ms=int(get("statement_timeout_ms", "NW_POSTGRES_STATEMENT_TIMEOUT_MS", 30000)),
         max_rows=int(get("max_rows", "NW_POSTGRES_MAX_ROWS", 1000)),
@@ -278,8 +278,13 @@ async def _session(connector: Any, mode: str, autocommit: bool = False):
                 await conn.execute(sql.SQL("SET statement_timeout = ") + timeout)
                 yield conn, s
             finally:
-                await conn.execute("RESET statement_timeout")
-                await conn.set_autocommit(False)
+                # Hand the connection back first, then reset the timeout; a failed RESET (dropped
+                # connection) must not replace the real error, so it is only logged.
+                try:
+                    await conn.set_autocommit(False)
+                    await conn.execute("RESET statement_timeout")
+                except Exception:  # noqa: BLE001  # nosec B110
+                    logger.warning("Could not reset statement_timeout", exc_info=True)
         else:
             if mode == "read_only" or s.mode == "read_only":
                 await conn.execute("SET TRANSACTION READ ONLY")

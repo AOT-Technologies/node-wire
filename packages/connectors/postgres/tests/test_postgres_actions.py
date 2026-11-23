@@ -328,6 +328,22 @@ async def test_autocommit_session_is_restored(conn: FakeConn) -> None:
     assert "RESET statement_timeout" in [s for s, _ in conn.statements if isinstance(s, str)]
 
 
+async def test_failed_reset_neither_hides_the_result_nor_leaves_autocommit_on(
+    conn: FakeConn,
+) -> None:
+    real = conn.execute
+
+    async def execute(query: Any, params: Any = None) -> None:
+        if query == "RESET statement_timeout":
+            raise ConnectionError("connection dropped")
+        await real(query, params)
+
+    conn.execute = execute  # type: ignore[method-assign]
+    result = await make().run({"action": "vacuum", **T})
+    assert result.success, result.message
+    assert conn.autocommit is False
+
+
 async def test_copy_in_writes_every_row(conn: FakeConn) -> None:
     result = await make().run({"action": "copy_in", **PAYLOADS["copy_in"]})
     assert result.data["row_count"] == 3

@@ -36,3 +36,11 @@ def test_default_mode_is_least_privilege(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.delenv("NW_POSTGRES_MODE", raising=False)
     assert settings({"host": "h", "database": "d"}).mode == "read_only"
     assert settings({"host": "h", "database": "d", "mode": "admin"}).mode == "admin"
+
+
+def test_sslmode_defaults_to_require_and_can_be_lowered(monkeypatch: pytest.MonkeyPatch) -> None:
+    from node_wire_postgres.policy import settings
+
+    monkeypatch.delenv("POSTGRES_SSLMODE", raising=False)
+    assert settings({"host": "h", "database": "d"}).sslmode == "require"
+    assert settings({"host": "h", "database": "d", "sslmode": "disable"}).sslmode == "disable"

@@ -36,7 +36,7 @@ On Windows, psycopg async cannot use the default `ProactorEventLoop`. Run the se
 | Host | `host` | `POSTGRES_HOST` | required |
 | Port | `port` | `POSTGRES_PORT` | `5432` |
 | Database | `database` | `POSTGRES_DATABASE` | required |
-| SSL mode | `sslmode` | `POSTGRES_SSLMODE` | `prefer` |
+| SSL mode | `sslmode` | `POSTGRES_SSLMODE` | `require` |
 | Mode | `mode` | `NW_POSTGRES_MODE` | `read_only` |
 | Statement timeout | `statement_timeout_ms` | `NW_POSTGRES_STATEMENT_TIMEOUT_MS` | `30000` |
 | Row cap | `max_rows` | `NW_POSTGRES_MAX_ROWS` | `1000` |
