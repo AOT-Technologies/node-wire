@@ -3059,7 +3059,7 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 </tr>
 <tr>
 <td><a href="#google_drive"><code>google_drive</code></a></td>
-<td><code>files.list</code>, <code>files.get</code>, <code>files.create</code>, <code>files.upload</code>, <code>files.update</code>, <code>files.delete</code>, <code>permissions.create</code></td>
+<td>49 Drive v3 actions (48 generated, plus <code>drive_files_upload</code>) (<code>drive_files_list</code>, <code>drive_files_get</code>, <code>drive_files_create</code>, <code>drive_files_update</code>, <code>drive_files_delete</code>, <code>drive_permissions_create</code>, comments, revisions, shared drives and more); upload up to 5 MB, no download</td>
 <td><code>service_account</code> (or <code>upstream_bearer</code>)</td>
 <td><a href="../google_drive_connector/">Google Drive</a></td>
 </tr>
@@ -3123,7 +3123,8 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 <li><strong>Secrets / settings:</strong> <code>GOOGLE_DRIVE_SA_JSON</code> (JSON contents, or an absolute path locally), <code>GOOGLE_DRIVE_FOLDER_ID</code>.</li>
 <li><strong>Per-user access:</strong> <code>upstream_bearer</code> relays each caller's own Google token
   (<a href="../google_drive_connector/#upstream_bearer">Google Drive — upstream bearer</a>).</li>
-<li><strong>Guide:</strong> <a href="../google_drive_connector/">Google Drive</a> covers service-account setup and the error codes.</li>
+<li><strong>Not supported:</strong> file-content upload, download and update. The connector calls only the <code>/drive/v3</code> address, so <code>drive_files_create</code> and <code>drive_files_update</code> work on metadata, and <code>drive_files_get</code> cannot return content.</li>
+<li><strong>Guide:</strong> <a href="../google_drive_connector/">Google Drive</a> covers service-account setup, the action list and the error codes.</li>
 </ul>
 <h3 id="slack"><code>slack</code><a class="headerlink" href="#slack" title="Anchor link to this section">&para;</a></h3>
 <ul>

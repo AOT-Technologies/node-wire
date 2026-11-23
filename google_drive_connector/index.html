@@ -3039,9 +3039,9 @@ SPDX-License-Identifier: Apache-2.0
 <li><strong><a href="#google-drive-service-account-setup">Google Drive service account setup</a></strong> — Create a GCP service account, enable the Drive API, configure <code>.env</code>, share a folder, and verify connectivity.</li>
 <li><strong><a href="#multi-tenancy">Multi-tenancy</a></strong> — Per-tenant Drive credentials and folders.</li>
 <li><strong><a href="#upstream_bearer">User OAuth</a></strong> — Optional: per-user Drive access by relaying the caller's own bearer token, instead of the shared service account.</li>
-<li><strong><a href="#rest-api-reference">REST API reference</a></strong> — All seven operations (one REST route each), request/response shapes, and the platform error taxonomy.</li>
+<li><strong><a href="#rest-api-reference">REST API reference</a></strong> — All 49 operations (one REST route each), request/response shapes, and the platform error taxonomy.</li>
 </ol>
-<p>For <strong>MCP</strong> (for example, ToolHive), tools are named <code>google_drive_&lt;action&gt;</code> from the connector manifest (for example, <code>google_drive_files_upload</code>). Legacy dotted names (<code>google_drive.files.upload</code>) still work on <code>tools/call</code> but are not what <code>tools/list</code> advertises. End-to-end agent setup is documented in <a href="../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
+<p>For <strong>MCP</strong> (for example, ToolHive), tools are named <code>google_drive_&lt;action&gt;</code> from the connector manifest (for example, <code>google_drive_drive_files_list</code>). Legacy dotted names (<code>google_drive.drive_files_list</code>) still work on <code>tools/call</code> but are not what <code>tools/list</code> advertises. End-to-end agent setup is documented in <a href="../toolhive_agent_scenario/">toolhive_agent_scenario.md</a>.</p>
 <hr />
 <h2 id="google-drive-service-account-setup">Google Drive service account setup<a class="headerlink" href="#google-drive-service-account-setup" title="Anchor link to this section">&para;</a></h2>
 <p>This guide walks you through creating a Google Cloud service account and connecting it to Node Wire. A service account is a special type of Google account used by applications (rather than humans) to authenticate with Google APIs.</p>
@@ -3125,18 +3125,18 @@ SPDX-License-Identifier: Apache-2.0
 <p>The service account starts with no access to any Drive files. You must explicitly share folders or files with it, the same way you share with any other Google user.</p>
 <ol>
 <li>Open <a href="https://drive.google.com/">Google Drive</a> in your browser.</li>
-<li>Create a new folder (or use an existing one) where the connector will upload files.</li>
+<li>Create a new folder (or use an existing one) the connector will work with.</li>
 <li>Right-click the folder → <strong>Share</strong>.</li>
 <li>In the <strong>Add people and groups</strong> field, paste the service account's email address. You can find it in the downloaded JSON file under <code>"client_email"</code>, or in the Cloud Console under IAM &amp; Admin &gt; Service Accounts.</li>
 </ol>
 <p>Example: <code>node-wire-drive-connector@your-project.iam.gserviceaccount.com</code></p>
 <ol>
-<li>Set the role to <strong>Editor</strong> (so the connector can create and upload files).</li>
+<li>Set the role to <strong>Editor</strong> (so the connector can create and change files).</li>
 <li>Uncheck <strong>Notify people</strong> (the service account doesn't have an inbox).</li>
 <li>Click <strong>Share</strong>.</li>
 </ol>
 <h3 id="step-7-get-the-folder-id">Step 7: Get the folder ID<a class="headerlink" href="#step-7-get-the-folder-id" title="Anchor link to this section">&para;</a></h3>
-<p>The folder ID is used to tell the connector where to upload files.</p>
+<p>Use the folder ID in queries, for example <code>'&lt;folder id&gt;' in parents</code>. The connector does not read <code>GOOGLE_DRIVE_FOLDER_ID</code> itself.</p>
 <ol>
 <li>Open the shared folder in Google Drive.</li>
 <li>Look at the URL in your browser. It looks like the following:
@@ -3154,13 +3154,13 @@ SPDX-License-Identifier: Apache-2.0
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nv">NW_MCP_SCOPE_POLICY_DEFAULT</span><span class="o">=</span>allow<span class="w"> </span><span class="nv">MODE</span><span class="o">=</span>API<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>node-wire
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># In another terminal, list files visible to the service account</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/connectors/google_drive/files.list<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/connectors/google_drive/drive_files_list<span class="w"> </span><span class="se">\</span>
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"action": "files.list", "page_size": 5}'</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"pagesize": 5}'</span>
 </span></code></pre></div>
 <p>A successful response includes <code>"success": true</code> and a <code>files</code> array under <code>data.raw</code>. The full response shape and optional fields are in the <a href="#rest-api-reference">REST API reference</a>.</p>
 <p>You can also use the <strong>Swagger UI</strong> at <code>http://localhost:8000/docs</code> to test interactively.</p>
-<p>To upload a test file, send a <code>files.upload</code> request (include <code>parents</code> with your folder ID); the argument list is in the <a href="#rest-api-reference">REST API reference</a>.</p>
+<p><strong>Content, compared with the earlier hand-written connector:</strong> <code>drive_files_upload</code> (new, hand-written) uploads a file with its content in one multipart request, up to 5 MB, with <code>content</code> (text) or <code>content_base64</code> (binary). <code>drive_files_create</code> and <code>drive_files_update</code> take <code>name</code>, <code>mime_type</code>, <code>description</code> and <code>parents</code> as JSON (so they make folders, rename and move files), and <code>trashed: true</code> on update moves a file to the trash (what the old delete did; the generated <code>drive_files_delete</code> is permanent, and a service account that is only an Editor of a shared drive may be refused). Shared drives are on by default (<code>supportsAllDrives</code>, and <code>includeItemsFromAllDrives</code> on list), as before. <strong>Still not supported:</strong> downloading file content, replacing the content of an existing file, and uploads over 5 MB (resumable). <code>drive_files_export</code> does not return binary formats correctly.</p>
 <h3 id="common-errors-setup">Common errors (setup)<a class="headerlink" href="#common-errors-setup" title="Anchor link to this section">&para;</a></h3>
 <table>
 <thead>
@@ -3202,7 +3202,7 @@ SPDX-License-Identifier: Apache-2.0
 </span></code></pre></div></li>
 <li>Store the key in a secrets manager (for example, AWS Secrets Manager, HashiCorp Vault) in production environments.</li>
 <li>Use a dedicated service account per application — don't reuse accounts across services.</li>
-<li>Grant only the minimum required permissions. If the connector only needs to upload files to one specific folder, only share that folder.</li>
+<li>Grant only the minimum required permissions. If the connector only needs one specific folder, only share that folder.</li>
 <li>Rotate the key periodically: Cloud Console → IAM &amp; Admin → Service Accounts → Manage Keys → Add new key, then delete the old one.</li>
 </ul>
 <hr />
@@ -3240,23 +3240,61 @@ addition to the preceding setting, not instead of it:</p>
 <p>For <strong>shared-folder automation</strong> (single service identity), keep the <a href="#google-drive-service-account-setup">service account setup</a>.</p>
 <hr />
 <h2 id="rest-api-reference">REST API reference<a class="headerlink" href="#rest-api-reference" title="Anchor link to this section">&para;</a></h2>
-<p>The connector exposes <strong>one REST route per operation</strong> (<code>POST /connectors/google_drive/&lt;action&gt;</code>, for example, <code>files.list</code>). The <code>action</code> field on the request body selects which Google Drive operation runs for <code>BaseConnector</code> dispatch. All responses share a common output shape and error taxonomy enforced by the runtime.</p>
+<p>The connector exposes <strong>one REST route per operation</strong> (<code>POST /connectors/google_drive/&lt;action&gt;</code>, for example, <code>drive_files_list</code>). The <code>action</code> field on the request body selects which Google Drive operation runs for <code>BaseConnector</code> dispatch. All responses share a common output shape and error taxonomy enforced by the runtime.</p>
 <h3 id="operations-overview">Operations overview<a class="headerlink" href="#operations-overview" title="Anchor link to this section">&para;</a></h3>
 <p>All requests go through:</p>
 <ul>
 <li>Connector ID: <code>google_drive</code></li>
-<li>REST endpoint: <code>POST /connectors/google_drive/&lt;action&gt;</code> (for example, <code>POST /connectors/google_drive/files.list</code>)</li>
+<li>REST endpoint: <code>POST /connectors/google_drive/&lt;action&gt;</code> (for example, <code>POST /connectors/google_drive/drive_files_list</code>)</li>
 </ul>
-<p>Each operation uses <code>action</code> as a discriminator:</p>
-<ul>
-<li><code>files.list</code></li>
-<li><code>files.create</code></li>
-<li><code>permissions.create</code></li>
-<li><code>files.get</code></li>
-<li><code>files.update</code></li>
-<li><code>files.upload</code></li>
-<li><code>files.delete</code></li>
-</ul>
+<p>Each operation uses <code>action</code> as a discriminator. The 49 actions (48 generated from Google's Drive v3 API, plus the hand-written <code>drive_files_upload</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>About (1)</td>
+<td><code>drive_about_get</code></td>
+</tr>
+<tr>
+<td>Files (13)</td>
+<td><code>drive_files_list</code>, <code>drive_files_get</code>, <code>drive_files_create</code>, <code>drive_files_upload</code>, <code>drive_files_update</code>, <code>drive_files_copy</code>, <code>drive_files_delete</code>, <code>drive_files_empty_trash</code>, <code>drive_files_export</code>, <code>drive_files_generate_ids</code>, <code>drive_files_list_labels</code>, <code>drive_files_modify_labels</code>, <code>drive_files_watch</code></td>
+</tr>
+<tr>
+<td>Permissions (5)</td>
+<td><code>drive_permissions_list</code>, <code>drive_permissions_get</code>, <code>drive_permissions_create</code>, <code>drive_permissions_update</code>, <code>drive_permissions_delete</code></td>
+</tr>
+<tr>
+<td>Comments (5)</td>
+<td><code>drive_comments_list</code>, <code>drive_comments_get</code>, <code>drive_comments_create</code>, <code>drive_comments_update</code>, <code>drive_comments_delete</code></td>
+</tr>
+<tr>
+<td>Replies (5)</td>
+<td><code>drive_replies_list</code>, <code>drive_replies_get</code>, <code>drive_replies_create</code>, <code>drive_replies_update</code>, <code>drive_replies_delete</code></td>
+</tr>
+<tr>
+<td>Revisions (4)</td>
+<td><code>drive_revisions_list</code>, <code>drive_revisions_get</code>, <code>drive_revisions_update</code>, <code>drive_revisions_delete</code></td>
+</tr>
+<tr>
+<td>Shared drives (7)</td>
+<td><code>drive_drives_list</code>, <code>drive_drives_get</code>, <code>drive_drives_create</code>, <code>drive_drives_update</code>, <code>drive_drives_delete</code>, <code>drive_drives_hide</code>, <code>drive_drives_unhide</code></td>
+</tr>
+<tr>
+<td>Team drives, older API (5)</td>
+<td><code>drive_teamdrives_list</code>, <code>drive_teamdrives_get</code>, <code>drive_teamdrives_create</code>, <code>drive_teamdrives_update</code>, <code>drive_teamdrives_delete</code></td>
+</tr>
+<tr>
+<td>Changes and channels (4)</td>
+<td><code>drive_changes_get_start_page_token</code>, <code>drive_changes_list</code>, <code>drive_changes_watch</code>, <code>drive_channels_stop</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Content, compared with the earlier hand-written connector:</strong> <code>drive_files_upload</code> (new, hand-written) uploads a file with its content in one multipart request, up to 5 MB, with <code>content</code> (text) or <code>content_base64</code> (binary). <code>drive_files_create</code> and <code>drive_files_update</code> take <code>name</code>, <code>mime_type</code>, <code>description</code> and <code>parents</code> as JSON (so they make folders, rename and move files), and <code>trashed: true</code> on update moves a file to the trash (what the old delete did; the generated <code>drive_files_delete</code> is permanent, and a service account that is only an Editor of a shared drive may be refused). Shared drives are on by default (<code>supportsAllDrives</code>, and <code>includeItemsFromAllDrives</code> on list), as before. <strong>Still not supported:</strong> downloading file content, replacing the content of an existing file, and uploads over 5 MB (resumable). <code>drive_files_export</code> does not return binary formats correctly.</p>
 <p>Per-operation request and response schemas are generated from the connector's Pydantic
 models and published live — do not duplicate them here:</p>
 <ul>
