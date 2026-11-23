@@ -90,10 +90,8 @@ connectors:
     # Optional: restrict uploads to a specific folder (leave empty for root)
     folder_id: "${GDRIVE_FOLDER_ID:}"
     auth:
-      provider: service_account
-      sa_json_secret: GOOGLE_DRIVE_SA_JSON
-      scopes:
-        - https://www.googleapis.com/auth/drive
+      provider: static_token
+      secret_key: GOOGLE_DRIVE_ACCESS_TOKEN  # OAuth2 access token, sent as "Authorization: Bearer"
 
   smtp:
     enabled: false

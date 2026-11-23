@@ -517,6 +517,8 @@ class ConnectorFactory:
                 secret_provider=sp,
                 sa_json_secret=auth_cfg["sa_json_secret"],
                 scopes=auth_cfg.get("scopes"),
+                # Google Drive is a REST connector: it sends the token as an Authorization header.
+                bearer_header=True,
             )
 
         if provider_type == "upstream_bearer":
