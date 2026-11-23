@@ -153,3 +153,11 @@ connectors:
       secret_key: N8N_API_KEY
       header_name: X-N8N-API-KEY
       prefix: ''
+  postgres:
+    enabled: true
+    exposed_via: [rest, grpc, mcp]
+    host: 127.0.0.1
+    port: 55432
+    database: nwdb
+    sslmode: disable
+    mode: read_only           # read_only | read_write | admin (insert needs read_write)
