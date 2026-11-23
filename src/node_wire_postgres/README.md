@@ -107,10 +107,10 @@ parameters (`%s` or `%(name)s`). The database role is the real security boundary
 | `upsert` | Insert rows, updating them on conflict |
 | `update` | Update rows; where is mandatory |
 | `delete` | Delete rows; where is mandatory |
-| `execute` | Run one DML statement (INSERT/UPDATE/DELETE, optionally with RETURNING) |
-| `transaction` | Run several statements in one transaction: all commit or none do |
+| `execute` | Run one raw SQL statement (admin: it can run any statement; INSERT/UPDATE/DELETE have their own read_write actions) |
+| `transaction` | Run several raw statements in one transaction: all commit or none do (admin) |
 | `copy_in` | Bulk load rows with COPY |
-| `copy_out` | Export a SELECT as CSV with COPY |
+| `copy_out` | Export a SELECT as CSV (written by the connector from a read-only cursor, not by COPY; booleans print as True/False) |
 | `call_function` | Call a function and return its rows |
 | `call_procedure` | Call a procedure |
 

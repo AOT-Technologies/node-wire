@@ -53,6 +53,7 @@ class FakeCursor:
         self.conn = conn
         self.description = [SimpleNamespace(name=k) for k in ROWS[0]]
         self.rowcount = 3
+        self.done = False
 
     async def __aenter__(self) -> FakeCursor:
         return self
@@ -67,6 +68,9 @@ class FakeCursor:
             self.description = None
 
     async def fetchmany(self, size: int) -> list[dict[str, Any]]:
+        if self.done:  # a real cursor returns [] once its rows are used up
+            return []
+        self.done = True
         return (ROWS * (size if self.conn.many else 1))[:size]
 
     def copy(self, query: Any, params: Any = None) -> FakeCopy:
@@ -365,13 +369,37 @@ async def test_copy_in_writes_every_row(conn: FakeConn) -> None:
 async def test_copy_out_returns_csv_and_caps_size(
     conn: FakeConn, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    ok = await make().run({"action": "copy_out", "sql": "select 1"})
-    assert ok.data["data"] == "a,b\n1,2\n"
+    ok = await make().run({"action": "copy_out", "sql": "select 1 -- a trailing comment"})
+    assert ok.success, ok.message
+    lines = ok.data["data"].splitlines()
+    assert lines[0] == "id,price,at,raw,ids,doc,none"
+    assert lines[1].startswith("1,1.50,2026-01-02T00:00:00+00:00,")
     assert ok.data["truncated"] is False
-    monkeypatch.setattr(policy, "_COPY_OUT_MAX_BYTES", 5)
+    monkeypatch.setattr(policy, "_COPY_OUT_MAX_BYTES", 40)
     cut = await make().run({"action": "copy_out", "sql": "select 1"})
     assert cut.data["truncated"] is True
-    assert cut.data["data"] == "a,b\n"
+    assert cut.data["data"] == "id,price,at,raw,ids,doc,none\r\n"
+
+
+async def test_copy_out_never_sends_a_copy_statement(conn: FakeConn) -> None:
+    """The caller's SQL is run as a query on a cursor; it is never pasted into COPY (...) TO ..."""
+    attack = "select 1) TO PROGRAM 'id' --"
+    await make().run({"action": "copy_out", "sql": attack})
+    assert [q for q, _ in conn.statements if isinstance(q, str) and "COPY" in q.upper()] == []
+    assert (attack, None) in conn.statements
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"action": "execute", "sql": "drop table shop.orders"},
+        {"action": "transaction", "statements": [{"sql": "grant all on shop.orders to public"}]},
+    ],
+)
+async def test_raw_sql_needs_admin(conn: FakeConn, payload: dict[str, Any]) -> None:
+    refused = await make(mode="read_write").run(payload)
+    assert (refused.success, refused.error_code) == (False, "POSTGRES_POLICY_DENIED")
+    assert (await make(mode="admin").run(payload)).success
 
 
 # ---- policy: refusals -------------------------------------------------------------------------

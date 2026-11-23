@@ -582,14 +582,14 @@ class PostgresConnector(BaseConnector):
 
     @nw_action("execute")
     async def execute(self, params: ExecuteInput, *, trace_id: str) -> PostgresOutput:
-        return await run(self, trace_id, "read_write", params.sql, bind(params.params))
+        return await run(self, trace_id, "admin", params.sql, bind(params.params))
 
     @nw_action("transaction")
     async def transaction(self, params: TransactionInput, *, trace_id: str) -> PostgresOutput:
         return await run_many(
             self,
             trace_id,
-            "read_write",
+            "admin",
             [(s.sql, bind(s.params)) for s in params.statements],
         )
 

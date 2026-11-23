@@ -13,6 +13,9 @@ boundary; the checks here are defence in depth.
 from __future__ import annotations
 
 import asyncio
+import csv
+import io
+import json
 import logging
 import os
 import re
@@ -261,6 +264,11 @@ def _json(value: Any) -> Any:
     return str(value)  # Decimal, UUID, timedelta, ranges, ... keep exact text
 
 
+def _cell(value: Any) -> Any:
+    value = _json(value)
+    return "" if value is None else json.dumps(value) if isinstance(value, (dict, list)) else value
+
+
 # ---- execution --------------------------------------------------------------
 
 
@@ -389,24 +397,33 @@ _COPY_OUT_MAX_BYTES = 10 * 1024 * 1024
 
 
 async def copy_out(connector: Any, trace_id: str, query: str, params: Any = None) -> PostgresOutput:
+    """CSV export of a query. Simplified: the CSV is written here from a server-side cursor, not by
+    COPY (<query>) TO STDOUT, because pasting the caller's SQL into a COPY wrapper let a comment or a
+    closing parenthesis turn it into COPY ... TO PROGRAM/file, which a read-only transaction allows."""
     single_statement(query)
-    copy_sql = (
-        sql.SQL("COPY (")
-        + sql.SQL(query.strip().rstrip(";"))
-        + sql.SQL(") TO STDOUT WITH (FORMAT csv, HEADER true)")
-    )
     started = time.monotonic()
-    chunks: list[bytes] = []
+    chunks: list[str] = []
     size = 0
     truncated = False
+
+    def csv_line(values: list[Any]) -> str:
+        buffer = io.StringIO()
+        csv.writer(buffer).writerow(values)
+        return buffer.getvalue()
+
     async with _session(connector, "read_only") as (conn, _):
-        async with conn.cursor() as cur:
-            async with cur.copy(copy_sql, params) as copy:
-                async for block in copy:
-                    size += len(block)
+        async with conn.cursor(name="nw_cursor", row_factory=dict_row) as cur:
+            await cur.execute(query, params or None)
+            lines = [csv_line([d.name for d in cur.description or []])]
+            while lines and not truncated:
+                for line in lines:
+                    size += len(line.encode("utf-8"))
                     if size > _COPY_OUT_MAX_BYTES:
                         truncated = True
                         break
-                    chunks.append(bytes(block))
+                    chunks.append(line)
+                lines = [
+                    csv_line([_cell(v) for v in row.values()]) for row in await cur.fetchmany(500)
+                ]
     _log(connector, trace_id, "read_only", started, 0)
-    return PostgresOutput(data=b"".join(chunks).decode("utf-8", "replace"), truncated=truncated)
+    return PostgresOutput(data="".join(chunks), truncated=truncated)
