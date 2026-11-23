@@ -27,9 +27,9 @@ connectors:
     exposed_via: ["rest", "grpc", "mcp"]
     auth:
       provider: static_token
-      secret_key: stripe_api_key
-      header_name: Authorization
-      prefix: ""
+      secret_key: STRIPE_BASIC_AUTH
+      prefix: Basic
+      encoding: base64  # value is "<secret key>:"
 
   google_drive:
     enabled: true

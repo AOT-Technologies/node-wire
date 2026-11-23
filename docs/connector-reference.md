@@ -167,9 +167,13 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 ### `stripe`
 
 - **Package:** `node-wire-stripe`, `src/node_wire_stripe/`. MCP image `nw-stripe`.
-- **Secrets / settings:** `STRIPE_API_KEY`, sent raw in `Authorization` (`prefix: ""`).
-- **Errors:** `src/node_wire_stripe/logic.py` is the worked `error_map` example
+- **Secrets / settings:** `STRIPE_BASIC_AUTH` (the Stripe secret key followed by a colon, `sk_test_...:`), sent as HTTP Basic in `Authorization` (`prefix: Basic`, `encoding: base64`).
+- **Errors:** the connector is generated, so it uses the shared REST error map: 401 is `HTTP_AUTH_ERROR` (auth), 429 is
+  `HTTP_RATE_LIMITED` and 502, 503 and 504 on reads and deletes are `HTTP_UNAVAILABLE` (both retryable), and any other
+  status, including a declined card (402), is `HTTP_STATUS_ERROR` (business)
   ([Build a connector](connectors-build.md#optional-error_map-for-errormapper)).
+- **Key format:** `STRIPE_BASIC_AUTH` must be `sk_test_…:`, `sk_live_…:` or an `rk_` restricted key, each followed by the colon. A tenant
+  secret in any other form (no colon, or already base64) is refused when stored.
 
 ### `salesforce`
 

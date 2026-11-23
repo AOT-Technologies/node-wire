@@ -130,3 +130,19 @@ def test_format_entries_carry_a_bandit_marker() -> None:
     src = generate_logic_module("slack_web", _result(_host_supplied_plan("SLACK_WEB_ACCESS_TOKEN")))
     line = next(ln for ln in src.splitlines() if "'SLACK_WEB_ACCESS_TOKEN': 'opaque_secret'" in ln)
     assert line.rstrip().endswith("# nosec B105")
+
+
+def test_a_connector_the_runtime_knows_keeps_its_stricter_format() -> None:
+    """Stripe's key-plus-colon check lives in the runtime table; regenerating must not weaken it."""
+    call = _declare_call(
+        generate_logic_module("stripe", _result(_host_supplied_plan("STRIPE_BASIC_AUTH")))
+    )
+    assert ast.literal_eval(_kwarg(call, "formats")) == {"STRIPE_BASIC_AUTH": "stripe_basic_auth"}
+
+
+def test_the_generated_error_map_classifies_by_status() -> None:
+    src = generate_logic_module("slack_web", _result(_host_supplied_plan("SLACK_WEB_ACCESS_TOKEN")))
+    assert 'RestAuthError: (ErrorCategory.AUTH, "HTTP_AUTH_ERROR")' in src
+    assert 'RestRateLimited: (ErrorCategory.RETRYABLE, "HTTP_RATE_LIMITED")' in src
+    assert 'RestUnavailable: (ErrorCategory.RETRYABLE, "HTTP_UNAVAILABLE")' in src
+    assert "RestAuthError" in src.split("from .schema")[0]  # imported
