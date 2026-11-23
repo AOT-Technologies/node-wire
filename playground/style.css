@@ -1031,26 +1031,6 @@ textarea:focus {
     font-style: italic;
 }
 
-/* GDrive UI Polish */
-.gdrive-action-row {
-    display: block;
-}
-
-.gdrive-action-row .field-group {
-    width: 100%;
-    max-width: 100%;
-}
-
-.gdrive-action-row select {
-    width: 100%;
-}
-
-.gdrive-metadata-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-}
-
 .file-upload-zone {
     position: relative;
     padding: 2.5rem;
@@ -1201,11 +1181,6 @@ textarea:focus {
     background: #C74634;
 }
 
-/* Google Drive: white background so tricolor logo renders properly */
-.bg-gdrive {
-    background: #ffffff;
-    border: 1px solid rgba(0,0,0,0.07);
-}
 
 /* Slack: purple brand */
 .bg-slack {
@@ -2312,7 +2287,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .bg-epic { background: #2B5BE0; }
 .bg-itops { background: #6366F1; }
 .bg-cerner { background: #C74634; }
-.bg-gdrive { background: #ffffff; border: 1px solid rgba(0,0,0,0.07); }
 .bg-slack { background: #4A154B; }
 .selection-details h3 {
     font-family: "Outfit", sans-serif;

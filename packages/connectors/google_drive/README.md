@@ -6,8 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # node-wire-google-drive
 
-Google Drive connector for Node Wire. Lets an agent or app list, read, create, upload, update and
-delete files in Google Drive (API v3) and share them with other users. It authenticates as a
+Google Drive connector for Node Wire. Lets an agent or app list, read, create, update and
+delete files and folders in Google Drive (API v3) and share them with other users (49 actions; upload up to 5 MB, no download). It authenticates as a
 service account, or with each caller's own Google token.
 
 Part of [Node Wire](https://github.com/AOT-Technologies/node-wire). Every call runs through the
@@ -33,15 +33,21 @@ OS and CPU.
 The connector registers as `google_drive`. MCP tool names are `<connector_id>_<action>`, with
 dots replaced by underscores.
 
-| Action | MCP tool | What it does |
-|---|---|---|
-| `files.list` | `google_drive_files_list` | Lists or searches files, with an optional Drive query and fields mask |
-| `files.get` | `google_drive_files_get` | Fetches the metadata of one file |
-| `files.create` | `google_drive_files_create` | Creates a file or folder entry (metadata only), optionally inside a folder |
-| `files.upload` | `google_drive_files_upload` | Creates a new file with text content |
-| `files.update` | `google_drive_files_update` | Updates a file's metadata or moves it between folders |
-| `files.delete` | `google_drive_files_delete` | Deletes a file |
-| `permissions.create` | `google_drive_permissions_create` | Shares a file with a user as reader, commenter, writer or owner |
+| Group | Actions |
+|---|---|
+| About (1) | `drive_about_get` |
+| Files (12) | `drive_files_list`, `drive_files_get`, `drive_files_create`, `drive_files_update`, `drive_files_copy`, `drive_files_delete`, `drive_files_empty_trash`, `drive_files_export`, `drive_files_generate_ids`, `drive_files_list_labels`, `drive_files_modify_labels`, `drive_files_watch` |
+| Permissions (5) | `drive_permissions_list`, `drive_permissions_get`, `drive_permissions_create`, `drive_permissions_update`, `drive_permissions_delete` |
+| Comments (5) | `drive_comments_list`, `drive_comments_get`, `drive_comments_create`, `drive_comments_update`, `drive_comments_delete` |
+| Replies (5) | `drive_replies_list`, `drive_replies_get`, `drive_replies_create`, `drive_replies_update`, `drive_replies_delete` |
+| Revisions (4) | `drive_revisions_list`, `drive_revisions_get`, `drive_revisions_update`, `drive_revisions_delete` |
+| Shared drives (7) | `drive_drives_list`, `drive_drives_get`, `drive_drives_create`, `drive_drives_update`, `drive_drives_delete`, `drive_drives_hide`, `drive_drives_unhide` |
+| Team drives, older API (5) | `drive_teamdrives_list`, `drive_teamdrives_get`, `drive_teamdrives_create`, `drive_teamdrives_update`, `drive_teamdrives_delete` |
+| Changes and channels (4) | `drive_changes_get_start_page_token`, `drive_changes_list`, `drive_changes_watch`, `drive_channels_stop` |
+
+MCP tool names are `google_drive_<action>`, for example `google_drive_drive_files_list`.
+
+**Content, compared with the earlier hand-written connector:** `drive_files_upload` (new, hand-written) uploads a file with its content in one multipart request, up to 5 MB, with `content` (text) or `content_base64` (binary). `drive_files_create` and `drive_files_update` take `name`, `mime_type`, `description` and `parents` as JSON (so they make folders, rename and move files), and `trashed: true` on update moves a file to the trash (what the old delete did; the generated `drive_files_delete` is permanent, and a service account that is only an Editor of a shared drive may be refused). Shared drives are on by default (`supportsAllDrives`, and `includeItemsFromAllDrives` on list), as before. **Still not supported:** downloading file content, replacing the content of an existing file, and uploads over 5 MB (resumable). `drive_files_export` does not return binary formats correctly.
 
 ## Configuration
 

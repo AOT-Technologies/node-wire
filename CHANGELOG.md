@@ -13,16 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- The playground's hand-coded "Google Drive & IAM Vault" panel, its `POST /scenarios/gdrive-archival` route and its Playwright tests
+  (`tests/playground/gdrive/`). Google Drive now shows as the generic playground card, with every action of the connector.
+
 ### Changed
 
-- Generated REST connectors (GitHub, Slack API, Stripe, Pet Store) now classify errors by status instead of one generic
-  `HTTP_STATUS_ERROR`: 401 is `HTTP_AUTH_ERROR` (auth), 429 is `HTTP_RATE_LIMITED` and 502, 503 and 504 on reads and deletes are
-  `HTTP_UNAVAILABLE` (both retryable). Other statuses, and 502, 503 and 504 on writes, stay `HTTP_STATUS_ERROR` (business, not
-  retried). The runtime exports `RestAuthError`, `RestRateLimited` and `RestUnavailable` (subclasses of `httpx.HTTPStatusError`), and
-  `nw-connector-builder` writes the mapping.
-- `STRIPE_BASIC_AUTH` is checked when stored: it must be `sk_test_…:`, `sk_live_…:` or an `rk_` restricted key, each followed by a
-  colon. A value without the colon, or already base64, is refused instead of failing later with a 401. `nw-connector-builder` keeps a
-  connector's stricter runtime format when it regenerates the secret declaration. The unused `stripe_secret_key` format is removed.
+- `node-wire-google-drive` is now generated from Google's Drive v3 API: 48 actions (plus the hand-written upload) named `drive_<resource>_<method>` (for example
+  `drive_files_list`; they replace `files.list`, `files.get`, `files.create`, `files.update`, `files.delete`, `permissions.create` and
+  `files.upload`). `drive_files_upload` (hand-written, up to 5 MB, `content` or `content_base64`) replaces `files.upload`; `drive_files_create` and `drive_files_update` take `name`, `mime_type`, `description` and `parents`, and `trashed: true` on update is the old soft delete. Shared drives stay on by default. **Not supported:** downloading content, replacing the content of an existing file, and uploads over 5 MB. `drive_files_get` cannot return content and binary responses are not returned.
+- The generated Google Drive connector accepts a service-account key again, besides an access token. In `connectors.yaml`, set
+  `auth: {provider: service_account, sa_json_secret: GOOGLE_DRIVE_SA_JSON}` (the shipped config does); the runtime now allows
+  `GOOGLE_DRIVE_SA_JSON` as a declared Google Drive secret. For a REST connector `ServiceAccountAuthProvider(bearer_header=True)`
+  returns `Authorization: Bearer <access token>`, fetched from Google and refreshed when it expires; the default (no headers, for
+  SDK connectors) is unchanged.
 
 ## [1.1.2] - 2026-11-06
 

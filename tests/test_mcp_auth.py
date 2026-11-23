@@ -513,8 +513,8 @@ def test_upstream_passthrough_denied_mode_lists_google_drive_tools(
     assert identity is not None
 
     names = {t["name"] for t in server.list_tools(identity=identity)}
-    assert "google_drive_files_list" in names
-    assert "google_drive_files_upload" in names
+    assert "google_drive_drive_files_list" in names
+    assert "google_drive_drive_files_create" in names
     reset_upstream_passthrough_context()
 
 
