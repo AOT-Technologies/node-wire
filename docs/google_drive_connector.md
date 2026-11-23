@@ -11,9 +11,9 @@ This document covers the Google Drive connector under `src/node_wire_google_driv
 1. **[Google Drive service account setup](#google-drive-service-account-setup)** — Create a GCP service account, enable the Drive API, configure `.env`, share a folder, and verify connectivity.
 2. **[Multi-tenancy](#multi-tenancy)** — Per-tenant Drive credentials and folders.
 3. **[User OAuth](#upstream_bearer)** — Optional: per-user Drive access by relaying the caller's own bearer token, instead of the shared service account.
-4. **[REST API reference](#rest-api-reference)** — All seven operations (one REST route each), request/response shapes, and the platform error taxonomy.
+4. **[REST API reference](#rest-api-reference)** — All 49 operations (one REST route each), request/response shapes, and the platform error taxonomy.
 
-For **MCP** (for example, ToolHive), tools are named `google_drive_<action>` from the connector manifest (for example, `google_drive_files_upload`). Legacy dotted names (`google_drive.files.upload`) still work on `tools/call` but are not what `tools/list` advertises. End-to-end agent setup is documented in [toolhive_agent_scenario.md](toolhive_agent_scenario.md).
+For **MCP** (for example, ToolHive), tools are named `google_drive_<action>` from the connector manifest (for example, `google_drive_drive_files_list`). Legacy dotted names (`google_drive.drive_files_list`) still work on `tools/call` but are not what `tools/list` advertises. End-to-end agent setup is documented in [toolhive_agent_scenario.md](toolhive_agent_scenario.md).
 
 ---
 
@@ -125,19 +125,19 @@ For ToolHive deployment, instead of a file path, paste the entire JSON content a
 The service account starts with no access to any Drive files. You must explicitly share folders or files with it, the same way you share with any other Google user.
 
 1. Open [Google Drive](https://drive.google.com/) in your browser.
-2. Create a new folder (or use an existing one) where the connector will upload files.
+2. Create a new folder (or use an existing one) the connector will work with.
 3. Right-click the folder → **Share**.
 4. In the **Add people and groups** field, paste the service account's email address. You can find it in the downloaded JSON file under `"client_email"`, or in the Cloud Console under IAM & Admin > Service Accounts.
 
    Example: `node-wire-drive-connector@your-project.iam.gserviceaccount.com`
 
-5. Set the role to **Editor** (so the connector can create and upload files).
+5. Set the role to **Editor** (so the connector can create and change files).
 6. Uncheck **Notify people** (the service account doesn't have an inbox).
 7. Click **Share**.
 
 ### Step 7: Get the folder ID
 
-The folder ID is used to tell the connector where to upload files.
+Use the folder ID in queries, for example `'<folder id>' in parents`. The connector does not read `GOOGLE_DRIVE_FOLDER_ID` itself.
 
 1. Open the shared folder in Google Drive.
 2. Look at the URL in your browser. It looks like the following:
@@ -162,16 +162,16 @@ NW_ALLOWED_CONNECTORS=google_drive NW_REST_AUTH_DISABLED=true \
 NW_MCP_SCOPE_POLICY_DEFAULT=allow MODE=API uv run node-wire
 
 # In another terminal, list files visible to the service account
-curl -X POST http://localhost:8000/connectors/google_drive/files.list \
+curl -X POST http://localhost:8000/connectors/google_drive/drive_files_list \
   -H "Content-Type: application/json" \
-  -d '{"action": "files.list", "page_size": 5}'
+  -d '{"pagesize": 5}'
 ```
 
 A successful response includes `"success": true` and a `files` array under `data.raw`. The full response shape and optional fields are in the [REST API reference](#rest-api-reference).
 
 You can also use the **Swagger UI** at `http://localhost:8000/docs` to test interactively.
 
-To upload a test file, send a `files.upload` request (include `parents` with your folder ID); the argument list is in the [REST API reference](#rest-api-reference).
+**Content, compared with the earlier hand-written connector:** `drive_files_upload` (new, hand-written) uploads a file with its content in one multipart request, up to 5 MB, with `content` (text) or `content_base64` (binary). `drive_files_create` and `drive_files_update` take `name`, `mime_type`, `description` and `parents` as JSON (so they make folders, rename and move files), and `trashed: true` on update moves a file to the trash (what the old delete did; the generated `drive_files_delete` is permanent, and a service account that is only an Editor of a shared drive may be refused). Shared drives are on by default (`supportsAllDrives`, and `includeItemsFromAllDrives` on list), as before. **Still not supported:** downloading file content, replacing the content of an existing file, and uploads over 5 MB (resumable). `drive_files_export` does not return binary formats correctly.
 
 ### Common errors (setup)
 
@@ -192,7 +192,7 @@ To upload a test file, send a `files.upload` request (include `parents` with you
   ```
 - Store the key in a secrets manager (for example, AWS Secrets Manager, HashiCorp Vault) in production environments.
 - Use a dedicated service account per application — don't reuse accounts across services.
-- Grant only the minimum required permissions. If the connector only needs to upload files to one specific folder, only share that folder.
+- Grant only the minimum required permissions. If the connector only needs one specific folder, only share that folder.
 - Rotate the key periodically: Cloud Console → IAM & Admin → Service Accounts → Manage Keys → Add new key, then delete the old one.
 
 ---
@@ -254,24 +254,30 @@ For **shared-folder automation** (single service identity), keep the [service ac
 
 ## REST API reference
 
-The connector exposes **one REST route per operation** (`POST /connectors/google_drive/<action>`, for example, `files.list`). The `action` field on the request body selects which Google Drive operation runs for `BaseConnector` dispatch. All responses share a common output shape and error taxonomy enforced by the runtime.
+The connector exposes **one REST route per operation** (`POST /connectors/google_drive/<action>`, for example, `drive_files_list`). The `action` field on the request body selects which Google Drive operation runs for `BaseConnector` dispatch. All responses share a common output shape and error taxonomy enforced by the runtime.
 
 ### Operations overview
 
 All requests go through:
 
 - Connector ID: `google_drive`
-- REST endpoint: `POST /connectors/google_drive/<action>` (for example, `POST /connectors/google_drive/files.list`)
+- REST endpoint: `POST /connectors/google_drive/<action>` (for example, `POST /connectors/google_drive/drive_files_list`)
 
-Each operation uses `action` as a discriminator:
+Each operation uses `action` as a discriminator. The 49 actions (48 generated from Google's Drive v3 API, plus the hand-written `drive_files_upload`):
 
-- `files.list`
-- `files.create`
-- `permissions.create`
-- `files.get`
-- `files.update`
-- `files.upload`
-- `files.delete`
+| Group | Actions |
+|---|---|
+| About (1) | `drive_about_get` |
+| Files (13) | `drive_files_list`, `drive_files_get`, `drive_files_create`, `drive_files_upload`, `drive_files_update`, `drive_files_copy`, `drive_files_delete`, `drive_files_empty_trash`, `drive_files_export`, `drive_files_generate_ids`, `drive_files_list_labels`, `drive_files_modify_labels`, `drive_files_watch` |
+| Permissions (5) | `drive_permissions_list`, `drive_permissions_get`, `drive_permissions_create`, `drive_permissions_update`, `drive_permissions_delete` |
+| Comments (5) | `drive_comments_list`, `drive_comments_get`, `drive_comments_create`, `drive_comments_update`, `drive_comments_delete` |
+| Replies (5) | `drive_replies_list`, `drive_replies_get`, `drive_replies_create`, `drive_replies_update`, `drive_replies_delete` |
+| Revisions (4) | `drive_revisions_list`, `drive_revisions_get`, `drive_revisions_update`, `drive_revisions_delete` |
+| Shared drives (7) | `drive_drives_list`, `drive_drives_get`, `drive_drives_create`, `drive_drives_update`, `drive_drives_delete`, `drive_drives_hide`, `drive_drives_unhide` |
+| Team drives, older API (5) | `drive_teamdrives_list`, `drive_teamdrives_get`, `drive_teamdrives_create`, `drive_teamdrives_update`, `drive_teamdrives_delete` |
+| Changes and channels (4) | `drive_changes_get_start_page_token`, `drive_changes_list`, `drive_changes_watch`, `drive_channels_stop` |
+
+**Content, compared with the earlier hand-written connector:** `drive_files_upload` (new, hand-written) uploads a file with its content in one multipart request, up to 5 MB, with `content` (text) or `content_base64` (binary). `drive_files_create` and `drive_files_update` take `name`, `mime_type`, `description` and `parents` as JSON (so they make folders, rename and move files), and `trashed: true` on update moves a file to the trash (what the old delete did; the generated `drive_files_delete` is permanent, and a service account that is only an Editor of a shared drive may be refused). Shared drives are on by default (`supportsAllDrives`, and `includeItemsFromAllDrives` on list), as before. **Still not supported:** downloading file content, replacing the content of an existing file, and uploads over 5 MB (resumable). `drive_files_export` does not return binary formats correctly.
 
 Per-operation request and response schemas are generated from the connector's Pydantic
 models and published live — do not duplicate them here:
