@@ -1169,6 +1169,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#postgres" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        postgres
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#stripe" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2767,6 +2778,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#postgres" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        postgres
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#stripe" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3046,6 +3068,12 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 <td>—</td>
 </tr>
 <tr>
+<td><a href="#postgres"><code>postgres</code></a></td>
+<td>55 actions: server and session, schema discovery, read, write, DDL</td>
+<td><code>none</code> (credentials via secrets)</td>
+<td>—</td>
+</tr>
+<tr>
 <td><a href="#stripe"><code>stripe</code></a></td>
 <td><code>charge</code>, <code>create_payment_intent</code>, <code>create_subscription</code>, <code>cancel_subscription</code>, <code>issue_refund</code></td>
 <td><code>static_token</code></td>
@@ -3098,6 +3126,20 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 <li><strong>Egress:</strong> the payload carries only <code>to</code>, <code>subject</code>, <code>body</code> and an optional <code>from_email</code>. Relay
   settings are server-side only, so credentials never go to a caller-chosen host. Set
   <code>NW_SMTP_ALLOWED_HOSTS</code> in production. <code>subject</code> may not contain newlines or control characters.</li>
+</ul>
+<h3 id="postgres"><code>postgres</code><a class="headerlink" href="#postgres" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Package:</strong> <code>node-wire-postgres</code>, <code>src/node_wire_postgres/</code>. Driver: psycopg 3 with <code>psycopg_pool</code>.</li>
+<li><strong>Versions:</strong> PostgreSQL 11 or later (tested on 16; <code>reindex</code> with <code>concurrently</code> needs 12; 17 and 18 expected to work but not tested; older than 11 unsupported). psycopg <code>&gt;=3.2,&lt;4</code>, Python 3.11+.</li>
+<li><strong>Secrets / settings:</strong> secrets <code>POSTGRES_USERNAME</code>, <code>POSTGRES_PASSWORD</code>. Settings <code>host</code>, <code>port</code>, <code>database</code>,
+  <code>sslmode</code> in <code>connectors.yaml</code> or <code>POSTGRES_HOST</code>, <code>POSTGRES_PORT</code>, <code>POSTGRES_DATABASE</code>, <code>POSTGRES_SSLMODE</code>.
+  They are server-side only: the payload never names the server.</li>
+<li><strong>Modes:</strong> <code>mode</code> (<code>NW_POSTGRES_MODE</code>) is <code>read_only</code>, <code>read_write</code> or <code>admin</code> (default <code>read_only</code>). Each action
+  needs a minimum mode. Read actions always run in <code>SET TRANSACTION READ ONLY</code>, so the database enforces it.</li>
+<li><strong>Limits:</strong> <code>statement_timeout_ms</code> (30000), <code>max_rows</code> (1000), <code>pool_max</code> (5), <code>allowed_schemas</code>, <code>allowed_tables</code>
+  (<code>schema.table</code>). Raw SQL takes one statement with bound parameters. The allowlists cover the structured actions;
+  give the database role only the privileges it needs, because that role is the real boundary.</li>
+<li><strong>Actions:</strong> see <code>src/node_wire_postgres/README.md</code>. Expose a subset with the action-expose function.</li>
 </ul>
 <h3 id="stripe"><code>stripe</code><a class="headerlink" href="#stripe" title="Anchor link to this section">&para;</a></h3>
 <ul>
