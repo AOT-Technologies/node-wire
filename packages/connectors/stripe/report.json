@@ -1,0 +1,3947 @@
+{
+  "summary": {
+    "id": "stripe",
+    "spec_source": "https://raw.githubusercontent.com/stripe/openapi/master/latest/openapi.spec3.sdk.json",
+    "spec_version": "3.0.0",
+    "generator_version": "1.1.2",
+    "spec_content_hash": "3fbd921beedebb540e2d13199802e11af2454597e69cbb74b50ecf99657f9459",
+    "error": null,
+    "total_operations": 650,
+    "generated": 650,
+    "soft_dropped": 0,
+    "deprecated": 2,
+    "coverage_warning": false,
+    "default_base_url": "https://api.stripe.com"
+  },
+  "generated_actions": [
+    {
+      "name": "get_account",
+      "method": "GET",
+      "path": "/v1/account",
+      "auth": true
+    },
+    {
+      "name": "post_account_links",
+      "method": "POST",
+      "path": "/v1/account_links",
+      "auth": true
+    },
+    {
+      "name": "post_account_sessions",
+      "method": "POST",
+      "path": "/v1/account_sessions",
+      "auth": true
+    },
+    {
+      "name": "get_accounts",
+      "method": "GET",
+      "path": "/v1/accounts",
+      "auth": true
+    },
+    {
+      "name": "post_accounts",
+      "method": "POST",
+      "path": "/v1/accounts",
+      "auth": true
+    },
+    {
+      "name": "get_accounts_account",
+      "method": "GET",
+      "path": "/v1/accounts/{account}",
+      "auth": true
+    },
+    {
+      "name": "post_accounts_account",
+      "method": "POST",
+      "path": "/v1/accounts/{account}",
+      "auth": true
+    },
+    {
+      "name": "delete_accounts_account",
+      "method": "DELETE",
+      "path": "/v1/accounts/{account}",
+      "auth": true
+    },
+    {
+      "name": "get_accounts_account_capabilities",
+      "method": "GET",
+      "path": "/v1/accounts/{account}/capabilities",
+      "auth": true
+    },
+    {
+      "name": "get_accounts_account_capabilities_capability",
+      "method": "GET",
+      "path": "/v1/accounts/{account}/capabilities/{capability}",
+      "auth": true
+    },
+    {
+      "name": "post_accounts_account_capabilities_capability",
+      "method": "POST",
+      "path": "/v1/accounts/{account}/capabilities/{capability}",
+      "auth": true
+    },
+    {
+      "name": "get_accounts_account_external_accounts",
+      "method": "GET",
+      "path": "/v1/accounts/{account}/external_accounts",
+      "auth": true
+    },
+    {
+      "name": "post_accounts_account_external_accounts",
+      "method": "POST",
+      "path": "/v1/accounts/{account}/external_accounts",
+      "auth": true
+    },
+    {
+      "name": "get_accounts_account_external_accounts_id",
+      "method": "GET",
+      "path": "/v1/accounts/{account}/external_accounts/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_accounts_account_external_accounts_id",
+      "method": "POST",
+      "path": "/v1/accounts/{account}/external_accounts/{id}",
+      "auth": true
+    },
+    {
+      "name": "delete_accounts_account_external_accounts_id",
+      "method": "DELETE",
+      "path": "/v1/accounts/{account}/external_accounts/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_accounts_account_login_links",
+      "method": "POST",
+      "path": "/v1/accounts/{account}/login_links",
+      "auth": true
+    },
+    {
+      "name": "get_accounts_account_persons",
+      "method": "GET",
+      "path": "/v1/accounts/{account}/persons",
+      "auth": true
+    },
+    {
+      "name": "post_accounts_account_persons",
+      "method": "POST",
+      "path": "/v1/accounts/{account}/persons",
+      "auth": true
+    },
+    {
+      "name": "get_accounts_account_persons_person",
+      "method": "GET",
+      "path": "/v1/accounts/{account}/persons/{person}",
+      "auth": true
+    },
+    {
+      "name": "post_accounts_account_persons_person",
+      "method": "POST",
+      "path": "/v1/accounts/{account}/persons/{person}",
+      "auth": true
+    },
+    {
+      "name": "delete_accounts_account_persons_person",
+      "method": "DELETE",
+      "path": "/v1/accounts/{account}/persons/{person}",
+      "auth": true
+    },
+    {
+      "name": "post_accounts_account_reject",
+      "method": "POST",
+      "path": "/v1/accounts/{account}/reject",
+      "auth": true
+    },
+    {
+      "name": "post_accounts_account_unreject",
+      "method": "POST",
+      "path": "/v1/accounts/{account}/unreject",
+      "auth": true
+    },
+    {
+      "name": "get_apple_pay_domains",
+      "method": "GET",
+      "path": "/v1/apple_pay/domains",
+      "auth": true
+    },
+    {
+      "name": "post_apple_pay_domains",
+      "method": "POST",
+      "path": "/v1/apple_pay/domains",
+      "auth": true
+    },
+    {
+      "name": "get_apple_pay_domains_domain",
+      "method": "GET",
+      "path": "/v1/apple_pay/domains/{domain}",
+      "auth": true
+    },
+    {
+      "name": "delete_apple_pay_domains_domain",
+      "method": "DELETE",
+      "path": "/v1/apple_pay/domains/{domain}",
+      "auth": true
+    },
+    {
+      "name": "get_application_fees",
+      "method": "GET",
+      "path": "/v1/application_fees",
+      "auth": true
+    },
+    {
+      "name": "get_application_fees_fee_refunds_id",
+      "method": "GET",
+      "path": "/v1/application_fees/{fee}/refunds/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_application_fees_fee_refunds_id",
+      "method": "POST",
+      "path": "/v1/application_fees/{fee}/refunds/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_application_fees_id",
+      "method": "GET",
+      "path": "/v1/application_fees/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_application_fees_id_refunds",
+      "method": "GET",
+      "path": "/v1/application_fees/{id}/refunds",
+      "auth": true
+    },
+    {
+      "name": "post_application_fees_id_refunds",
+      "method": "POST",
+      "path": "/v1/application_fees/{id}/refunds",
+      "auth": true
+    },
+    {
+      "name": "get_apps_installs",
+      "method": "GET",
+      "path": "/v1/apps/installs",
+      "auth": true
+    },
+    {
+      "name": "post_apps_installs",
+      "method": "POST",
+      "path": "/v1/apps/installs",
+      "auth": true
+    },
+    {
+      "name": "get_apps_installs_id",
+      "method": "GET",
+      "path": "/v1/apps/installs/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_apps_installs_id",
+      "method": "POST",
+      "path": "/v1/apps/installs/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_apps_installs_id_uninstall",
+      "method": "POST",
+      "path": "/v1/apps/installs/{id}/uninstall",
+      "auth": true
+    },
+    {
+      "name": "get_apps_secrets",
+      "method": "GET",
+      "path": "/v1/apps/secrets",
+      "auth": true
+    },
+    {
+      "name": "post_apps_secrets",
+      "method": "POST",
+      "path": "/v1/apps/secrets",
+      "auth": true
+    },
+    {
+      "name": "post_apps_secrets_delete",
+      "method": "POST",
+      "path": "/v1/apps/secrets/delete",
+      "auth": true
+    },
+    {
+      "name": "get_apps_secrets_find",
+      "method": "GET",
+      "path": "/v1/apps/secrets/find",
+      "auth": true
+    },
+    {
+      "name": "get_balance",
+      "method": "GET",
+      "path": "/v1/balance",
+      "auth": true
+    },
+    {
+      "name": "get_balance_settings",
+      "method": "GET",
+      "path": "/v1/balance_settings",
+      "auth": true
+    },
+    {
+      "name": "post_balance_settings",
+      "method": "POST",
+      "path": "/v1/balance_settings",
+      "auth": true
+    },
+    {
+      "name": "get_balance_transactions",
+      "method": "GET",
+      "path": "/v1/balance_transactions",
+      "auth": true
+    },
+    {
+      "name": "get_balance_transactions_id",
+      "method": "GET",
+      "path": "/v1/balance_transactions/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_billing_alerts",
+      "method": "GET",
+      "path": "/v1/billing/alerts",
+      "auth": true
+    },
+    {
+      "name": "post_billing_alerts",
+      "method": "POST",
+      "path": "/v1/billing/alerts",
+      "auth": true
+    },
+    {
+      "name": "get_billing_alerts_id",
+      "method": "GET",
+      "path": "/v1/billing/alerts/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_billing_alerts_id_activate",
+      "method": "POST",
+      "path": "/v1/billing/alerts/{id}/activate",
+      "auth": true
+    },
+    {
+      "name": "post_billing_alerts_id_archive",
+      "method": "POST",
+      "path": "/v1/billing/alerts/{id}/archive",
+      "auth": true
+    },
+    {
+      "name": "post_billing_alerts_id_deactivate",
+      "method": "POST",
+      "path": "/v1/billing/alerts/{id}/deactivate",
+      "auth": true
+    },
+    {
+      "name": "get_billing_credit_balance_summary",
+      "method": "GET",
+      "path": "/v1/billing/credit_balance_summary",
+      "auth": true
+    },
+    {
+      "name": "get_billing_credit_balance_transactions",
+      "method": "GET",
+      "path": "/v1/billing/credit_balance_transactions",
+      "auth": true
+    },
+    {
+      "name": "get_billing_credit_balance_transactions_id",
+      "method": "GET",
+      "path": "/v1/billing/credit_balance_transactions/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_billing_credit_grants",
+      "method": "GET",
+      "path": "/v1/billing/credit_grants",
+      "auth": true
+    },
+    {
+      "name": "post_billing_credit_grants",
+      "method": "POST",
+      "path": "/v1/billing/credit_grants",
+      "auth": true
+    },
+    {
+      "name": "get_billing_credit_grants_id",
+      "method": "GET",
+      "path": "/v1/billing/credit_grants/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_billing_credit_grants_id",
+      "method": "POST",
+      "path": "/v1/billing/credit_grants/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_billing_credit_grants_id_expire",
+      "method": "POST",
+      "path": "/v1/billing/credit_grants/{id}/expire",
+      "auth": true
+    },
+    {
+      "name": "post_billing_credit_grants_id_void",
+      "method": "POST",
+      "path": "/v1/billing/credit_grants/{id}/void",
+      "auth": true
+    },
+    {
+      "name": "get_billing_feedback_options",
+      "method": "GET",
+      "path": "/v1/billing/feedback_options",
+      "auth": true
+    },
+    {
+      "name": "post_billing_feedback_options",
+      "method": "POST",
+      "path": "/v1/billing/feedback_options",
+      "auth": true
+    },
+    {
+      "name": "get_billing_feedback_options_id",
+      "method": "GET",
+      "path": "/v1/billing/feedback_options/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_billing_feedback_options_id",
+      "method": "POST",
+      "path": "/v1/billing/feedback_options/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_billing_feedback_options_id_deactivate",
+      "method": "POST",
+      "path": "/v1/billing/feedback_options/{id}/deactivate",
+      "auth": true
+    },
+    {
+      "name": "post_billing_meter_event_adjustments",
+      "method": "POST",
+      "path": "/v1/billing/meter_event_adjustments",
+      "auth": true
+    },
+    {
+      "name": "post_billing_meter_events",
+      "method": "POST",
+      "path": "/v1/billing/meter_events",
+      "auth": true
+    },
+    {
+      "name": "get_billing_meters",
+      "method": "GET",
+      "path": "/v1/billing/meters",
+      "auth": true
+    },
+    {
+      "name": "post_billing_meters",
+      "method": "POST",
+      "path": "/v1/billing/meters",
+      "auth": true
+    },
+    {
+      "name": "get_billing_meters_id",
+      "method": "GET",
+      "path": "/v1/billing/meters/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_billing_meters_id",
+      "method": "POST",
+      "path": "/v1/billing/meters/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_billing_meters_id_deactivate",
+      "method": "POST",
+      "path": "/v1/billing/meters/{id}/deactivate",
+      "auth": true
+    },
+    {
+      "name": "get_billing_meters_id_event_summaries",
+      "method": "GET",
+      "path": "/v1/billing/meters/{id}/event_summaries",
+      "auth": true
+    },
+    {
+      "name": "post_billing_meters_id_reactivate",
+      "method": "POST",
+      "path": "/v1/billing/meters/{id}/reactivate",
+      "auth": true
+    },
+    {
+      "name": "get_billing_portal_configurations",
+      "method": "GET",
+      "path": "/v1/billing_portal/configurations",
+      "auth": true
+    },
+    {
+      "name": "post_billing_portal_configurations",
+      "method": "POST",
+      "path": "/v1/billing_portal/configurations",
+      "auth": true
+    },
+    {
+      "name": "get_billing_portal_configurations_configuration",
+      "method": "GET",
+      "path": "/v1/billing_portal/configurations/{configuration}",
+      "auth": true
+    },
+    {
+      "name": "post_billing_portal_configurations_configuration",
+      "method": "POST",
+      "path": "/v1/billing_portal/configurations/{configuration}",
+      "auth": true
+    },
+    {
+      "name": "post_billing_portal_sessions",
+      "method": "POST",
+      "path": "/v1/billing_portal/sessions",
+      "auth": true
+    },
+    {
+      "name": "get_charges",
+      "method": "GET",
+      "path": "/v1/charges",
+      "auth": true
+    },
+    {
+      "name": "post_charges",
+      "method": "POST",
+      "path": "/v1/charges",
+      "auth": true
+    },
+    {
+      "name": "get_charges_search",
+      "method": "GET",
+      "path": "/v1/charges/search",
+      "auth": true
+    },
+    {
+      "name": "get_charges_charge",
+      "method": "GET",
+      "path": "/v1/charges/{charge}",
+      "auth": true
+    },
+    {
+      "name": "post_charges_charge",
+      "method": "POST",
+      "path": "/v1/charges/{charge}",
+      "auth": true
+    },
+    {
+      "name": "post_charges_charge_capture",
+      "method": "POST",
+      "path": "/v1/charges/{charge}/capture",
+      "auth": true
+    },
+    {
+      "name": "get_charges_charge_refunds",
+      "method": "GET",
+      "path": "/v1/charges/{charge}/refunds",
+      "auth": true
+    },
+    {
+      "name": "get_charges_charge_refunds_refund",
+      "method": "GET",
+      "path": "/v1/charges/{charge}/refunds/{refund}",
+      "auth": true
+    },
+    {
+      "name": "get_checkout_sessions",
+      "method": "GET",
+      "path": "/v1/checkout/sessions",
+      "auth": true
+    },
+    {
+      "name": "post_checkout_sessions",
+      "method": "POST",
+      "path": "/v1/checkout/sessions",
+      "auth": true
+    },
+    {
+      "name": "get_checkout_sessions_session",
+      "method": "GET",
+      "path": "/v1/checkout/sessions/{session}",
+      "auth": true
+    },
+    {
+      "name": "post_checkout_sessions_session",
+      "method": "POST",
+      "path": "/v1/checkout/sessions/{session}",
+      "auth": true
+    },
+    {
+      "name": "post_checkout_sessions_session_expire",
+      "method": "POST",
+      "path": "/v1/checkout/sessions/{session}/expire",
+      "auth": true
+    },
+    {
+      "name": "get_checkout_sessions_session_line_items",
+      "method": "GET",
+      "path": "/v1/checkout/sessions/{session}/line_items",
+      "auth": true
+    },
+    {
+      "name": "get_climate_orders",
+      "method": "GET",
+      "path": "/v1/climate/orders",
+      "auth": true
+    },
+    {
+      "name": "post_climate_orders",
+      "method": "POST",
+      "path": "/v1/climate/orders",
+      "auth": true
+    },
+    {
+      "name": "get_climate_orders_order",
+      "method": "GET",
+      "path": "/v1/climate/orders/{order}",
+      "auth": true
+    },
+    {
+      "name": "post_climate_orders_order",
+      "method": "POST",
+      "path": "/v1/climate/orders/{order}",
+      "auth": true
+    },
+    {
+      "name": "post_climate_orders_order_cancel",
+      "method": "POST",
+      "path": "/v1/climate/orders/{order}/cancel",
+      "auth": true
+    },
+    {
+      "name": "get_climate_products",
+      "method": "GET",
+      "path": "/v1/climate/products",
+      "auth": true
+    },
+    {
+      "name": "get_climate_products_product",
+      "method": "GET",
+      "path": "/v1/climate/products/{product}",
+      "auth": true
+    },
+    {
+      "name": "get_climate_suppliers",
+      "method": "GET",
+      "path": "/v1/climate/suppliers",
+      "auth": true
+    },
+    {
+      "name": "get_climate_suppliers_supplier",
+      "method": "GET",
+      "path": "/v1/climate/suppliers/{supplier}",
+      "auth": true
+    },
+    {
+      "name": "get_confirmation_tokens_confirmation_token",
+      "method": "GET",
+      "path": "/v1/confirmation_tokens/{confirmation_token}",
+      "auth": true
+    },
+    {
+      "name": "get_country_specs",
+      "method": "GET",
+      "path": "/v1/country_specs",
+      "auth": true
+    },
+    {
+      "name": "get_country_specs_country",
+      "method": "GET",
+      "path": "/v1/country_specs/{country}",
+      "auth": true
+    },
+    {
+      "name": "get_coupons",
+      "method": "GET",
+      "path": "/v1/coupons",
+      "auth": true
+    },
+    {
+      "name": "post_coupons",
+      "method": "POST",
+      "path": "/v1/coupons",
+      "auth": true
+    },
+    {
+      "name": "get_coupons_coupon",
+      "method": "GET",
+      "path": "/v1/coupons/{coupon}",
+      "auth": true
+    },
+    {
+      "name": "post_coupons_coupon",
+      "method": "POST",
+      "path": "/v1/coupons/{coupon}",
+      "auth": true
+    },
+    {
+      "name": "delete_coupons_coupon",
+      "method": "DELETE",
+      "path": "/v1/coupons/{coupon}",
+      "auth": true
+    },
+    {
+      "name": "get_credit_notes",
+      "method": "GET",
+      "path": "/v1/credit_notes",
+      "auth": true
+    },
+    {
+      "name": "post_credit_notes",
+      "method": "POST",
+      "path": "/v1/credit_notes",
+      "auth": true
+    },
+    {
+      "name": "get_credit_notes_preview",
+      "method": "GET",
+      "path": "/v1/credit_notes/preview",
+      "auth": true
+    },
+    {
+      "name": "get_credit_notes_preview_lines",
+      "method": "GET",
+      "path": "/v1/credit_notes/preview/lines",
+      "auth": true
+    },
+    {
+      "name": "get_credit_notes_credit_note_lines",
+      "method": "GET",
+      "path": "/v1/credit_notes/{credit_note}/lines",
+      "auth": true
+    },
+    {
+      "name": "get_credit_notes_id",
+      "method": "GET",
+      "path": "/v1/credit_notes/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_credit_notes_id",
+      "method": "POST",
+      "path": "/v1/credit_notes/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_credit_notes_id_void",
+      "method": "POST",
+      "path": "/v1/credit_notes/{id}/void",
+      "auth": true
+    },
+    {
+      "name": "post_customer_sessions",
+      "method": "POST",
+      "path": "/v1/customer_sessions",
+      "auth": true
+    },
+    {
+      "name": "get_customers",
+      "method": "GET",
+      "path": "/v1/customers",
+      "auth": true
+    },
+    {
+      "name": "post_customers",
+      "method": "POST",
+      "path": "/v1/customers",
+      "auth": true
+    },
+    {
+      "name": "get_customers_search",
+      "method": "GET",
+      "path": "/v1/customers/search",
+      "auth": true
+    },
+    {
+      "name": "get_customers_customer",
+      "method": "GET",
+      "path": "/v1/customers/{customer}",
+      "auth": true
+    },
+    {
+      "name": "post_customers_customer",
+      "method": "POST",
+      "path": "/v1/customers/{customer}",
+      "auth": true
+    },
+    {
+      "name": "delete_customers_customer",
+      "method": "DELETE",
+      "path": "/v1/customers/{customer}",
+      "auth": true
+    },
+    {
+      "name": "get_customers_customer_balance_transactions",
+      "method": "GET",
+      "path": "/v1/customers/{customer}/balance_transactions",
+      "auth": true
+    },
+    {
+      "name": "post_customers_customer_balance_transactions",
+      "method": "POST",
+      "path": "/v1/customers/{customer}/balance_transactions",
+      "auth": true
+    },
+    {
+      "name": "get_customers_customer_balance_transactions_transaction",
+      "method": "GET",
+      "path": "/v1/customers/{customer}/balance_transactions/{transaction}",
+      "auth": true
+    },
+    {
+      "name": "post_customers_customer_balance_transactions_transaction",
+      "method": "POST",
+      "path": "/v1/customers/{customer}/balance_transactions/{transaction}",
+      "auth": true
+    },
+    {
+      "name": "get_customers_customer_cash_balance",
+      "method": "GET",
+      "path": "/v1/customers/{customer}/cash_balance",
+      "auth": true
+    },
+    {
+      "name": "post_customers_customer_cash_balance",
+      "method": "POST",
+      "path": "/v1/customers/{customer}/cash_balance",
+      "auth": true
+    },
+    {
+      "name": "get_customers_customer_cash_balance_transactions",
+      "method": "GET",
+      "path": "/v1/customers/{customer}/cash_balance_transactions",
+      "auth": true
+    },
+    {
+      "name": "get_customers_customer_cash_balance_transactions_1",
+      "method": "GET",
+      "path": "/v1/customers/{customer}/cash_balance_transactions/{transaction}",
+      "auth": true
+    },
+    {
+      "name": "delete_customers_customer_discount",
+      "method": "DELETE",
+      "path": "/v1/customers/{customer}/discount",
+      "auth": true
+    },
+    {
+      "name": "post_customers_customer_funding_instructions",
+      "method": "POST",
+      "path": "/v1/customers/{customer}/funding_instructions",
+      "auth": true
+    },
+    {
+      "name": "get_customers_customer_payment_methods",
+      "method": "GET",
+      "path": "/v1/customers/{customer}/payment_methods",
+      "auth": true
+    },
+    {
+      "name": "get_customers_customer_payment_methods_payment_method",
+      "method": "GET",
+      "path": "/v1/customers/{customer}/payment_methods/{payment_method}",
+      "auth": true
+    },
+    {
+      "name": "get_customers_customer_sources",
+      "method": "GET",
+      "path": "/v1/customers/{customer}/sources",
+      "auth": true
+    },
+    {
+      "name": "post_customers_customer_sources",
+      "method": "POST",
+      "path": "/v1/customers/{customer}/sources",
+      "auth": true
+    },
+    {
+      "name": "get_customers_customer_sources_id",
+      "method": "GET",
+      "path": "/v1/customers/{customer}/sources/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_customers_customer_sources_id",
+      "method": "POST",
+      "path": "/v1/customers/{customer}/sources/{id}",
+      "auth": true
+    },
+    {
+      "name": "delete_customers_customer_sources_id",
+      "method": "DELETE",
+      "path": "/v1/customers/{customer}/sources/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_customers_customer_sources_id_verify",
+      "method": "POST",
+      "path": "/v1/customers/{customer}/sources/{id}/verify",
+      "auth": true
+    },
+    {
+      "name": "get_customers_customer_tax_ids",
+      "method": "GET",
+      "path": "/v1/customers/{customer}/tax_ids",
+      "auth": true
+    },
+    {
+      "name": "post_customers_customer_tax_ids",
+      "method": "POST",
+      "path": "/v1/customers/{customer}/tax_ids",
+      "auth": true
+    },
+    {
+      "name": "get_customers_customer_tax_ids_id",
+      "method": "GET",
+      "path": "/v1/customers/{customer}/tax_ids/{id}",
+      "auth": true
+    },
+    {
+      "name": "delete_customers_customer_tax_ids_id",
+      "method": "DELETE",
+      "path": "/v1/customers/{customer}/tax_ids/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_disputes",
+      "method": "GET",
+      "path": "/v1/disputes",
+      "auth": true
+    },
+    {
+      "name": "get_disputes_dispute",
+      "method": "GET",
+      "path": "/v1/disputes/{dispute}",
+      "auth": true
+    },
+    {
+      "name": "post_disputes_dispute",
+      "method": "POST",
+      "path": "/v1/disputes/{dispute}",
+      "auth": true
+    },
+    {
+      "name": "post_disputes_dispute_close",
+      "method": "POST",
+      "path": "/v1/disputes/{dispute}/close",
+      "auth": true
+    },
+    {
+      "name": "get_entitlements_active_entitlements",
+      "method": "GET",
+      "path": "/v1/entitlements/active_entitlements",
+      "auth": true
+    },
+    {
+      "name": "get_entitlements_active_entitlements_id",
+      "method": "GET",
+      "path": "/v1/entitlements/active_entitlements/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_entitlements_features",
+      "method": "GET",
+      "path": "/v1/entitlements/features",
+      "auth": true
+    },
+    {
+      "name": "post_entitlements_features",
+      "method": "POST",
+      "path": "/v1/entitlements/features",
+      "auth": true
+    },
+    {
+      "name": "get_entitlements_features_id",
+      "method": "GET",
+      "path": "/v1/entitlements/features/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_entitlements_features_id",
+      "method": "POST",
+      "path": "/v1/entitlements/features/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_ephemeral_keys",
+      "method": "POST",
+      "path": "/v1/ephemeral_keys",
+      "auth": true
+    },
+    {
+      "name": "delete_ephemeral_keys_key",
+      "method": "DELETE",
+      "path": "/v1/ephemeral_keys/{key}",
+      "auth": true
+    },
+    {
+      "name": "get_events",
+      "method": "GET",
+      "path": "/v1/events",
+      "auth": true
+    },
+    {
+      "name": "get_events_id",
+      "method": "GET",
+      "path": "/v1/events/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_exchange_rates",
+      "method": "GET",
+      "path": "/v1/exchange_rates",
+      "auth": true
+    },
+    {
+      "name": "get_exchange_rates_rate_id",
+      "method": "GET",
+      "path": "/v1/exchange_rates/{rate_id}",
+      "auth": true
+    },
+    {
+      "name": "get_file_links",
+      "method": "GET",
+      "path": "/v1/file_links",
+      "auth": true
+    },
+    {
+      "name": "post_file_links",
+      "method": "POST",
+      "path": "/v1/file_links",
+      "auth": true
+    },
+    {
+      "name": "get_file_links_link",
+      "method": "GET",
+      "path": "/v1/file_links/{link}",
+      "auth": true
+    },
+    {
+      "name": "post_file_links_link",
+      "method": "POST",
+      "path": "/v1/file_links/{link}",
+      "auth": true
+    },
+    {
+      "name": "get_files",
+      "method": "GET",
+      "path": "/v1/files",
+      "auth": true
+    },
+    {
+      "name": "post_files",
+      "method": "POST",
+      "path": "/v1/files",
+      "auth": true
+    },
+    {
+      "name": "get_files_file",
+      "method": "GET",
+      "path": "/v1/files/{file}",
+      "auth": true
+    },
+    {
+      "name": "get_financial_connections_accounts",
+      "method": "GET",
+      "path": "/v1/financial_connections/accounts",
+      "auth": true
+    },
+    {
+      "name": "get_financial_connections_accounts_account",
+      "method": "GET",
+      "path": "/v1/financial_connections/accounts/{account}",
+      "auth": true
+    },
+    {
+      "name": "post_financial_connections_accounts_account_disconnect",
+      "method": "POST",
+      "path": "/v1/financial_connections/accounts/{account}/disconnect",
+      "auth": true
+    },
+    {
+      "name": "get_financial_connections_accounts_account_owners",
+      "method": "GET",
+      "path": "/v1/financial_connections/accounts/{account}/owners",
+      "auth": true
+    },
+    {
+      "name": "post_financial_connections_accounts_account_refresh",
+      "method": "POST",
+      "path": "/v1/financial_connections/accounts/{account}/refresh",
+      "auth": true
+    },
+    {
+      "name": "post_financial_connections_accounts_account_subscribe",
+      "method": "POST",
+      "path": "/v1/financial_connections/accounts/{account}/subscribe",
+      "auth": true
+    },
+    {
+      "name": "post_financial_connections_accounts_account_unsubscribe",
+      "method": "POST",
+      "path": "/v1/financial_connections/accounts/{account}/unsubscribe",
+      "auth": true
+    },
+    {
+      "name": "post_financial_connections_sessions",
+      "method": "POST",
+      "path": "/v1/financial_connections/sessions",
+      "auth": true
+    },
+    {
+      "name": "get_financial_connections_sessions_session",
+      "method": "GET",
+      "path": "/v1/financial_connections/sessions/{session}",
+      "auth": true
+    },
+    {
+      "name": "get_financial_connections_transactions",
+      "method": "GET",
+      "path": "/v1/financial_connections/transactions",
+      "auth": true
+    },
+    {
+      "name": "get_financial_connections_transactions_transaction",
+      "method": "GET",
+      "path": "/v1/financial_connections/transactions/{transaction}",
+      "auth": true
+    },
+    {
+      "name": "get_forwarding_requests",
+      "method": "GET",
+      "path": "/v1/forwarding/requests",
+      "auth": true
+    },
+    {
+      "name": "post_forwarding_requests",
+      "method": "POST",
+      "path": "/v1/forwarding/requests",
+      "auth": true
+    },
+    {
+      "name": "get_forwarding_requests_id",
+      "method": "GET",
+      "path": "/v1/forwarding/requests/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_identity_verification_reports",
+      "method": "GET",
+      "path": "/v1/identity/verification_reports",
+      "auth": true
+    },
+    {
+      "name": "get_identity_verification_reports_report",
+      "method": "GET",
+      "path": "/v1/identity/verification_reports/{report}",
+      "auth": true
+    },
+    {
+      "name": "get_identity_verification_sessions",
+      "method": "GET",
+      "path": "/v1/identity/verification_sessions",
+      "auth": true
+    },
+    {
+      "name": "post_identity_verification_sessions",
+      "method": "POST",
+      "path": "/v1/identity/verification_sessions",
+      "auth": true
+    },
+    {
+      "name": "get_identity_verification_sessions_session",
+      "method": "GET",
+      "path": "/v1/identity/verification_sessions/{session}",
+      "auth": true
+    },
+    {
+      "name": "post_identity_verification_sessions_session",
+      "method": "POST",
+      "path": "/v1/identity/verification_sessions/{session}",
+      "auth": true
+    },
+    {
+      "name": "post_identity_verification_sessions_session_cancel",
+      "method": "POST",
+      "path": "/v1/identity/verification_sessions/{session}/cancel",
+      "auth": true
+    },
+    {
+      "name": "post_identity_verification_sessions_session_redact",
+      "method": "POST",
+      "path": "/v1/identity/verification_sessions/{session}/redact",
+      "auth": true
+    },
+    {
+      "name": "get_invoice_payments",
+      "method": "GET",
+      "path": "/v1/invoice_payments",
+      "auth": true
+    },
+    {
+      "name": "get_invoice_payments_invoice_payment",
+      "method": "GET",
+      "path": "/v1/invoice_payments/{invoice_payment}",
+      "auth": true
+    },
+    {
+      "name": "get_invoice_rendering_templates",
+      "method": "GET",
+      "path": "/v1/invoice_rendering_templates",
+      "auth": true
+    },
+    {
+      "name": "get_invoice_rendering_templates_template",
+      "method": "GET",
+      "path": "/v1/invoice_rendering_templates/{template}",
+      "auth": true
+    },
+    {
+      "name": "post_invoice_rendering_templates_template_archive",
+      "method": "POST",
+      "path": "/v1/invoice_rendering_templates/{template}/archive",
+      "auth": true
+    },
+    {
+      "name": "post_invoice_rendering_templates_template_unarchive",
+      "method": "POST",
+      "path": "/v1/invoice_rendering_templates/{template}/unarchive",
+      "auth": true
+    },
+    {
+      "name": "get_invoiceitems",
+      "method": "GET",
+      "path": "/v1/invoiceitems",
+      "auth": true
+    },
+    {
+      "name": "post_invoiceitems",
+      "method": "POST",
+      "path": "/v1/invoiceitems",
+      "auth": true
+    },
+    {
+      "name": "get_invoiceitems_invoiceitem",
+      "method": "GET",
+      "path": "/v1/invoiceitems/{invoiceitem}",
+      "auth": true
+    },
+    {
+      "name": "post_invoiceitems_invoiceitem",
+      "method": "POST",
+      "path": "/v1/invoiceitems/{invoiceitem}",
+      "auth": true
+    },
+    {
+      "name": "delete_invoiceitems_invoiceitem",
+      "method": "DELETE",
+      "path": "/v1/invoiceitems/{invoiceitem}",
+      "auth": true
+    },
+    {
+      "name": "get_invoices",
+      "method": "GET",
+      "path": "/v1/invoices",
+      "auth": true
+    },
+    {
+      "name": "post_invoices",
+      "method": "POST",
+      "path": "/v1/invoices",
+      "auth": true
+    },
+    {
+      "name": "post_invoices_create_preview",
+      "method": "POST",
+      "path": "/v1/invoices/create_preview",
+      "auth": true
+    },
+    {
+      "name": "get_invoices_search",
+      "method": "GET",
+      "path": "/v1/invoices/search",
+      "auth": true
+    },
+    {
+      "name": "get_invoices_invoice",
+      "method": "GET",
+      "path": "/v1/invoices/{invoice}",
+      "auth": true
+    },
+    {
+      "name": "post_invoices_invoice",
+      "method": "POST",
+      "path": "/v1/invoices/{invoice}",
+      "auth": true
+    },
+    {
+      "name": "delete_invoices_invoice",
+      "method": "DELETE",
+      "path": "/v1/invoices/{invoice}",
+      "auth": true
+    },
+    {
+      "name": "post_invoices_invoice_add_lines",
+      "method": "POST",
+      "path": "/v1/invoices/{invoice}/add_lines",
+      "auth": true
+    },
+    {
+      "name": "post_invoices_invoice_attach_payment",
+      "method": "POST",
+      "path": "/v1/invoices/{invoice}/attach_payment",
+      "auth": true
+    },
+    {
+      "name": "post_invoices_invoice_finalize",
+      "method": "POST",
+      "path": "/v1/invoices/{invoice}/finalize",
+      "auth": true
+    },
+    {
+      "name": "get_invoices_invoice_lines",
+      "method": "GET",
+      "path": "/v1/invoices/{invoice}/lines",
+      "auth": true
+    },
+    {
+      "name": "post_invoices_invoice_lines_line_item_id",
+      "method": "POST",
+      "path": "/v1/invoices/{invoice}/lines/{line_item_id}",
+      "auth": true
+    },
+    {
+      "name": "post_invoices_invoice_mark_uncollectible",
+      "method": "POST",
+      "path": "/v1/invoices/{invoice}/mark_uncollectible",
+      "auth": true
+    },
+    {
+      "name": "post_invoices_invoice_pay",
+      "method": "POST",
+      "path": "/v1/invoices/{invoice}/pay",
+      "auth": true
+    },
+    {
+      "name": "post_invoices_invoice_remove_lines",
+      "method": "POST",
+      "path": "/v1/invoices/{invoice}/remove_lines",
+      "auth": true
+    },
+    {
+      "name": "post_invoices_invoice_send",
+      "method": "POST",
+      "path": "/v1/invoices/{invoice}/send",
+      "auth": true
+    },
+    {
+      "name": "post_invoices_invoice_update_lines",
+      "method": "POST",
+      "path": "/v1/invoices/{invoice}/update_lines",
+      "auth": true
+    },
+    {
+      "name": "post_invoices_invoice_void",
+      "method": "POST",
+      "path": "/v1/invoices/{invoice}/void",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_authorizations",
+      "method": "GET",
+      "path": "/v1/issuing/authorizations",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_authorizations_authorization",
+      "method": "GET",
+      "path": "/v1/issuing/authorizations/{authorization}",
+      "auth": true
+    },
+    {
+      "name": "post_issuing_authorizations_authorization",
+      "method": "POST",
+      "path": "/v1/issuing/authorizations/{authorization}",
+      "auth": true
+    },
+    {
+      "name": "post_issuing_authorizations_authorization_approve",
+      "method": "POST",
+      "path": "/v1/issuing/authorizations/{authorization}/approve",
+      "auth": true
+    },
+    {
+      "name": "post_issuing_authorizations_authorization_decline",
+      "method": "POST",
+      "path": "/v1/issuing/authorizations/{authorization}/decline",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_cardholders",
+      "method": "GET",
+      "path": "/v1/issuing/cardholders",
+      "auth": true
+    },
+    {
+      "name": "post_issuing_cardholders",
+      "method": "POST",
+      "path": "/v1/issuing/cardholders",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_cardholders_cardholder",
+      "method": "GET",
+      "path": "/v1/issuing/cardholders/{cardholder}",
+      "auth": true
+    },
+    {
+      "name": "post_issuing_cardholders_cardholder",
+      "method": "POST",
+      "path": "/v1/issuing/cardholders/{cardholder}",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_cards",
+      "method": "GET",
+      "path": "/v1/issuing/cards",
+      "auth": true
+    },
+    {
+      "name": "post_issuing_cards",
+      "method": "POST",
+      "path": "/v1/issuing/cards",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_cards_card",
+      "method": "GET",
+      "path": "/v1/issuing/cards/{card}",
+      "auth": true
+    },
+    {
+      "name": "post_issuing_cards_card",
+      "method": "POST",
+      "path": "/v1/issuing/cards/{card}",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_disputes",
+      "method": "GET",
+      "path": "/v1/issuing/disputes",
+      "auth": true
+    },
+    {
+      "name": "post_issuing_disputes",
+      "method": "POST",
+      "path": "/v1/issuing/disputes",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_disputes_dispute",
+      "method": "GET",
+      "path": "/v1/issuing/disputes/{dispute}",
+      "auth": true
+    },
+    {
+      "name": "post_issuing_disputes_dispute",
+      "method": "POST",
+      "path": "/v1/issuing/disputes/{dispute}",
+      "auth": true
+    },
+    {
+      "name": "post_issuing_disputes_dispute_submit",
+      "method": "POST",
+      "path": "/v1/issuing/disputes/{dispute}/submit",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_personalization_designs",
+      "method": "GET",
+      "path": "/v1/issuing/personalization_designs",
+      "auth": true
+    },
+    {
+      "name": "post_issuing_personalization_designs",
+      "method": "POST",
+      "path": "/v1/issuing/personalization_designs",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_personalization_designs_personalization",
+      "method": "GET",
+      "path": "/v1/issuing/personalization_designs/{personalization_design}",
+      "auth": true
+    },
+    {
+      "name": "post_issuing_personalization_designs_personalization",
+      "method": "POST",
+      "path": "/v1/issuing/personalization_designs/{personalization_design}",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_physical_bundles",
+      "method": "GET",
+      "path": "/v1/issuing/physical_bundles",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_physical_bundles_physical_bundle",
+      "method": "GET",
+      "path": "/v1/issuing/physical_bundles/{physical_bundle}",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_tokens",
+      "method": "GET",
+      "path": "/v1/issuing/tokens",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_tokens_token",
+      "method": "GET",
+      "path": "/v1/issuing/tokens/{token}",
+      "auth": true
+    },
+    {
+      "name": "post_issuing_tokens_token",
+      "method": "POST",
+      "path": "/v1/issuing/tokens/{token}",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_transactions",
+      "method": "GET",
+      "path": "/v1/issuing/transactions",
+      "auth": true
+    },
+    {
+      "name": "get_issuing_transactions_transaction",
+      "method": "GET",
+      "path": "/v1/issuing/transactions/{transaction}",
+      "auth": true
+    },
+    {
+      "name": "post_issuing_transactions_transaction",
+      "method": "POST",
+      "path": "/v1/issuing/transactions/{transaction}",
+      "auth": true
+    },
+    {
+      "name": "get_mandates_mandate",
+      "method": "GET",
+      "path": "/v1/mandates/{mandate}",
+      "auth": true
+    },
+    {
+      "name": "get_payment_attempt_records",
+      "method": "GET",
+      "path": "/v1/payment_attempt_records",
+      "auth": true
+    },
+    {
+      "name": "get_payment_attempt_records_id",
+      "method": "GET",
+      "path": "/v1/payment_attempt_records/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_payment_intents",
+      "method": "GET",
+      "path": "/v1/payment_intents",
+      "auth": true
+    },
+    {
+      "name": "post_payment_intents",
+      "method": "POST",
+      "path": "/v1/payment_intents",
+      "auth": true
+    },
+    {
+      "name": "get_payment_intents_search",
+      "method": "GET",
+      "path": "/v1/payment_intents/search",
+      "auth": true
+    },
+    {
+      "name": "get_payment_intents_intent",
+      "method": "GET",
+      "path": "/v1/payment_intents/{intent}",
+      "auth": true
+    },
+    {
+      "name": "post_payment_intents_intent",
+      "method": "POST",
+      "path": "/v1/payment_intents/{intent}",
+      "auth": true
+    },
+    {
+      "name": "get_payment_intents_intent_amount_details_line_items",
+      "method": "GET",
+      "path": "/v1/payment_intents/{intent}/amount_details_line_items",
+      "auth": true
+    },
+    {
+      "name": "post_payment_intents_intent_apply_customer_balance",
+      "method": "POST",
+      "path": "/v1/payment_intents/{intent}/apply_customer_balance",
+      "auth": true
+    },
+    {
+      "name": "post_payment_intents_intent_cancel",
+      "method": "POST",
+      "path": "/v1/payment_intents/{intent}/cancel",
+      "auth": true
+    },
+    {
+      "name": "post_payment_intents_intent_capture",
+      "method": "POST",
+      "path": "/v1/payment_intents/{intent}/capture",
+      "auth": true
+    },
+    {
+      "name": "post_payment_intents_intent_confirm",
+      "method": "POST",
+      "path": "/v1/payment_intents/{intent}/confirm",
+      "auth": true
+    },
+    {
+      "name": "post_payment_intents_intent_increment_authorization",
+      "method": "POST",
+      "path": "/v1/payment_intents/{intent}/increment_authorization",
+      "auth": true
+    },
+    {
+      "name": "post_payment_intents_intent_verify_microdeposits",
+      "method": "POST",
+      "path": "/v1/payment_intents/{intent}/verify_microdeposits",
+      "auth": true
+    },
+    {
+      "name": "get_payment_links",
+      "method": "GET",
+      "path": "/v1/payment_links",
+      "auth": true
+    },
+    {
+      "name": "post_payment_links",
+      "method": "POST",
+      "path": "/v1/payment_links",
+      "auth": true
+    },
+    {
+      "name": "get_payment_links_payment_link",
+      "method": "GET",
+      "path": "/v1/payment_links/{payment_link}",
+      "auth": true
+    },
+    {
+      "name": "post_payment_links_payment_link",
+      "method": "POST",
+      "path": "/v1/payment_links/{payment_link}",
+      "auth": true
+    },
+    {
+      "name": "get_payment_links_payment_link_line_items",
+      "method": "GET",
+      "path": "/v1/payment_links/{payment_link}/line_items",
+      "auth": true
+    },
+    {
+      "name": "get_payment_method_configurations",
+      "method": "GET",
+      "path": "/v1/payment_method_configurations",
+      "auth": true
+    },
+    {
+      "name": "post_payment_method_configurations",
+      "method": "POST",
+      "path": "/v1/payment_method_configurations",
+      "auth": true
+    },
+    {
+      "name": "get_payment_method_configurations_configuration",
+      "method": "GET",
+      "path": "/v1/payment_method_configurations/{configuration}",
+      "auth": true
+    },
+    {
+      "name": "post_payment_method_configurations_configuration",
+      "method": "POST",
+      "path": "/v1/payment_method_configurations/{configuration}",
+      "auth": true
+    },
+    {
+      "name": "get_payment_method_domains",
+      "method": "GET",
+      "path": "/v1/payment_method_domains",
+      "auth": true
+    },
+    {
+      "name": "post_payment_method_domains",
+      "method": "POST",
+      "path": "/v1/payment_method_domains",
+      "auth": true
+    },
+    {
+      "name": "get_payment_method_domains_payment_method_domain",
+      "method": "GET",
+      "path": "/v1/payment_method_domains/{payment_method_domain}",
+      "auth": true
+    },
+    {
+      "name": "post_payment_method_domains_payment_method_domain",
+      "method": "POST",
+      "path": "/v1/payment_method_domains/{payment_method_domain}",
+      "auth": true
+    },
+    {
+      "name": "post_payment_method_domains_payment_method_domain_1",
+      "method": "POST",
+      "path": "/v1/payment_method_domains/{payment_method_domain}/validate",
+      "auth": true
+    },
+    {
+      "name": "get_payment_methods",
+      "method": "GET",
+      "path": "/v1/payment_methods",
+      "auth": true
+    },
+    {
+      "name": "post_payment_methods",
+      "method": "POST",
+      "path": "/v1/payment_methods",
+      "auth": true
+    },
+    {
+      "name": "get_payment_methods_payment_method",
+      "method": "GET",
+      "path": "/v1/payment_methods/{payment_method}",
+      "auth": true
+    },
+    {
+      "name": "post_payment_methods_payment_method",
+      "method": "POST",
+      "path": "/v1/payment_methods/{payment_method}",
+      "auth": true
+    },
+    {
+      "name": "post_payment_methods_payment_method_attach",
+      "method": "POST",
+      "path": "/v1/payment_methods/{payment_method}/attach",
+      "auth": true
+    },
+    {
+      "name": "post_payment_methods_payment_method_detach",
+      "method": "POST",
+      "path": "/v1/payment_methods/{payment_method}/detach",
+      "auth": true
+    },
+    {
+      "name": "get_payment_records",
+      "method": "GET",
+      "path": "/v1/payment_records",
+      "auth": true
+    },
+    {
+      "name": "post_payment_records_report_payment",
+      "method": "POST",
+      "path": "/v1/payment_records/report_payment",
+      "auth": true
+    },
+    {
+      "name": "get_payment_records_id",
+      "method": "GET",
+      "path": "/v1/payment_records/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_payment_records_id_report_payment_attempt",
+      "method": "POST",
+      "path": "/v1/payment_records/{id}/report_payment_attempt",
+      "auth": true
+    },
+    {
+      "name": "post_payment_records_id_report_payment_attempt_canceled",
+      "method": "POST",
+      "path": "/v1/payment_records/{id}/report_payment_attempt_canceled",
+      "auth": true
+    },
+    {
+      "name": "post_payment_records_id_report_payment_attempt_failed",
+      "method": "POST",
+      "path": "/v1/payment_records/{id}/report_payment_attempt_failed",
+      "auth": true
+    },
+    {
+      "name": "post_payment_records_id_report_payment_attempt_guaranteed",
+      "method": "POST",
+      "path": "/v1/payment_records/{id}/report_payment_attempt_guaranteed",
+      "auth": true
+    },
+    {
+      "name": "post_payment_records_id_report_payment_attempt_1",
+      "method": "POST",
+      "path": "/v1/payment_records/{id}/report_payment_attempt_informational",
+      "auth": true
+    },
+    {
+      "name": "post_payment_records_id_report_refund",
+      "method": "POST",
+      "path": "/v1/payment_records/{id}/report_refund",
+      "auth": true
+    },
+    {
+      "name": "get_payouts",
+      "method": "GET",
+      "path": "/v1/payouts",
+      "auth": true
+    },
+    {
+      "name": "post_payouts",
+      "method": "POST",
+      "path": "/v1/payouts",
+      "auth": true
+    },
+    {
+      "name": "get_payouts_payout",
+      "method": "GET",
+      "path": "/v1/payouts/{payout}",
+      "auth": true
+    },
+    {
+      "name": "post_payouts_payout",
+      "method": "POST",
+      "path": "/v1/payouts/{payout}",
+      "auth": true
+    },
+    {
+      "name": "post_payouts_payout_cancel",
+      "method": "POST",
+      "path": "/v1/payouts/{payout}/cancel",
+      "auth": true
+    },
+    {
+      "name": "post_payouts_payout_reverse",
+      "method": "POST",
+      "path": "/v1/payouts/{payout}/reverse",
+      "auth": true
+    },
+    {
+      "name": "get_plans",
+      "method": "GET",
+      "path": "/v1/plans",
+      "auth": true
+    },
+    {
+      "name": "post_plans",
+      "method": "POST",
+      "path": "/v1/plans",
+      "auth": true
+    },
+    {
+      "name": "get_plans_plan",
+      "method": "GET",
+      "path": "/v1/plans/{plan}",
+      "auth": true
+    },
+    {
+      "name": "post_plans_plan",
+      "method": "POST",
+      "path": "/v1/plans/{plan}",
+      "auth": true
+    },
+    {
+      "name": "delete_plans_plan",
+      "method": "DELETE",
+      "path": "/v1/plans/{plan}",
+      "auth": true
+    },
+    {
+      "name": "get_prices",
+      "method": "GET",
+      "path": "/v1/prices",
+      "auth": true
+    },
+    {
+      "name": "post_prices",
+      "method": "POST",
+      "path": "/v1/prices",
+      "auth": true
+    },
+    {
+      "name": "get_prices_search",
+      "method": "GET",
+      "path": "/v1/prices/search",
+      "auth": true
+    },
+    {
+      "name": "get_prices_price",
+      "method": "GET",
+      "path": "/v1/prices/{price}",
+      "auth": true
+    },
+    {
+      "name": "post_prices_price",
+      "method": "POST",
+      "path": "/v1/prices/{price}",
+      "auth": true
+    },
+    {
+      "name": "get_product_catalog_trial_offers",
+      "method": "GET",
+      "path": "/v1/product_catalog/trial_offers",
+      "auth": true
+    },
+    {
+      "name": "post_product_catalog_trial_offers",
+      "method": "POST",
+      "path": "/v1/product_catalog/trial_offers",
+      "auth": true
+    },
+    {
+      "name": "get_product_catalog_trial_offers_id",
+      "method": "GET",
+      "path": "/v1/product_catalog/trial_offers/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_product_catalog_trial_offers_id",
+      "method": "POST",
+      "path": "/v1/product_catalog/trial_offers/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_products",
+      "method": "GET",
+      "path": "/v1/products",
+      "auth": true
+    },
+    {
+      "name": "post_products",
+      "method": "POST",
+      "path": "/v1/products",
+      "auth": true
+    },
+    {
+      "name": "get_products_search",
+      "method": "GET",
+      "path": "/v1/products/search",
+      "auth": true
+    },
+    {
+      "name": "get_products_id",
+      "method": "GET",
+      "path": "/v1/products/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_products_id",
+      "method": "POST",
+      "path": "/v1/products/{id}",
+      "auth": true
+    },
+    {
+      "name": "delete_products_id",
+      "method": "DELETE",
+      "path": "/v1/products/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_products_product_features",
+      "method": "GET",
+      "path": "/v1/products/{product}/features",
+      "auth": true
+    },
+    {
+      "name": "post_products_product_features",
+      "method": "POST",
+      "path": "/v1/products/{product}/features",
+      "auth": true
+    },
+    {
+      "name": "get_products_product_features_id",
+      "method": "GET",
+      "path": "/v1/products/{product}/features/{id}",
+      "auth": true
+    },
+    {
+      "name": "delete_products_product_features_id",
+      "method": "DELETE",
+      "path": "/v1/products/{product}/features/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_promotion_codes",
+      "method": "GET",
+      "path": "/v1/promotion_codes",
+      "auth": true
+    },
+    {
+      "name": "post_promotion_codes",
+      "method": "POST",
+      "path": "/v1/promotion_codes",
+      "auth": true
+    },
+    {
+      "name": "get_promotion_codes_promotion_code",
+      "method": "GET",
+      "path": "/v1/promotion_codes/{promotion_code}",
+      "auth": true
+    },
+    {
+      "name": "post_promotion_codes_promotion_code",
+      "method": "POST",
+      "path": "/v1/promotion_codes/{promotion_code}",
+      "auth": true
+    },
+    {
+      "name": "get_quotes",
+      "method": "GET",
+      "path": "/v1/quotes",
+      "auth": true
+    },
+    {
+      "name": "post_quotes",
+      "method": "POST",
+      "path": "/v1/quotes",
+      "auth": true
+    },
+    {
+      "name": "get_quotes_quote",
+      "method": "GET",
+      "path": "/v1/quotes/{quote}",
+      "auth": true
+    },
+    {
+      "name": "post_quotes_quote",
+      "method": "POST",
+      "path": "/v1/quotes/{quote}",
+      "auth": true
+    },
+    {
+      "name": "post_quotes_quote_accept",
+      "method": "POST",
+      "path": "/v1/quotes/{quote}/accept",
+      "auth": true
+    },
+    {
+      "name": "post_quotes_quote_cancel",
+      "method": "POST",
+      "path": "/v1/quotes/{quote}/cancel",
+      "auth": true
+    },
+    {
+      "name": "get_quotes_quote_computed_upfront_line_items",
+      "method": "GET",
+      "path": "/v1/quotes/{quote}/computed_upfront_line_items",
+      "auth": true
+    },
+    {
+      "name": "post_quotes_quote_finalize",
+      "method": "POST",
+      "path": "/v1/quotes/{quote}/finalize",
+      "auth": true
+    },
+    {
+      "name": "get_quotes_quote_line_items",
+      "method": "GET",
+      "path": "/v1/quotes/{quote}/line_items",
+      "auth": true
+    },
+    {
+      "name": "get_quotes_quote_pdf",
+      "method": "GET",
+      "path": "/v1/quotes/{quote}/pdf",
+      "auth": true
+    },
+    {
+      "name": "get_radar_early_fraud_warnings",
+      "method": "GET",
+      "path": "/v1/radar/early_fraud_warnings",
+      "auth": true
+    },
+    {
+      "name": "get_radar_early_fraud_warnings_early_fraud_warning",
+      "method": "GET",
+      "path": "/v1/radar/early_fraud_warnings/{early_fraud_warning}",
+      "auth": true
+    },
+    {
+      "name": "post_radar_payment_evaluations",
+      "method": "POST",
+      "path": "/v1/radar/payment_evaluations",
+      "auth": true
+    },
+    {
+      "name": "get_radar_value_list_items",
+      "method": "GET",
+      "path": "/v1/radar/value_list_items",
+      "auth": true
+    },
+    {
+      "name": "post_radar_value_list_items",
+      "method": "POST",
+      "path": "/v1/radar/value_list_items",
+      "auth": true
+    },
+    {
+      "name": "get_radar_value_list_items_item",
+      "method": "GET",
+      "path": "/v1/radar/value_list_items/{item}",
+      "auth": true
+    },
+    {
+      "name": "delete_radar_value_list_items_item",
+      "method": "DELETE",
+      "path": "/v1/radar/value_list_items/{item}",
+      "auth": true
+    },
+    {
+      "name": "get_radar_value_lists",
+      "method": "GET",
+      "path": "/v1/radar/value_lists",
+      "auth": true
+    },
+    {
+      "name": "post_radar_value_lists",
+      "method": "POST",
+      "path": "/v1/radar/value_lists",
+      "auth": true
+    },
+    {
+      "name": "get_radar_value_lists_value_list",
+      "method": "GET",
+      "path": "/v1/radar/value_lists/{value_list}",
+      "auth": true
+    },
+    {
+      "name": "post_radar_value_lists_value_list",
+      "method": "POST",
+      "path": "/v1/radar/value_lists/{value_list}",
+      "auth": true
+    },
+    {
+      "name": "delete_radar_value_lists_value_list",
+      "method": "DELETE",
+      "path": "/v1/radar/value_lists/{value_list}",
+      "auth": true
+    },
+    {
+      "name": "get_refunds",
+      "method": "GET",
+      "path": "/v1/refunds",
+      "auth": true
+    },
+    {
+      "name": "post_refunds",
+      "method": "POST",
+      "path": "/v1/refunds",
+      "auth": true
+    },
+    {
+      "name": "get_refunds_refund",
+      "method": "GET",
+      "path": "/v1/refunds/{refund}",
+      "auth": true
+    },
+    {
+      "name": "post_refunds_refund",
+      "method": "POST",
+      "path": "/v1/refunds/{refund}",
+      "auth": true
+    },
+    {
+      "name": "post_refunds_refund_cancel",
+      "method": "POST",
+      "path": "/v1/refunds/{refund}/cancel",
+      "auth": true
+    },
+    {
+      "name": "get_reporting_report_runs",
+      "method": "GET",
+      "path": "/v1/reporting/report_runs",
+      "auth": true
+    },
+    {
+      "name": "post_reporting_report_runs",
+      "method": "POST",
+      "path": "/v1/reporting/report_runs",
+      "auth": true
+    },
+    {
+      "name": "get_reporting_report_runs_report_run",
+      "method": "GET",
+      "path": "/v1/reporting/report_runs/{report_run}",
+      "auth": true
+    },
+    {
+      "name": "get_reporting_report_types",
+      "method": "GET",
+      "path": "/v1/reporting/report_types",
+      "auth": true
+    },
+    {
+      "name": "get_reporting_report_types_report_type",
+      "method": "GET",
+      "path": "/v1/reporting/report_types/{report_type}",
+      "auth": true
+    },
+    {
+      "name": "get_reviews",
+      "method": "GET",
+      "path": "/v1/reviews",
+      "auth": true
+    },
+    {
+      "name": "get_reviews_review",
+      "method": "GET",
+      "path": "/v1/reviews/{review}",
+      "auth": true
+    },
+    {
+      "name": "post_reviews_review_approve",
+      "method": "POST",
+      "path": "/v1/reviews/{review}/approve",
+      "auth": true
+    },
+    {
+      "name": "get_setup_attempts",
+      "method": "GET",
+      "path": "/v1/setup_attempts",
+      "auth": true
+    },
+    {
+      "name": "get_setup_intents",
+      "method": "GET",
+      "path": "/v1/setup_intents",
+      "auth": true
+    },
+    {
+      "name": "post_setup_intents",
+      "method": "POST",
+      "path": "/v1/setup_intents",
+      "auth": true
+    },
+    {
+      "name": "get_setup_intents_intent",
+      "method": "GET",
+      "path": "/v1/setup_intents/{intent}",
+      "auth": true
+    },
+    {
+      "name": "post_setup_intents_intent",
+      "method": "POST",
+      "path": "/v1/setup_intents/{intent}",
+      "auth": true
+    },
+    {
+      "name": "post_setup_intents_intent_cancel",
+      "method": "POST",
+      "path": "/v1/setup_intents/{intent}/cancel",
+      "auth": true
+    },
+    {
+      "name": "post_setup_intents_intent_confirm",
+      "method": "POST",
+      "path": "/v1/setup_intents/{intent}/confirm",
+      "auth": true
+    },
+    {
+      "name": "post_setup_intents_intent_verify_microdeposits",
+      "method": "POST",
+      "path": "/v1/setup_intents/{intent}/verify_microdeposits",
+      "auth": true
+    },
+    {
+      "name": "get_shipping_rates",
+      "method": "GET",
+      "path": "/v1/shipping_rates",
+      "auth": true
+    },
+    {
+      "name": "post_shipping_rates",
+      "method": "POST",
+      "path": "/v1/shipping_rates",
+      "auth": true
+    },
+    {
+      "name": "get_shipping_rates_shipping_rate_token",
+      "method": "GET",
+      "path": "/v1/shipping_rates/{shipping_rate_token}",
+      "auth": true
+    },
+    {
+      "name": "post_shipping_rates_shipping_rate_token",
+      "method": "POST",
+      "path": "/v1/shipping_rates/{shipping_rate_token}",
+      "auth": true
+    },
+    {
+      "name": "get_sigma_scheduled_query_runs",
+      "method": "GET",
+      "path": "/v1/sigma/scheduled_query_runs",
+      "auth": true
+    },
+    {
+      "name": "get_sigma_scheduled_query_runs_scheduled_query_run",
+      "method": "GET",
+      "path": "/v1/sigma/scheduled_query_runs/{scheduled_query_run}",
+      "auth": true
+    },
+    {
+      "name": "post_sources",
+      "method": "POST",
+      "path": "/v1/sources",
+      "auth": true
+    },
+    {
+      "name": "get_sources_source",
+      "method": "GET",
+      "path": "/v1/sources/{source}",
+      "auth": true
+    },
+    {
+      "name": "post_sources_source",
+      "method": "POST",
+      "path": "/v1/sources/{source}",
+      "auth": true
+    },
+    {
+      "name": "get_sources_source_source_transactions",
+      "method": "GET",
+      "path": "/v1/sources/{source}/source_transactions",
+      "auth": true
+    },
+    {
+      "name": "post_sources_source_verify",
+      "method": "POST",
+      "path": "/v1/sources/{source}/verify",
+      "auth": true
+    },
+    {
+      "name": "get_subscription_items",
+      "method": "GET",
+      "path": "/v1/subscription_items",
+      "auth": true
+    },
+    {
+      "name": "post_subscription_items",
+      "method": "POST",
+      "path": "/v1/subscription_items",
+      "auth": true
+    },
+    {
+      "name": "get_subscription_items_item",
+      "method": "GET",
+      "path": "/v1/subscription_items/{item}",
+      "auth": true
+    },
+    {
+      "name": "post_subscription_items_item",
+      "method": "POST",
+      "path": "/v1/subscription_items/{item}",
+      "auth": true
+    },
+    {
+      "name": "delete_subscription_items_item",
+      "method": "DELETE",
+      "path": "/v1/subscription_items/{item}",
+      "auth": true
+    },
+    {
+      "name": "get_subscription_schedules",
+      "method": "GET",
+      "path": "/v1/subscription_schedules",
+      "auth": true
+    },
+    {
+      "name": "post_subscription_schedules",
+      "method": "POST",
+      "path": "/v1/subscription_schedules",
+      "auth": true
+    },
+    {
+      "name": "get_subscription_schedules_schedule",
+      "method": "GET",
+      "path": "/v1/subscription_schedules/{schedule}",
+      "auth": true
+    },
+    {
+      "name": "post_subscription_schedules_schedule",
+      "method": "POST",
+      "path": "/v1/subscription_schedules/{schedule}",
+      "auth": true
+    },
+    {
+      "name": "post_subscription_schedules_schedule_cancel",
+      "method": "POST",
+      "path": "/v1/subscription_schedules/{schedule}/cancel",
+      "auth": true
+    },
+    {
+      "name": "post_subscription_schedules_schedule_release",
+      "method": "POST",
+      "path": "/v1/subscription_schedules/{schedule}/release",
+      "auth": true
+    },
+    {
+      "name": "get_subscriptions",
+      "method": "GET",
+      "path": "/v1/subscriptions",
+      "auth": true
+    },
+    {
+      "name": "post_subscriptions",
+      "method": "POST",
+      "path": "/v1/subscriptions",
+      "auth": true
+    },
+    {
+      "name": "get_subscriptions_search",
+      "method": "GET",
+      "path": "/v1/subscriptions/search",
+      "auth": true
+    },
+    {
+      "name": "get_subscriptions_subscription_exposed_id",
+      "method": "GET",
+      "path": "/v1/subscriptions/{subscription_exposed_id}",
+      "auth": true
+    },
+    {
+      "name": "post_subscriptions_subscription_exposed_id",
+      "method": "POST",
+      "path": "/v1/subscriptions/{subscription_exposed_id}",
+      "auth": true
+    },
+    {
+      "name": "delete_subscriptions_subscription_exposed_id",
+      "method": "DELETE",
+      "path": "/v1/subscriptions/{subscription_exposed_id}",
+      "auth": true
+    },
+    {
+      "name": "delete_subscriptions_subscription_exposed_id_discount",
+      "method": "DELETE",
+      "path": "/v1/subscriptions/{subscription_exposed_id}/discount",
+      "auth": true
+    },
+    {
+      "name": "post_subscriptions_subscription_migrate",
+      "method": "POST",
+      "path": "/v1/subscriptions/{subscription}/migrate",
+      "auth": true
+    },
+    {
+      "name": "post_subscriptions_subscription_pause",
+      "method": "POST",
+      "path": "/v1/subscriptions/{subscription}/pause",
+      "auth": true
+    },
+    {
+      "name": "post_subscriptions_subscription_resume",
+      "method": "POST",
+      "path": "/v1/subscriptions/{subscription}/resume",
+      "auth": true
+    },
+    {
+      "name": "get_tax_associations_find",
+      "method": "GET",
+      "path": "/v1/tax/associations/find",
+      "auth": true
+    },
+    {
+      "name": "post_tax_calculations",
+      "method": "POST",
+      "path": "/v1/tax/calculations",
+      "auth": true
+    },
+    {
+      "name": "get_tax_calculations_calculation",
+      "method": "GET",
+      "path": "/v1/tax/calculations/{calculation}",
+      "auth": true
+    },
+    {
+      "name": "get_tax_calculations_calculation_line_items",
+      "method": "GET",
+      "path": "/v1/tax/calculations/{calculation}/line_items",
+      "auth": true
+    },
+    {
+      "name": "get_tax_locations",
+      "method": "GET",
+      "path": "/v1/tax/locations",
+      "auth": true
+    },
+    {
+      "name": "post_tax_locations",
+      "method": "POST",
+      "path": "/v1/tax/locations",
+      "auth": true
+    },
+    {
+      "name": "get_tax_locations_location",
+      "method": "GET",
+      "path": "/v1/tax/locations/{location}",
+      "auth": true
+    },
+    {
+      "name": "get_tax_registrations",
+      "method": "GET",
+      "path": "/v1/tax/registrations",
+      "auth": true
+    },
+    {
+      "name": "post_tax_registrations",
+      "method": "POST",
+      "path": "/v1/tax/registrations",
+      "auth": true
+    },
+    {
+      "name": "get_tax_registrations_id",
+      "method": "GET",
+      "path": "/v1/tax/registrations/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_tax_registrations_id",
+      "method": "POST",
+      "path": "/v1/tax/registrations/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_tax_settings",
+      "method": "GET",
+      "path": "/v1/tax/settings",
+      "auth": true
+    },
+    {
+      "name": "post_tax_settings",
+      "method": "POST",
+      "path": "/v1/tax/settings",
+      "auth": true
+    },
+    {
+      "name": "post_tax_transactions_create_from_calculation",
+      "method": "POST",
+      "path": "/v1/tax/transactions/create_from_calculation",
+      "auth": true
+    },
+    {
+      "name": "post_tax_transactions_create_reversal",
+      "method": "POST",
+      "path": "/v1/tax/transactions/create_reversal",
+      "auth": true
+    },
+    {
+      "name": "get_tax_transactions_transaction",
+      "method": "GET",
+      "path": "/v1/tax/transactions/{transaction}",
+      "auth": true
+    },
+    {
+      "name": "get_tax_transactions_transaction_line_items",
+      "method": "GET",
+      "path": "/v1/tax/transactions/{transaction}/line_items",
+      "auth": true
+    },
+    {
+      "name": "get_tax_codes",
+      "method": "GET",
+      "path": "/v1/tax_codes",
+      "auth": true
+    },
+    {
+      "name": "get_tax_codes_id",
+      "method": "GET",
+      "path": "/v1/tax_codes/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_tax_ids",
+      "method": "GET",
+      "path": "/v1/tax_ids",
+      "auth": true
+    },
+    {
+      "name": "post_tax_ids",
+      "method": "POST",
+      "path": "/v1/tax_ids",
+      "auth": true
+    },
+    {
+      "name": "get_tax_ids_id",
+      "method": "GET",
+      "path": "/v1/tax_ids/{id}",
+      "auth": true
+    },
+    {
+      "name": "delete_tax_ids_id",
+      "method": "DELETE",
+      "path": "/v1/tax_ids/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_tax_rates",
+      "method": "GET",
+      "path": "/v1/tax_rates",
+      "auth": true
+    },
+    {
+      "name": "post_tax_rates",
+      "method": "POST",
+      "path": "/v1/tax_rates",
+      "auth": true
+    },
+    {
+      "name": "get_tax_rates_tax_rate",
+      "method": "GET",
+      "path": "/v1/tax_rates/{tax_rate}",
+      "auth": true
+    },
+    {
+      "name": "post_tax_rates_tax_rate",
+      "method": "POST",
+      "path": "/v1/tax_rates/{tax_rate}",
+      "auth": true
+    },
+    {
+      "name": "get_terminal_configurations",
+      "method": "GET",
+      "path": "/v1/terminal/configurations",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_configurations",
+      "method": "POST",
+      "path": "/v1/terminal/configurations",
+      "auth": true
+    },
+    {
+      "name": "get_terminal_configurations_configuration",
+      "method": "GET",
+      "path": "/v1/terminal/configurations/{configuration}",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_configurations_configuration",
+      "method": "POST",
+      "path": "/v1/terminal/configurations/{configuration}",
+      "auth": true
+    },
+    {
+      "name": "delete_terminal_configurations_configuration",
+      "method": "DELETE",
+      "path": "/v1/terminal/configurations/{configuration}",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_connection_tokens",
+      "method": "POST",
+      "path": "/v1/terminal/connection_tokens",
+      "auth": true
+    },
+    {
+      "name": "get_terminal_locations",
+      "method": "GET",
+      "path": "/v1/terminal/locations",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_locations",
+      "method": "POST",
+      "path": "/v1/terminal/locations",
+      "auth": true
+    },
+    {
+      "name": "get_terminal_locations_location",
+      "method": "GET",
+      "path": "/v1/terminal/locations/{location}",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_locations_location",
+      "method": "POST",
+      "path": "/v1/terminal/locations/{location}",
+      "auth": true
+    },
+    {
+      "name": "delete_terminal_locations_location",
+      "method": "DELETE",
+      "path": "/v1/terminal/locations/{location}",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_onboarding_links",
+      "method": "POST",
+      "path": "/v1/terminal/onboarding_links",
+      "auth": true
+    },
+    {
+      "name": "get_terminal_readers",
+      "method": "GET",
+      "path": "/v1/terminal/readers",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_readers",
+      "method": "POST",
+      "path": "/v1/terminal/readers",
+      "auth": true
+    },
+    {
+      "name": "get_terminal_readers_reader",
+      "method": "GET",
+      "path": "/v1/terminal/readers/{reader}",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_readers_reader",
+      "method": "POST",
+      "path": "/v1/terminal/readers/{reader}",
+      "auth": true
+    },
+    {
+      "name": "delete_terminal_readers_reader",
+      "method": "DELETE",
+      "path": "/v1/terminal/readers/{reader}",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_readers_reader_cancel_action",
+      "method": "POST",
+      "path": "/v1/terminal/readers/{reader}/cancel_action",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_readers_reader_collect_inputs",
+      "method": "POST",
+      "path": "/v1/terminal/readers/{reader}/collect_inputs",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_readers_reader_collect_payment_method",
+      "method": "POST",
+      "path": "/v1/terminal/readers/{reader}/collect_payment_method",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_readers_reader_confirm_payment_intent",
+      "method": "POST",
+      "path": "/v1/terminal/readers/{reader}/confirm_payment_intent",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_readers_reader_process_payment_intent",
+      "method": "POST",
+      "path": "/v1/terminal/readers/{reader}/process_payment_intent",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_readers_reader_process_setup_intent",
+      "method": "POST",
+      "path": "/v1/terminal/readers/{reader}/process_setup_intent",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_readers_reader_refund_payment",
+      "method": "POST",
+      "path": "/v1/terminal/readers/{reader}/refund_payment",
+      "auth": true
+    },
+    {
+      "name": "post_terminal_readers_reader_set_reader_display",
+      "method": "POST",
+      "path": "/v1/terminal/readers/{reader}/set_reader_display",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_confirmation_tokens",
+      "method": "POST",
+      "path": "/v1/test_helpers/confirmation_tokens",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_customers_customer_fund_cash_balance",
+      "method": "POST",
+      "path": "/v1/test_helpers/customers/{customer}/fund_cash_balance",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_authorizations",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/authorizations",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_authorizations_authorization",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/authorizations/{authorization}/capture",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_authorizations_authorization_1",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/authorizations/{authorization}/expire",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_authorizations_authorization_2",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/authorizations/{authorization}/finalize_amount",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_authorizations_authorization_3",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/authorizations/{authorization}/fraud_challenges/respond",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_authorizations_authorization_4",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/authorizations/{authorization}/increment",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_authorizations_authorization_5",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/authorizations/{authorization}/reverse",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_cards_card_shipping_deliver",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/cards/{card}/shipping/deliver",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_cards_card_shipping_fail",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/cards/{card}/shipping/fail",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_cards_card_shipping_return",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/cards/{card}/shipping/return",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_cards_card_shipping_ship",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/cards/{card}/shipping/ship",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_cards_card_shipping_submit",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/cards/{card}/shipping/submit",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_personalization_designs",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/personalization_designs/{personalization_design}/activate",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_personalization_designs_1",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/personalization_designs/{personalization_design}/deactivate",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_personalization_designs_2",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/personalization_designs/{personalization_design}/reject",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_transactions_create_force",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/transactions/create_force_capture",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_transactions_create_unlinked",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/transactions/create_unlinked_refund",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_issuing_transactions_transaction_refund",
+      "method": "POST",
+      "path": "/v1/test_helpers/issuing/transactions/{transaction}/refund",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_refunds_refund_expire",
+      "method": "POST",
+      "path": "/v1/test_helpers/refunds/{refund}/expire",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_terminal_readers_reader_present_payment",
+      "method": "POST",
+      "path": "/v1/test_helpers/terminal/readers/{reader}/present_payment_method",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_terminal_readers_reader_succeed_input",
+      "method": "POST",
+      "path": "/v1/test_helpers/terminal/readers/{reader}/succeed_input_collection",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_terminal_readers_reader_timeout_input",
+      "method": "POST",
+      "path": "/v1/test_helpers/terminal/readers/{reader}/timeout_input_collection",
+      "auth": true
+    },
+    {
+      "name": "get_test_helpers_test_clocks",
+      "method": "GET",
+      "path": "/v1/test_helpers/test_clocks",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_test_clocks",
+      "method": "POST",
+      "path": "/v1/test_helpers/test_clocks",
+      "auth": true
+    },
+    {
+      "name": "get_test_helpers_test_clocks_test_clock",
+      "method": "GET",
+      "path": "/v1/test_helpers/test_clocks/{test_clock}",
+      "auth": true
+    },
+    {
+      "name": "delete_test_helpers_test_clocks_test_clock",
+      "method": "DELETE",
+      "path": "/v1/test_helpers/test_clocks/{test_clock}",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_test_clocks_test_clock_advance",
+      "method": "POST",
+      "path": "/v1/test_helpers/test_clocks/{test_clock}/advance",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_treasury_inbound_transfers_id_fail",
+      "method": "POST",
+      "path": "/v1/test_helpers/treasury/inbound_transfers/{id}/fail",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_treasury_inbound_transfers_id_return",
+      "method": "POST",
+      "path": "/v1/test_helpers/treasury/inbound_transfers/{id}/return",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_treasury_inbound_transfers_id_succeed",
+      "method": "POST",
+      "path": "/v1/test_helpers/treasury/inbound_transfers/{id}/succeed",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_treasury_outbound_payments_id",
+      "method": "POST",
+      "path": "/v1/test_helpers/treasury/outbound_payments/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_treasury_outbound_payments_id_fail",
+      "method": "POST",
+      "path": "/v1/test_helpers/treasury/outbound_payments/{id}/fail",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_treasury_outbound_payments_id_post",
+      "method": "POST",
+      "path": "/v1/test_helpers/treasury/outbound_payments/{id}/post",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_treasury_outbound_payments_id_return",
+      "method": "POST",
+      "path": "/v1/test_helpers/treasury/outbound_payments/{id}/return",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_treasury_outbound_transfers_outbound",
+      "method": "POST",
+      "path": "/v1/test_helpers/treasury/outbound_transfers/{outbound_transfer}",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_treasury_outbound_transfers_outbound_1",
+      "method": "POST",
+      "path": "/v1/test_helpers/treasury/outbound_transfers/{outbound_transfer}/fail",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_treasury_outbound_transfers_outbound_2",
+      "method": "POST",
+      "path": "/v1/test_helpers/treasury/outbound_transfers/{outbound_transfer}/post",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_treasury_outbound_transfers_outbound_3",
+      "method": "POST",
+      "path": "/v1/test_helpers/treasury/outbound_transfers/{outbound_transfer}/return",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_treasury_received_credits",
+      "method": "POST",
+      "path": "/v1/test_helpers/treasury/received_credits",
+      "auth": true
+    },
+    {
+      "name": "post_test_helpers_treasury_received_debits",
+      "method": "POST",
+      "path": "/v1/test_helpers/treasury/received_debits",
+      "auth": true
+    },
+    {
+      "name": "get_three_dsecure_authentications",
+      "method": "GET",
+      "path": "/v1/three_d_secure/authentications",
+      "auth": true
+    },
+    {
+      "name": "post_three_dsecure_authentications",
+      "method": "POST",
+      "path": "/v1/three_d_secure/authentications",
+      "auth": true
+    },
+    {
+      "name": "get_three_dsecure_authentications_authentication",
+      "method": "GET",
+      "path": "/v1/three_d_secure/authentications/{authentication}",
+      "auth": true
+    },
+    {
+      "name": "post_three_dsecure_authentications_authentication_cancel",
+      "method": "POST",
+      "path": "/v1/three_d_secure/authentications/{authentication}/cancel",
+      "auth": true
+    },
+    {
+      "name": "post_three_dsecure_authentications_authentication_submit",
+      "method": "POST",
+      "path": "/v1/three_d_secure/authentications/{authentication}/submit",
+      "auth": true
+    },
+    {
+      "name": "post_tokens",
+      "method": "POST",
+      "path": "/v1/tokens",
+      "auth": true
+    },
+    {
+      "name": "get_tokens_token",
+      "method": "GET",
+      "path": "/v1/tokens/{token}",
+      "auth": true
+    },
+    {
+      "name": "get_topups",
+      "method": "GET",
+      "path": "/v1/topups",
+      "auth": true
+    },
+    {
+      "name": "post_topups",
+      "method": "POST",
+      "path": "/v1/topups",
+      "auth": true
+    },
+    {
+      "name": "get_topups_topup",
+      "method": "GET",
+      "path": "/v1/topups/{topup}",
+      "auth": true
+    },
+    {
+      "name": "post_topups_topup",
+      "method": "POST",
+      "path": "/v1/topups/{topup}",
+      "auth": true
+    },
+    {
+      "name": "post_topups_topup_cancel",
+      "method": "POST",
+      "path": "/v1/topups/{topup}/cancel",
+      "auth": true
+    },
+    {
+      "name": "get_transfers",
+      "method": "GET",
+      "path": "/v1/transfers",
+      "auth": true
+    },
+    {
+      "name": "post_transfers",
+      "method": "POST",
+      "path": "/v1/transfers",
+      "auth": true
+    },
+    {
+      "name": "get_transfers_id_reversals",
+      "method": "GET",
+      "path": "/v1/transfers/{id}/reversals",
+      "auth": true
+    },
+    {
+      "name": "post_transfers_id_reversals",
+      "method": "POST",
+      "path": "/v1/transfers/{id}/reversals",
+      "auth": true
+    },
+    {
+      "name": "get_transfers_transfer",
+      "method": "GET",
+      "path": "/v1/transfers/{transfer}",
+      "auth": true
+    },
+    {
+      "name": "post_transfers_transfer",
+      "method": "POST",
+      "path": "/v1/transfers/{transfer}",
+      "auth": true
+    },
+    {
+      "name": "get_transfers_transfer_reversals_id",
+      "method": "GET",
+      "path": "/v1/transfers/{transfer}/reversals/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_transfers_transfer_reversals_id",
+      "method": "POST",
+      "path": "/v1/transfers/{transfer}/reversals/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_credit_reversals",
+      "method": "GET",
+      "path": "/v1/treasury/credit_reversals",
+      "auth": true
+    },
+    {
+      "name": "post_treasury_credit_reversals",
+      "method": "POST",
+      "path": "/v1/treasury/credit_reversals",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_credit_reversals_credit_reversal",
+      "method": "GET",
+      "path": "/v1/treasury/credit_reversals/{credit_reversal}",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_debit_reversals",
+      "method": "GET",
+      "path": "/v1/treasury/debit_reversals",
+      "auth": true
+    },
+    {
+      "name": "post_treasury_debit_reversals",
+      "method": "POST",
+      "path": "/v1/treasury/debit_reversals",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_debit_reversals_debit_reversal",
+      "method": "GET",
+      "path": "/v1/treasury/debit_reversals/{debit_reversal}",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_financial_accounts",
+      "method": "GET",
+      "path": "/v1/treasury/financial_accounts",
+      "auth": true
+    },
+    {
+      "name": "post_treasury_financial_accounts",
+      "method": "POST",
+      "path": "/v1/treasury/financial_accounts",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_financial_accounts_financial_account",
+      "method": "GET",
+      "path": "/v1/treasury/financial_accounts/{financial_account}",
+      "auth": true
+    },
+    {
+      "name": "post_treasury_financial_accounts_financial_account",
+      "method": "POST",
+      "path": "/v1/treasury/financial_accounts/{financial_account}",
+      "auth": true
+    },
+    {
+      "name": "post_treasury_financial_accounts_financial_account_close",
+      "method": "POST",
+      "path": "/v1/treasury/financial_accounts/{financial_account}/close",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_financial_accounts_financial_account_1",
+      "method": "GET",
+      "path": "/v1/treasury/financial_accounts/{financial_account}/features",
+      "auth": true
+    },
+    {
+      "name": "post_treasury_financial_accounts_financial_account_1",
+      "method": "POST",
+      "path": "/v1/treasury/financial_accounts/{financial_account}/features",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_inbound_transfers",
+      "method": "GET",
+      "path": "/v1/treasury/inbound_transfers",
+      "auth": true
+    },
+    {
+      "name": "post_treasury_inbound_transfers",
+      "method": "POST",
+      "path": "/v1/treasury/inbound_transfers",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_inbound_transfers_id",
+      "method": "GET",
+      "path": "/v1/treasury/inbound_transfers/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_treasury_inbound_transfers_inbound_transfer_cancel",
+      "method": "POST",
+      "path": "/v1/treasury/inbound_transfers/{inbound_transfer}/cancel",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_outbound_payments",
+      "method": "GET",
+      "path": "/v1/treasury/outbound_payments",
+      "auth": true
+    },
+    {
+      "name": "post_treasury_outbound_payments",
+      "method": "POST",
+      "path": "/v1/treasury/outbound_payments",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_outbound_payments_id",
+      "method": "GET",
+      "path": "/v1/treasury/outbound_payments/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_treasury_outbound_payments_id_cancel",
+      "method": "POST",
+      "path": "/v1/treasury/outbound_payments/{id}/cancel",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_outbound_transfers",
+      "method": "GET",
+      "path": "/v1/treasury/outbound_transfers",
+      "auth": true
+    },
+    {
+      "name": "post_treasury_outbound_transfers",
+      "method": "POST",
+      "path": "/v1/treasury/outbound_transfers",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_outbound_transfers_outbound_transfer",
+      "method": "GET",
+      "path": "/v1/treasury/outbound_transfers/{outbound_transfer}",
+      "auth": true
+    },
+    {
+      "name": "post_treasury_outbound_transfers_outbound_transfer_cancel",
+      "method": "POST",
+      "path": "/v1/treasury/outbound_transfers/{outbound_transfer}/cancel",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_received_credits",
+      "method": "GET",
+      "path": "/v1/treasury/received_credits",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_received_credits_id",
+      "method": "GET",
+      "path": "/v1/treasury/received_credits/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_received_debits",
+      "method": "GET",
+      "path": "/v1/treasury/received_debits",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_received_debits_id",
+      "method": "GET",
+      "path": "/v1/treasury/received_debits/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_transaction_entries",
+      "method": "GET",
+      "path": "/v1/treasury/transaction_entries",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_transaction_entries_id",
+      "method": "GET",
+      "path": "/v1/treasury/transaction_entries/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_transactions",
+      "method": "GET",
+      "path": "/v1/treasury/transactions",
+      "auth": true
+    },
+    {
+      "name": "get_treasury_transactions_id",
+      "method": "GET",
+      "path": "/v1/treasury/transactions/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_webhook_endpoints",
+      "method": "GET",
+      "path": "/v1/webhook_endpoints",
+      "auth": true
+    },
+    {
+      "name": "post_webhook_endpoints",
+      "method": "POST",
+      "path": "/v1/webhook_endpoints",
+      "auth": true
+    },
+    {
+      "name": "get_webhook_endpoints_webhook_endpoint",
+      "method": "GET",
+      "path": "/v1/webhook_endpoints/{webhook_endpoint}",
+      "auth": true
+    },
+    {
+      "name": "post_webhook_endpoints_webhook_endpoint",
+      "method": "POST",
+      "path": "/v1/webhook_endpoints/{webhook_endpoint}",
+      "auth": true
+    },
+    {
+      "name": "delete_webhook_endpoints_webhook_endpoint",
+      "method": "DELETE",
+      "path": "/v1/webhook_endpoints/{webhook_endpoint}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_billing_meter_event_adjustments",
+      "method": "POST",
+      "path": "/v2/billing/meter_event_adjustments",
+      "auth": true
+    },
+    {
+      "name": "post_v2_billing_meter_event_session",
+      "method": "POST",
+      "path": "/v2/billing/meter_event_session",
+      "auth": true
+    },
+    {
+      "name": "post_v2_billing_meter_event_stream",
+      "method": "POST",
+      "path": "/v2/billing/meter_event_stream",
+      "auth": true
+    },
+    {
+      "name": "post_v2_billing_meter_events",
+      "method": "POST",
+      "path": "/v2/billing/meter_events",
+      "auth": true
+    },
+    {
+      "name": "get_v2_commerce_product_catalog_imports",
+      "method": "GET",
+      "path": "/v2/commerce/product_catalog/imports",
+      "auth": true
+    },
+    {
+      "name": "post_v2_commerce_product_catalog_imports",
+      "method": "POST",
+      "path": "/v2/commerce/product_catalog/imports",
+      "auth": true
+    },
+    {
+      "name": "get_v2_commerce_product_catalog_imports_id",
+      "method": "GET",
+      "path": "/v2/commerce/product_catalog/imports/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_account_links",
+      "method": "POST",
+      "path": "/v2/core/account_links",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_account_tokens",
+      "method": "POST",
+      "path": "/v2/core/account_tokens",
+      "auth": true
+    },
+    {
+      "name": "get_v2_core_account_tokens_id",
+      "method": "GET",
+      "path": "/v2/core/account_tokens/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_v2_core_accounts",
+      "method": "GET",
+      "path": "/v2/core/accounts",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_accounts",
+      "method": "POST",
+      "path": "/v2/core/accounts",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_accounts_account_id_person_tokens",
+      "method": "POST",
+      "path": "/v2/core/accounts/{account_id}/person_tokens",
+      "auth": true
+    },
+    {
+      "name": "get_v2_core_accounts_account_id_person_tokens_id",
+      "method": "GET",
+      "path": "/v2/core/accounts/{account_id}/person_tokens/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_v2_core_accounts_account_id_persons",
+      "method": "GET",
+      "path": "/v2/core/accounts/{account_id}/persons",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_accounts_account_id_persons",
+      "method": "POST",
+      "path": "/v2/core/accounts/{account_id}/persons",
+      "auth": true
+    },
+    {
+      "name": "get_v2_core_accounts_account_id_persons_id",
+      "method": "GET",
+      "path": "/v2/core/accounts/{account_id}/persons/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_accounts_account_id_persons_id",
+      "method": "POST",
+      "path": "/v2/core/accounts/{account_id}/persons/{id}",
+      "auth": true
+    },
+    {
+      "name": "delete_v2_core_accounts_account_id_persons_id",
+      "method": "DELETE",
+      "path": "/v2/core/accounts/{account_id}/persons/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_v2_core_accounts_id",
+      "method": "GET",
+      "path": "/v2/core/accounts/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_accounts_id",
+      "method": "POST",
+      "path": "/v2/core/accounts/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_accounts_id_close",
+      "method": "POST",
+      "path": "/v2/core/accounts/{id}/close",
+      "auth": true
+    },
+    {
+      "name": "get_v2_core_event_destinations",
+      "method": "GET",
+      "path": "/v2/core/event_destinations",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_event_destinations",
+      "method": "POST",
+      "path": "/v2/core/event_destinations",
+      "auth": true
+    },
+    {
+      "name": "get_v2_core_event_destinations_id",
+      "method": "GET",
+      "path": "/v2/core/event_destinations/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_event_destinations_id",
+      "method": "POST",
+      "path": "/v2/core/event_destinations/{id}",
+      "auth": true
+    },
+    {
+      "name": "delete_v2_core_event_destinations_id",
+      "method": "DELETE",
+      "path": "/v2/core/event_destinations/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_event_destinations_id_disable",
+      "method": "POST",
+      "path": "/v2/core/event_destinations/{id}/disable",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_event_destinations_id_enable",
+      "method": "POST",
+      "path": "/v2/core/event_destinations/{id}/enable",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_event_destinations_id_ping",
+      "method": "POST",
+      "path": "/v2/core/event_destinations/{id}/ping",
+      "auth": true
+    },
+    {
+      "name": "get_v2_core_events",
+      "method": "GET",
+      "path": "/v2/core/events",
+      "auth": true
+    },
+    {
+      "name": "get_v2_core_events_id",
+      "method": "GET",
+      "path": "/v2/core/events/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_v2_core_vault_gb_bank_accounts",
+      "method": "GET",
+      "path": "/v2/core/vault/gb_bank_accounts",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_vault_gb_bank_accounts",
+      "method": "POST",
+      "path": "/v2/core/vault/gb_bank_accounts",
+      "auth": true
+    },
+    {
+      "name": "get_v2_core_vault_gb_bank_accounts_id",
+      "method": "GET",
+      "path": "/v2/core/vault/gb_bank_accounts/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_vault_gb_bank_accounts_id_archive",
+      "method": "POST",
+      "path": "/v2/core/vault/gb_bank_accounts/{id}/archive",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_vault_gb_bank_accounts_id_unarchive",
+      "method": "POST",
+      "path": "/v2/core/vault/gb_bank_accounts/{id}/unarchive",
+      "auth": true
+    },
+    {
+      "name": "get_v2_core_vault_us_bank_accounts",
+      "method": "GET",
+      "path": "/v2/core/vault/us_bank_accounts",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_vault_us_bank_accounts",
+      "method": "POST",
+      "path": "/v2/core/vault/us_bank_accounts",
+      "auth": true
+    },
+    {
+      "name": "get_v2_core_vault_us_bank_accounts_id",
+      "method": "GET",
+      "path": "/v2/core/vault/us_bank_accounts/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_vault_us_bank_accounts_id",
+      "method": "POST",
+      "path": "/v2/core/vault/us_bank_accounts/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_vault_us_bank_accounts_id_archive",
+      "method": "POST",
+      "path": "/v2/core/vault/us_bank_accounts/{id}/archive",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_vault_us_bank_accounts_id_confirm",
+      "method": "POST",
+      "path": "/v2/core/vault/us_bank_accounts/{id}/confirm_microdeposits",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_vault_us_bank_accounts_id_send_microdeposits",
+      "method": "POST",
+      "path": "/v2/core/vault/us_bank_accounts/{id}/send_microdeposits",
+      "auth": true
+    },
+    {
+      "name": "post_v2_core_vault_us_bank_accounts_id_unarchive",
+      "method": "POST",
+      "path": "/v2/core/vault/us_bank_accounts/{id}/unarchive",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_adjustments",
+      "method": "GET",
+      "path": "/v2/money_management/adjustments",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_adjustments_id",
+      "method": "GET",
+      "path": "/v2/money_management/adjustments/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_financial_accounts",
+      "method": "GET",
+      "path": "/v2/money_management/financial_accounts",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_financial_accounts_id",
+      "method": "GET",
+      "path": "/v2/money_management/financial_accounts/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_financial_accounts_id",
+      "method": "POST",
+      "path": "/v2/money_management/financial_accounts/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_financial_addresses",
+      "method": "GET",
+      "path": "/v2/money_management/financial_addresses",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_financial_addresses",
+      "method": "POST",
+      "path": "/v2/money_management/financial_addresses",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_financial_addresses_id",
+      "method": "GET",
+      "path": "/v2/money_management/financial_addresses/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_inbound_transfers",
+      "method": "GET",
+      "path": "/v2/money_management/inbound_transfers",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_inbound_transfers",
+      "method": "POST",
+      "path": "/v2/money_management/inbound_transfers",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_inbound_transfers_id",
+      "method": "GET",
+      "path": "/v2/money_management/inbound_transfers/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_outbound_payments",
+      "method": "GET",
+      "path": "/v2/money_management/outbound_payments",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_outbound_payments",
+      "method": "POST",
+      "path": "/v2/money_management/outbound_payments",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_outbound_payments_id",
+      "method": "GET",
+      "path": "/v2/money_management/outbound_payments/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_outbound_payments_id_cancel",
+      "method": "POST",
+      "path": "/v2/money_management/outbound_payments/{id}/cancel",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_outbound_setup_intents",
+      "method": "GET",
+      "path": "/v2/money_management/outbound_setup_intents",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_outbound_setup_intents",
+      "method": "POST",
+      "path": "/v2/money_management/outbound_setup_intents",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_outbound_setup_intents_id",
+      "method": "GET",
+      "path": "/v2/money_management/outbound_setup_intents/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_outbound_setup_intents_id",
+      "method": "POST",
+      "path": "/v2/money_management/outbound_setup_intents/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_outbound_setup_intents_id_cancel",
+      "method": "POST",
+      "path": "/v2/money_management/outbound_setup_intents/{id}/cancel",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_payout_intents",
+      "method": "GET",
+      "path": "/v2/money_management/payout_intents",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_payout_intents",
+      "method": "POST",
+      "path": "/v2/money_management/payout_intents",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_payout_intents_id",
+      "method": "GET",
+      "path": "/v2/money_management/payout_intents/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_payout_intents_id",
+      "method": "POST",
+      "path": "/v2/money_management/payout_intents/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_payout_intents_id_cancel",
+      "method": "POST",
+      "path": "/v2/money_management/payout_intents/{id}/cancel",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_payout_intents_id_confirm",
+      "method": "POST",
+      "path": "/v2/money_management/payout_intents/{id}/confirm",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_payout_intents_id_refresh_fx",
+      "method": "POST",
+      "path": "/v2/money_management/payout_intents/{id}/refresh_fx_quote",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_payout_intents_id_refresh",
+      "method": "POST",
+      "path": "/v2/money_management/payout_intents/{id}/refresh_recipient_verification",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_payout_methods",
+      "method": "GET",
+      "path": "/v2/money_management/payout_methods",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_payout_methods_id",
+      "method": "GET",
+      "path": "/v2/money_management/payout_methods/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_payout_methods_id_archive",
+      "method": "POST",
+      "path": "/v2/money_management/payout_methods/{id}/archive",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_payout_methods_id_unarchive",
+      "method": "POST",
+      "path": "/v2/money_management/payout_methods/{id}/unarchive",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_payout_methods_bank_account_spec",
+      "method": "GET",
+      "path": "/v2/money_management/payout_methods_bank_account_spec",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_received_credits",
+      "method": "GET",
+      "path": "/v2/money_management/received_credits",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_received_credits_id",
+      "method": "GET",
+      "path": "/v2/money_management/received_credits/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_recipient_verifications",
+      "method": "POST",
+      "path": "/v2/money_management/recipient_verifications",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_recipient_verifications_id",
+      "method": "GET",
+      "path": "/v2/money_management/recipient_verifications/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_recipient_verifications_id",
+      "method": "POST",
+      "path": "/v2/money_management/recipient_verifications/{id}/acknowledge",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_test_helpers_financial_addresses",
+      "method": "POST",
+      "path": "/v2/money_management/test_helpers/financial_addresses/{id}/credit",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_transaction_entries",
+      "method": "GET",
+      "path": "/v2/money_management/transaction_entries",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_transaction_entries_id",
+      "method": "GET",
+      "path": "/v2/money_management/transaction_entries/{id}",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_transactions",
+      "method": "GET",
+      "path": "/v2/money_management/transactions",
+      "auth": true
+    },
+    {
+      "name": "get_v2_money_management_transactions_id",
+      "method": "GET",
+      "path": "/v2/money_management/transactions/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_transactions_id",
+      "method": "POST",
+      "path": "/v2/money_management/transactions/{id}",
+      "auth": true
+    },
+    {
+      "name": "post_v2_money_management_transactions_id_refresh",
+      "method": "POST",
+      "path": "/v2/money_management/transactions/{id}/refresh_regulatory_receipt",
+      "auth": true
+    },
+    {
+      "name": "post_v2_test_helpers_money_management_recipient",
+      "method": "POST",
+      "path": "/v2/test_helpers/money_management/recipient_verifications",
+      "auth": true
+    }
+  ],
+  "skipped": [],
+  "auth": {
+    "scheme_name": "basicAuth",
+    "provider": "static_token",
+    "tier": "self_managed",
+    "secret_key": "STRIPE_BASIC_AUTH",
+    "secret_keys": [
+      "STRIPE_BASIC_AUTH"
+    ],
+    "yaml": {
+      "provider": "static_token",
+      "secret_key": "STRIPE_BASIC_AUTH",
+      "prefix": "Basic",
+      "encoding": "base64"
+    },
+    "notes": []
+  },
+  "notes": [
+    "Operation(s) with their own server, called there instead of the base URL: POST /v1/files \u2192 https://files.stripe.com, GET /v1/quotes/{quote}/pdf \u2192 https://files.stripe.com, POST /v2/billing/meter_event_stream \u2192 https://meter-events.stripe.com",
+    "Request example(s) that do not match their own schema were not used as tests: post_v2_billing_meter_event_adjustments, post_v2_billing_meter_event_stream, post_v2_billing_meter_events, post_v2_commerce_product_catalog_imports, post_v2_core_account_links, post_v2_core_event_destinations, post_v2_core_vault_gb_bank_accounts, post_v2_core_vault_us_bank_accounts, post_v2_money_management_financial_addresses, post_v2_money_management_inbound_transfers, post_v2_money_management_outbound_payments, post_v2_money_management_payout_intents, post_v2_money_management_recipient_verifications, post_v2_money_management_test_helpers_financial_addresses, post_v2_test_helpers_money_management_recipient",
+    "Dropped spec parameter(s) that duplicate the connector credential: token (in body). The configured AuthProvider supplies the credential; exposing it as a call argument would ask the caller for a secret"
+  ],
+  "gate": {
+    "ok": true,
+    "import_ok": true,
+    "pytest_ok": true,
+    "message": "clean build",
+    "pytest_output": "........................................................................ [ 10%]\n........................................................................ [ 21%]\n........................................................................ [ 32%]\n........................................................................ [ 43%]\n........................................................................ [ 54%]\n........................................................................ [ 64%]\n........................................................................ [ 75%]\n........................................................................ [ 86%]\n........................................................................ [ 97%]\n.................                                                        [100%]\n665 passed in 3.69s\n"
+  }
+}

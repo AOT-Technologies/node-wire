@@ -52,17 +52,7 @@ This scenario demonstrates advanced clinical note orchestration for Oracle Healt
     4.  **EHR Verification**: Confirms the document creation by querying for the specific resource ID, ensuring it's properly indexed in the patient's record.
 *   **Implementation**: Uses the `fhir_cerner` connector, demonstrating automated handling of Cerner's strict 422/400 validation rules (for example, numeric practitioner IDs and specific search parameter combinations).
 
-### Scenario 4: Secure document archival (Google Drive Vault)
-This scenario demonstrates secure archival of clinical documentation and incident reports into an access-controlled Google Drive Vault.
-
-*   **Logic Flow**:
-    1.  **Metadata Formatting**: Prepares strict schema mapping for the archival request including folder and recipient metadata.
-    2.  **Upload to Secure Vault**: Pushes the plain-text confidentiality payload to Google Drive using `files.upload`.
-    3.  **Establish Data Access**: Dynamically provisions reader IAM permissions for the designated recipient email using `permissions.create`.
-    4.  **Verify Integrity**: Constructs a secure web-view link and retrieves access logs through `files.get`.
-*   **Implementation**: Uses the `google_drive` connector loaded via `service_account.json` credentials, demonstrating how non-healthcare cloud platforms integrate seamlessly into the orchestration pipeline alongside FHIR standards.
-
-### Scenario 5: AI agent orchestration (MCP)
+### Scenario 4: AI agent orchestration (MCP)
 This scenario demonstrates the platform's highest level of abstraction: an autonomous AI Assistant that uses the **Model Context Protocol (MCP)** to orchestrate complex healthcare workflows through natural language.
 
 *   **Logic Flow**:
@@ -72,7 +62,7 @@ This scenario demonstrates the platform's highest level of abstraction: an auton
     4.  **Transport-aware Interaction**: Shows the active MCP transport in the chat panel and adjusts rendering behavior to match it.
 *   **Implementation**: Uses the `agents` module, providing a unified interface for LLMs to interact with any connector in the platform via a standard MCP bridge.
 
-### Scenario 6: External patient viewer (read-only retrieval)
+### Scenario 5: External patient viewer (read-only retrieval)
 This scenario loads a source EHR chart on demand for target viewer workflows without duplicating chart data or creating new FHIR resources.
 
 *   **Logic Flow**:
@@ -216,19 +206,13 @@ The demo is pre-configured with mock/sandbox endpoints for immediate use. To tes
 3.  **Data**: Use real Patient IDs and Encounter IDs from your target environment.
     - **Cerner Note**: Ensure you use numeric Practitioner IDs (for example, `593923`) and valid CodeSet 72 codes.
 
-### Testing Google Drive Vault (manual end-to-end)
-To test the Google Drive integration manually, follow these specialized setup steps:
+### Testing Google Drive (manual end-to-end)
+Google Drive appears as a generic card with every action the connector has ("Google Drive"). To try it with a service account:
 
 1.  **Service Account**: Create a Service Account in the Google Cloud Console with the **Google Drive API** enabled. Download the JSON key.
-2.  **Secret Configuration**:
-    *   Place the JSON key file somewhere safe on your machine (for example, `/path/to/service_account.json`).
-    *   Update your `.env` file: `GOOGLE_DRIVE_SA_JSON=/path/to/service_account.json`.
-    *   The platform accepts a direct file path for local configuration.
-3.  **Permissions**: If using a specific **Vault Folder ID**, ensure that folder is shared with the Service Account's email address (found in the JSON) with "Editor" or "Manager" permissions.
-4.  **Workflow Verification**:
-    *   **Direct Upload**: Drag a PDF or Image into the "Upload File" zone. Verify the file appears in the drive with correct metadata.
-    *   **Note Archival**: Switch to "Write Note", type a clinical summary, and verify it is archived as a `.txt` file.
-    *   **IAM Check**: Check the "Share" settings on the archived file in Google Drive; the "Recipient Email" specified in the UI is added automatically as a "Reader".
+2.  **Secret Configuration**: set `GOOGLE_DRIVE_SA_JSON` in your `.env` to the key's JSON text or to the path of the key file. `config/connectors.yaml` uses `provider: service_account` with `sa_json_secret: GOOGLE_DRIVE_SA_JSON`.
+3.  **Permissions**: Share the folder or shared drive with the Service Account's email address (found in the JSON), as "Viewer" to read or "Editor" to change files.
+4.  **Try it**: open the **Google Drive** card, pick `drive_files_list`, and run it. For a shared drive, set `supportsalldrives` and `includeitemsfromalldrives` to `true`, `corpora` to `drive` and `driveid` to the drive's ID.
 
 ### Configuring the AI agent (optional)
 To enable the AI Agent chat, configure an LLM provider by following these steps:
@@ -255,4 +239,4 @@ python -m bindings_entrypoint
 ```
 
 3.  Open your browser to `http://localhost:8000/playground/` (or the configured port).
-4.  Switch between **EHR**, **IT Ops**, **Cerner**, **Google Drive Vault**, **AI Agent**, **Slack**, **Stripe**, **Salesforce** and **External Patient Viewer** cards to explore the different workflows.
+4.  Switch between **EHR**, **IT Ops**, **Cerner**, **Google Drive**, **AI Agent**, **Slack**, **Stripe**, **Salesforce** and **External Patient Viewer** cards to explore the different workflows.
