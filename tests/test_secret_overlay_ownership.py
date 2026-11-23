@@ -21,12 +21,12 @@ from node_wire_runtime.tenant_persistence import (
     upsert_tenant_secrets,
 )
 
-_SA = '{"type":"service_account","client_email":"a@b.c"}'
+_TOKEN = "ya29.test-token"  # nosec B105 - test fixture
 
 
 def _drive_secret(config_name: str = "test") -> str:
     return tenant_scoped_secret_key(
-        "acme", "google_drive", "GOOGLE_DRIVE_SA_JSON", config_name=config_name
+        "acme", "google_drive", "GOOGLE_DRIVE_ACCESS_TOKEN", config_name=config_name
     )
 
 
@@ -40,7 +40,9 @@ def test_replace_all_only_replaces_its_own_namespace() -> None:
 
 def test_loading_tenants_keeps_mcp_oauth_tokens() -> None:
     store = ConnectorFactory().store
-    upsert_tenant_secrets("acme", "google_drive", {"GOOGLE_DRIVE_SA_JSON": _SA}, config_name="test")
+    upsert_tenant_secrets(
+        "acme", "google_drive", {"GOOGLE_DRIVE_ACCESS_TOKEN": _TOKEN}, config_name="test"
+    )
     store.create(
         "acme",
         "google_drive",
@@ -53,11 +55,13 @@ def test_loading_tenants_keeps_mcp_oauth_tokens() -> None:
     load_tenants(ConnectorFactory().store)
 
     assert overlay.get_secret("NW_MCP_OAUTH_TOKEN_USER") == '{"access_token": "t"}'
-    assert overlay.get_secret(_drive_secret()) == _SA
+    assert overlay.get_secret(_drive_secret()) == _TOKEN
 
 
 def test_clearing_config_secrets_keeps_other_keys() -> None:
-    upsert_tenant_secrets("acme", "google_drive", {"GOOGLE_DRIVE_SA_JSON": _SA}, config_name="test")
+    upsert_tenant_secrets(
+        "acme", "google_drive", {"GOOGLE_DRIVE_ACCESS_TOKEN": _TOKEN}, config_name="test"
+    )
     overlay = OverlaySecretProvider.instance()
     overlay.set_secret("NW_MCP_OAUTH_TOKEN_USER", "t")
     clear_config_secrets("acme", "google_drive", "test")
@@ -65,10 +69,12 @@ def test_clearing_config_secrets_keeps_other_keys() -> None:
 
 
 def test_upsert_is_durable_without_save() -> None:
-    upsert_tenant_secrets("acme", "google_drive", {"GOOGLE_DRIVE_SA_JSON": _SA}, config_name="test")
+    upsert_tenant_secrets(
+        "acme", "google_drive", {"GOOGLE_DRIVE_ACCESS_TOKEN": _TOKEN}, config_name="test"
+    )
     store = tenant_secret_store()
     assert store is not None
-    assert store.load()["acme"]["google_drive"]["test"] == {"GOOGLE_DRIVE_SA_JSON": _SA}
+    assert store.load()["acme"]["google_drive"]["test"] == {"GOOGLE_DRIVE_ACCESS_TOKEN": _TOKEN}
 
 
 def test_failed_store_write_leaves_overlay_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -84,7 +90,7 @@ def test_failed_store_write_leaves_overlay_unchanged(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(pt, "tenant_secret_store", lambda: _Broken())
     with pytest.raises(OSError):
         upsert_tenant_secrets(
-            "acme", "google_drive", {"GOOGLE_DRIVE_SA_JSON": _SA}, config_name="test"
+            "acme", "google_drive", {"GOOGLE_DRIVE_ACCESS_TOKEN": _TOKEN}, config_name="test"
         )
     assert OverlaySecretProvider.instance().export() == {}
     assert pt.list_secret_logical_keys("acme", "google_drive", "test") == []

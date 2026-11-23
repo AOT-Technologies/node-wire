@@ -1,0 +1,1099 @@
+{
+  "summary": {
+    "id": "slack_api",
+    "spec_source": "https://raw.githubusercontent.com/slackapi/slack-api-specs/master/web-api/slack_web_openapi_v2.json",
+    "spec_version": "2.0",
+    "generator_version": "1.1.1",
+    "spec_content_hash": "757f16c42c4d4bf118881a2d3ce0da974d68e23e4935c28e7962fe45f065fd3a",
+    "error": null,
+    "total_operations": 174,
+    "generated": 174,
+    "soft_dropped": 0,
+    "deprecated": 0,
+    "coverage_warning": false,
+    "default_base_url": "https://slack.com/api"
+  },
+  "generated_actions": [
+    {
+      "name": "admin_apps_approve",
+      "method": "POST",
+      "path": "/admin.apps.approve",
+      "auth": true
+    },
+    {
+      "name": "admin_apps_approved_list",
+      "method": "GET",
+      "path": "/admin.apps.approved.list",
+      "auth": true
+    },
+    {
+      "name": "admin_apps_requests_list",
+      "method": "GET",
+      "path": "/admin.apps.requests.list",
+      "auth": true
+    },
+    {
+      "name": "admin_apps_restrict",
+      "method": "POST",
+      "path": "/admin.apps.restrict",
+      "auth": true
+    },
+    {
+      "name": "admin_apps_restricted_list",
+      "method": "GET",
+      "path": "/admin.apps.restricted.list",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_archive",
+      "method": "POST",
+      "path": "/admin.conversations.archive",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_convert_to_private",
+      "method": "POST",
+      "path": "/admin.conversations.convertToPrivate",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_create",
+      "method": "POST",
+      "path": "/admin.conversations.create",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_delete",
+      "method": "POST",
+      "path": "/admin.conversations.delete",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_disconnect_shared",
+      "method": "POST",
+      "path": "/admin.conversations.disconnectShared",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_ekm_list_original_connected",
+      "method": "GET",
+      "path": "/admin.conversations.ekm.listOriginalConnectedChannelInfo",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_get_conversation_prefs",
+      "method": "GET",
+      "path": "/admin.conversations.getConversationPrefs",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_get_teams",
+      "method": "GET",
+      "path": "/admin.conversations.getTeams",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_invite",
+      "method": "POST",
+      "path": "/admin.conversations.invite",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_rename",
+      "method": "POST",
+      "path": "/admin.conversations.rename",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_restrict_access_add_group",
+      "method": "POST",
+      "path": "/admin.conversations.restrictAccess.addGroup",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_restrict_access_list_groups",
+      "method": "GET",
+      "path": "/admin.conversations.restrictAccess.listGroups",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_restrict_access_remove_group",
+      "method": "POST",
+      "path": "/admin.conversations.restrictAccess.removeGroup",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_search",
+      "method": "GET",
+      "path": "/admin.conversations.search",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_set_conversation_prefs",
+      "method": "POST",
+      "path": "/admin.conversations.setConversationPrefs",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_set_teams",
+      "method": "POST",
+      "path": "/admin.conversations.setTeams",
+      "auth": true
+    },
+    {
+      "name": "admin_conversations_unarchive",
+      "method": "POST",
+      "path": "/admin.conversations.unarchive",
+      "auth": true
+    },
+    {
+      "name": "admin_emoji_add",
+      "method": "POST",
+      "path": "/admin.emoji.add",
+      "auth": true
+    },
+    {
+      "name": "admin_emoji_add_alias",
+      "method": "POST",
+      "path": "/admin.emoji.addAlias",
+      "auth": true
+    },
+    {
+      "name": "admin_emoji_list",
+      "method": "GET",
+      "path": "/admin.emoji.list",
+      "auth": true
+    },
+    {
+      "name": "admin_emoji_remove",
+      "method": "POST",
+      "path": "/admin.emoji.remove",
+      "auth": true
+    },
+    {
+      "name": "admin_emoji_rename",
+      "method": "POST",
+      "path": "/admin.emoji.rename",
+      "auth": true
+    },
+    {
+      "name": "admin_invite_requests_approve",
+      "method": "POST",
+      "path": "/admin.inviteRequests.approve",
+      "auth": true
+    },
+    {
+      "name": "admin_invite_requests_approved_list",
+      "method": "GET",
+      "path": "/admin.inviteRequests.approved.list",
+      "auth": true
+    },
+    {
+      "name": "admin_invite_requests_denied_list",
+      "method": "GET",
+      "path": "/admin.inviteRequests.denied.list",
+      "auth": true
+    },
+    {
+      "name": "admin_invite_requests_deny",
+      "method": "POST",
+      "path": "/admin.inviteRequests.deny",
+      "auth": true
+    },
+    {
+      "name": "admin_invite_requests_list",
+      "method": "GET",
+      "path": "/admin.inviteRequests.list",
+      "auth": true
+    },
+    {
+      "name": "admin_teams_admins_list",
+      "method": "GET",
+      "path": "/admin.teams.admins.list",
+      "auth": true
+    },
+    {
+      "name": "admin_teams_create",
+      "method": "POST",
+      "path": "/admin.teams.create",
+      "auth": true
+    },
+    {
+      "name": "admin_teams_list",
+      "method": "GET",
+      "path": "/admin.teams.list",
+      "auth": true
+    },
+    {
+      "name": "admin_teams_owners_list",
+      "method": "GET",
+      "path": "/admin.teams.owners.list",
+      "auth": true
+    },
+    {
+      "name": "admin_teams_settings_info",
+      "method": "GET",
+      "path": "/admin.teams.settings.info",
+      "auth": true
+    },
+    {
+      "name": "admin_teams_settings_set_default_channels",
+      "method": "POST",
+      "path": "/admin.teams.settings.setDefaultChannels",
+      "auth": true
+    },
+    {
+      "name": "admin_teams_settings_set_description",
+      "method": "POST",
+      "path": "/admin.teams.settings.setDescription",
+      "auth": true
+    },
+    {
+      "name": "admin_teams_settings_set_discoverability",
+      "method": "POST",
+      "path": "/admin.teams.settings.setDiscoverability",
+      "auth": true
+    },
+    {
+      "name": "admin_teams_settings_set_icon",
+      "method": "POST",
+      "path": "/admin.teams.settings.setIcon",
+      "auth": true
+    },
+    {
+      "name": "admin_teams_settings_set_name",
+      "method": "POST",
+      "path": "/admin.teams.settings.setName",
+      "auth": true
+    },
+    {
+      "name": "admin_usergroups_add_channels",
+      "method": "POST",
+      "path": "/admin.usergroups.addChannels",
+      "auth": true
+    },
+    {
+      "name": "admin_usergroups_add_teams",
+      "method": "POST",
+      "path": "/admin.usergroups.addTeams",
+      "auth": true
+    },
+    {
+      "name": "admin_usergroups_list_channels",
+      "method": "GET",
+      "path": "/admin.usergroups.listChannels",
+      "auth": true
+    },
+    {
+      "name": "admin_usergroups_remove_channels",
+      "method": "POST",
+      "path": "/admin.usergroups.removeChannels",
+      "auth": true
+    },
+    {
+      "name": "admin_users_assign",
+      "method": "POST",
+      "path": "/admin.users.assign",
+      "auth": true
+    },
+    {
+      "name": "admin_users_invite",
+      "method": "POST",
+      "path": "/admin.users.invite",
+      "auth": true
+    },
+    {
+      "name": "admin_users_list",
+      "method": "GET",
+      "path": "/admin.users.list",
+      "auth": true
+    },
+    {
+      "name": "admin_users_remove",
+      "method": "POST",
+      "path": "/admin.users.remove",
+      "auth": true
+    },
+    {
+      "name": "admin_users_session_invalidate",
+      "method": "POST",
+      "path": "/admin.users.session.invalidate",
+      "auth": true
+    },
+    {
+      "name": "admin_users_session_reset",
+      "method": "POST",
+      "path": "/admin.users.session.reset",
+      "auth": true
+    },
+    {
+      "name": "admin_users_set_admin",
+      "method": "POST",
+      "path": "/admin.users.setAdmin",
+      "auth": true
+    },
+    {
+      "name": "admin_users_set_expiration",
+      "method": "POST",
+      "path": "/admin.users.setExpiration",
+      "auth": true
+    },
+    {
+      "name": "admin_users_set_owner",
+      "method": "POST",
+      "path": "/admin.users.setOwner",
+      "auth": true
+    },
+    {
+      "name": "admin_users_set_regular",
+      "method": "POST",
+      "path": "/admin.users.setRegular",
+      "auth": true
+    },
+    {
+      "name": "api_test",
+      "method": "GET",
+      "path": "/api.test",
+      "auth": true
+    },
+    {
+      "name": "apps_event_authorizations_list",
+      "method": "GET",
+      "path": "/apps.event.authorizations.list",
+      "auth": true
+    },
+    {
+      "name": "apps_permissions_info",
+      "method": "GET",
+      "path": "/apps.permissions.info",
+      "auth": true
+    },
+    {
+      "name": "apps_permissions_request",
+      "method": "GET",
+      "path": "/apps.permissions.request",
+      "auth": true
+    },
+    {
+      "name": "apps_permissions_resources_list",
+      "method": "GET",
+      "path": "/apps.permissions.resources.list",
+      "auth": true
+    },
+    {
+      "name": "apps_permissions_scopes_list",
+      "method": "GET",
+      "path": "/apps.permissions.scopes.list",
+      "auth": true
+    },
+    {
+      "name": "apps_permissions_users_list",
+      "method": "GET",
+      "path": "/apps.permissions.users.list",
+      "auth": true
+    },
+    {
+      "name": "apps_permissions_users_request",
+      "method": "GET",
+      "path": "/apps.permissions.users.request",
+      "auth": true
+    },
+    {
+      "name": "apps_uninstall",
+      "method": "GET",
+      "path": "/apps.uninstall",
+      "auth": true
+    },
+    {
+      "name": "auth_revoke",
+      "method": "GET",
+      "path": "/auth.revoke",
+      "auth": true
+    },
+    {
+      "name": "auth_test",
+      "method": "GET",
+      "path": "/auth.test",
+      "auth": true
+    },
+    {
+      "name": "bots_info",
+      "method": "GET",
+      "path": "/bots.info",
+      "auth": true
+    },
+    {
+      "name": "calls_add",
+      "method": "POST",
+      "path": "/calls.add",
+      "auth": true
+    },
+    {
+      "name": "calls_end",
+      "method": "POST",
+      "path": "/calls.end",
+      "auth": true
+    },
+    {
+      "name": "calls_info",
+      "method": "GET",
+      "path": "/calls.info",
+      "auth": true
+    },
+    {
+      "name": "calls_participants_add",
+      "method": "POST",
+      "path": "/calls.participants.add",
+      "auth": true
+    },
+    {
+      "name": "calls_participants_remove",
+      "method": "POST",
+      "path": "/calls.participants.remove",
+      "auth": true
+    },
+    {
+      "name": "calls_update",
+      "method": "POST",
+      "path": "/calls.update",
+      "auth": true
+    },
+    {
+      "name": "chat_delete",
+      "method": "POST",
+      "path": "/chat.delete",
+      "auth": true
+    },
+    {
+      "name": "chat_delete_scheduled_message",
+      "method": "POST",
+      "path": "/chat.deleteScheduledMessage",
+      "auth": true
+    },
+    {
+      "name": "chat_get_permalink",
+      "method": "GET",
+      "path": "/chat.getPermalink",
+      "auth": true
+    },
+    {
+      "name": "chat_me_message",
+      "method": "POST",
+      "path": "/chat.meMessage",
+      "auth": true
+    },
+    {
+      "name": "chat_post_ephemeral",
+      "method": "POST",
+      "path": "/chat.postEphemeral",
+      "auth": true
+    },
+    {
+      "name": "chat_post_message",
+      "method": "POST",
+      "path": "/chat.postMessage",
+      "auth": true
+    },
+    {
+      "name": "chat_schedule_message",
+      "method": "POST",
+      "path": "/chat.scheduleMessage",
+      "auth": true
+    },
+    {
+      "name": "chat_scheduled_messages_list",
+      "method": "GET",
+      "path": "/chat.scheduledMessages.list",
+      "auth": true
+    },
+    {
+      "name": "chat_unfurl",
+      "method": "POST",
+      "path": "/chat.unfurl",
+      "auth": true
+    },
+    {
+      "name": "chat_update",
+      "method": "POST",
+      "path": "/chat.update",
+      "auth": true
+    },
+    {
+      "name": "conversations_archive",
+      "method": "POST",
+      "path": "/conversations.archive",
+      "auth": true
+    },
+    {
+      "name": "conversations_close",
+      "method": "POST",
+      "path": "/conversations.close",
+      "auth": true
+    },
+    {
+      "name": "conversations_create",
+      "method": "POST",
+      "path": "/conversations.create",
+      "auth": true
+    },
+    {
+      "name": "conversations_history",
+      "method": "GET",
+      "path": "/conversations.history",
+      "auth": true
+    },
+    {
+      "name": "conversations_info",
+      "method": "GET",
+      "path": "/conversations.info",
+      "auth": true
+    },
+    {
+      "name": "conversations_invite",
+      "method": "POST",
+      "path": "/conversations.invite",
+      "auth": true
+    },
+    {
+      "name": "conversations_join",
+      "method": "POST",
+      "path": "/conversations.join",
+      "auth": true
+    },
+    {
+      "name": "conversations_kick",
+      "method": "POST",
+      "path": "/conversations.kick",
+      "auth": true
+    },
+    {
+      "name": "conversations_leave",
+      "method": "POST",
+      "path": "/conversations.leave",
+      "auth": true
+    },
+    {
+      "name": "conversations_list",
+      "method": "GET",
+      "path": "/conversations.list",
+      "auth": true
+    },
+    {
+      "name": "conversations_mark",
+      "method": "POST",
+      "path": "/conversations.mark",
+      "auth": true
+    },
+    {
+      "name": "conversations_members",
+      "method": "GET",
+      "path": "/conversations.members",
+      "auth": true
+    },
+    {
+      "name": "conversations_open",
+      "method": "POST",
+      "path": "/conversations.open",
+      "auth": true
+    },
+    {
+      "name": "conversations_rename",
+      "method": "POST",
+      "path": "/conversations.rename",
+      "auth": true
+    },
+    {
+      "name": "conversations_replies",
+      "method": "GET",
+      "path": "/conversations.replies",
+      "auth": true
+    },
+    {
+      "name": "conversations_set_purpose",
+      "method": "POST",
+      "path": "/conversations.setPurpose",
+      "auth": true
+    },
+    {
+      "name": "conversations_set_topic",
+      "method": "POST",
+      "path": "/conversations.setTopic",
+      "auth": true
+    },
+    {
+      "name": "conversations_unarchive",
+      "method": "POST",
+      "path": "/conversations.unarchive",
+      "auth": true
+    },
+    {
+      "name": "dialog_open",
+      "method": "GET",
+      "path": "/dialog.open",
+      "auth": true
+    },
+    {
+      "name": "dnd_end_dnd",
+      "method": "POST",
+      "path": "/dnd.endDnd",
+      "auth": true
+    },
+    {
+      "name": "dnd_end_snooze",
+      "method": "POST",
+      "path": "/dnd.endSnooze",
+      "auth": true
+    },
+    {
+      "name": "dnd_info",
+      "method": "GET",
+      "path": "/dnd.info",
+      "auth": true
+    },
+    {
+      "name": "dnd_set_snooze",
+      "method": "POST",
+      "path": "/dnd.setSnooze",
+      "auth": true
+    },
+    {
+      "name": "dnd_team_info",
+      "method": "GET",
+      "path": "/dnd.teamInfo",
+      "auth": true
+    },
+    {
+      "name": "emoji_list",
+      "method": "GET",
+      "path": "/emoji.list",
+      "auth": true
+    },
+    {
+      "name": "files_comments_delete",
+      "method": "POST",
+      "path": "/files.comments.delete",
+      "auth": true
+    },
+    {
+      "name": "files_delete",
+      "method": "POST",
+      "path": "/files.delete",
+      "auth": true
+    },
+    {
+      "name": "files_info",
+      "method": "GET",
+      "path": "/files.info",
+      "auth": true
+    },
+    {
+      "name": "files_list",
+      "method": "GET",
+      "path": "/files.list",
+      "auth": true
+    },
+    {
+      "name": "files_remote_add",
+      "method": "POST",
+      "path": "/files.remote.add",
+      "auth": true
+    },
+    {
+      "name": "files_remote_info",
+      "method": "GET",
+      "path": "/files.remote.info",
+      "auth": true
+    },
+    {
+      "name": "files_remote_list",
+      "method": "GET",
+      "path": "/files.remote.list",
+      "auth": true
+    },
+    {
+      "name": "files_remote_remove",
+      "method": "POST",
+      "path": "/files.remote.remove",
+      "auth": true
+    },
+    {
+      "name": "files_remote_share",
+      "method": "GET",
+      "path": "/files.remote.share",
+      "auth": true
+    },
+    {
+      "name": "files_remote_update",
+      "method": "POST",
+      "path": "/files.remote.update",
+      "auth": true
+    },
+    {
+      "name": "files_revoke_public_url",
+      "method": "POST",
+      "path": "/files.revokePublicURL",
+      "auth": true
+    },
+    {
+      "name": "files_shared_public_url",
+      "method": "POST",
+      "path": "/files.sharedPublicURL",
+      "auth": true
+    },
+    {
+      "name": "files_upload",
+      "method": "POST",
+      "path": "/files.upload",
+      "auth": true
+    },
+    {
+      "name": "migration_exchange",
+      "method": "GET",
+      "path": "/migration.exchange",
+      "auth": true
+    },
+    {
+      "name": "oauth_access",
+      "method": "GET",
+      "path": "/oauth.access",
+      "auth": true
+    },
+    {
+      "name": "oauth_token",
+      "method": "GET",
+      "path": "/oauth.token",
+      "auth": true
+    },
+    {
+      "name": "oauth_v2_access",
+      "method": "GET",
+      "path": "/oauth.v2.access",
+      "auth": true
+    },
+    {
+      "name": "pins_add",
+      "method": "POST",
+      "path": "/pins.add",
+      "auth": true
+    },
+    {
+      "name": "pins_list",
+      "method": "GET",
+      "path": "/pins.list",
+      "auth": true
+    },
+    {
+      "name": "pins_remove",
+      "method": "POST",
+      "path": "/pins.remove",
+      "auth": true
+    },
+    {
+      "name": "reactions_add",
+      "method": "POST",
+      "path": "/reactions.add",
+      "auth": true
+    },
+    {
+      "name": "reactions_get",
+      "method": "GET",
+      "path": "/reactions.get",
+      "auth": true
+    },
+    {
+      "name": "reactions_list",
+      "method": "GET",
+      "path": "/reactions.list",
+      "auth": true
+    },
+    {
+      "name": "reactions_remove",
+      "method": "POST",
+      "path": "/reactions.remove",
+      "auth": true
+    },
+    {
+      "name": "reminders_add",
+      "method": "POST",
+      "path": "/reminders.add",
+      "auth": true
+    },
+    {
+      "name": "reminders_complete",
+      "method": "POST",
+      "path": "/reminders.complete",
+      "auth": true
+    },
+    {
+      "name": "reminders_delete",
+      "method": "POST",
+      "path": "/reminders.delete",
+      "auth": true
+    },
+    {
+      "name": "reminders_info",
+      "method": "GET",
+      "path": "/reminders.info",
+      "auth": true
+    },
+    {
+      "name": "reminders_list",
+      "method": "GET",
+      "path": "/reminders.list",
+      "auth": true
+    },
+    {
+      "name": "rtm_connect",
+      "method": "GET",
+      "path": "/rtm.connect",
+      "auth": true
+    },
+    {
+      "name": "search_messages",
+      "method": "GET",
+      "path": "/search.messages",
+      "auth": true
+    },
+    {
+      "name": "stars_add",
+      "method": "POST",
+      "path": "/stars.add",
+      "auth": true
+    },
+    {
+      "name": "stars_list",
+      "method": "GET",
+      "path": "/stars.list",
+      "auth": true
+    },
+    {
+      "name": "stars_remove",
+      "method": "POST",
+      "path": "/stars.remove",
+      "auth": true
+    },
+    {
+      "name": "team_access_logs",
+      "method": "GET",
+      "path": "/team.accessLogs",
+      "auth": true
+    },
+    {
+      "name": "team_billable_info",
+      "method": "GET",
+      "path": "/team.billableInfo",
+      "auth": true
+    },
+    {
+      "name": "team_info",
+      "method": "GET",
+      "path": "/team.info",
+      "auth": true
+    },
+    {
+      "name": "team_integration_logs",
+      "method": "GET",
+      "path": "/team.integrationLogs",
+      "auth": true
+    },
+    {
+      "name": "team_profile_get",
+      "method": "GET",
+      "path": "/team.profile.get",
+      "auth": true
+    },
+    {
+      "name": "usergroups_create",
+      "method": "POST",
+      "path": "/usergroups.create",
+      "auth": true
+    },
+    {
+      "name": "usergroups_disable",
+      "method": "POST",
+      "path": "/usergroups.disable",
+      "auth": true
+    },
+    {
+      "name": "usergroups_enable",
+      "method": "POST",
+      "path": "/usergroups.enable",
+      "auth": true
+    },
+    {
+      "name": "usergroups_list",
+      "method": "GET",
+      "path": "/usergroups.list",
+      "auth": true
+    },
+    {
+      "name": "usergroups_update",
+      "method": "POST",
+      "path": "/usergroups.update",
+      "auth": true
+    },
+    {
+      "name": "usergroups_users_list",
+      "method": "GET",
+      "path": "/usergroups.users.list",
+      "auth": true
+    },
+    {
+      "name": "usergroups_users_update",
+      "method": "POST",
+      "path": "/usergroups.users.update",
+      "auth": true
+    },
+    {
+      "name": "users_conversations",
+      "method": "GET",
+      "path": "/users.conversations",
+      "auth": true
+    },
+    {
+      "name": "users_delete_photo",
+      "method": "POST",
+      "path": "/users.deletePhoto",
+      "auth": true
+    },
+    {
+      "name": "users_get_presence",
+      "method": "GET",
+      "path": "/users.getPresence",
+      "auth": true
+    },
+    {
+      "name": "users_identity",
+      "method": "GET",
+      "path": "/users.identity",
+      "auth": true
+    },
+    {
+      "name": "users_info",
+      "method": "GET",
+      "path": "/users.info",
+      "auth": true
+    },
+    {
+      "name": "users_list",
+      "method": "GET",
+      "path": "/users.list",
+      "auth": true
+    },
+    {
+      "name": "users_lookup_by_email",
+      "method": "GET",
+      "path": "/users.lookupByEmail",
+      "auth": true
+    },
+    {
+      "name": "users_profile_get",
+      "method": "GET",
+      "path": "/users.profile.get",
+      "auth": true
+    },
+    {
+      "name": "users_profile_set",
+      "method": "POST",
+      "path": "/users.profile.set",
+      "auth": true
+    },
+    {
+      "name": "users_set_active",
+      "method": "POST",
+      "path": "/users.setActive",
+      "auth": true
+    },
+    {
+      "name": "users_set_photo",
+      "method": "POST",
+      "path": "/users.setPhoto",
+      "auth": true
+    },
+    {
+      "name": "users_set_presence",
+      "method": "POST",
+      "path": "/users.setPresence",
+      "auth": true
+    },
+    {
+      "name": "views_open",
+      "method": "GET",
+      "path": "/views.open",
+      "auth": true
+    },
+    {
+      "name": "views_publish",
+      "method": "GET",
+      "path": "/views.publish",
+      "auth": true
+    },
+    {
+      "name": "views_push",
+      "method": "GET",
+      "path": "/views.push",
+      "auth": true
+    },
+    {
+      "name": "views_update",
+      "method": "GET",
+      "path": "/views.update",
+      "auth": true
+    },
+    {
+      "name": "workflows_step_completed",
+      "method": "GET",
+      "path": "/workflows.stepCompleted",
+      "auth": true
+    },
+    {
+      "name": "workflows_step_failed",
+      "method": "GET",
+      "path": "/workflows.stepFailed",
+      "auth": true
+    },
+    {
+      "name": "workflows_update_step",
+      "method": "GET",
+      "path": "/workflows.updateStep",
+      "auth": true
+    }
+  ],
+  "skipped": [],
+  "auth": {
+    "scheme_name": "slackAuth",
+    "provider": "static_token",
+    "tier": "host_supplied",
+    "secret_key": "SLACK_API_ACCESS_TOKEN",
+    "secret_keys": [
+      "SLACK_API_ACCESS_TOKEN"
+    ],
+    "yaml": {
+      "provider": "static_token",
+      "secret_key": "SLACK_API_ACCESS_TOKEN",
+      "header_name": "Authorization",
+      "prefix": "Bearer",
+      "host_supplied": true
+    },
+    "notes": [
+      "HOST-SUPPLIED CREDENTIAL: scheme 'slackAuth' declares oauth2 flow(s) ['authorizationCode']. Node Wire never acquires this credential \u2014 the host application must obtain it (e.g. complete the provider's own auth flow) and set SLACK_API_ACCESS_TOKEN itself. Node Wire will present whatever value is there as a Bearer token but performs no refresh and detects no expiry; a stale token surfaces as a plain 401 from the API, not a managed refresh cycle.",
+      "Host auth documentation: authorizationUrl=https://slack.com/oauth/authorize",
+      "Host auth documentation: tokenUrl=https://slack.com/api/oauth.access"
+    ]
+  },
+  "notes": [
+    "Dropped spec parameter(s) that duplicate the connector credential: token (in body), token (in header), token (in query). The configured AuthProvider supplies the credential; exposing it as a call argument would ask the caller for a secret",
+    "Success-flag envelope: 170 of 174 action(s) treat a 2xx body with ok=false as a business error, because the success schema declares ok as a required boolean (admin_apps_approve, admin_apps_approved_list, admin_apps_requests_list, admin_apps_restrict, admin_apps_restricted_list, +165 more)"
+  ],
+  "gate": {
+    "ok": true,
+    "import_ok": true,
+    "pytest_ok": true,
+    "message": "clean build",
+    "pytest_output": "........................................................................ [ 41%]\n........................................................................ [ 82%]\n..............................                                           [100%]\n174 passed in 2.61s\n"
+  },
+  "wire": {
+    "ok": true,
+    "wired": true
+  }
+}

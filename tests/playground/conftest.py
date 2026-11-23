@@ -26,6 +26,10 @@ os.environ["NW_ALLOWED_CONNECTORS"] = (
 )
 os.environ["NW_CONFIG_PATH"] = str(_REPO_ROOT / "config" / "connectors.yaml")
 os.environ["NW_REST_LOAD_DOTENV"] = "true"
+# The playground server runs with REST auth off, so its calls carry no principal or scopes; the
+# default `deny` scope policy (which .env may also set) would refuse every action. Auth-disabled
+# bindings need `allow`: docs/connectors-build.md#security-rest-plugins-secrets.
+os.environ["NW_MCP_SCOPE_POLICY_DEFAULT"] = "allow"
 
 # Load .env before any app imports so connectors initialise with real credentials.
 load_dotenv(override=False)

@@ -291,6 +291,11 @@ class ConnectorFactory:
         self._loop: asyncio.AbstractEventLoop | None = None
 
     @property
+    def config_path(self) -> str:
+        """The resolved ``connectors.yaml`` path (exposure profiles live beside its folder)."""
+        return self._config_path
+
+    @property
     def store(self) -> ConnectorConfigStore:
         """The runtime connector config store backing this factory."""
         return self._store
@@ -520,6 +525,8 @@ class ConnectorFactory:
                 secret_provider=sp,
                 sa_json_secret=auth_cfg["sa_json_secret"],
                 scopes=auth_cfg.get("scopes"),
+                # Google Drive is a REST connector: it sends the token as an Authorization header.
+                bearer_header=True,
             )
 
         if provider_type == "upstream_bearer":

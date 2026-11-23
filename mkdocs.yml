@@ -123,6 +123,7 @@ nav:
   - Connectors:
     - Use a Connector: connectors.md
     - Connector Reference: connector-reference.md
+    - Action Exposure: exposure.md
     - Build a Connector: connectors-build.md
     - Google Drive: google_drive_connector.md
     - Salesforce: salesforce_connector.md

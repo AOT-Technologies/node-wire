@@ -37,6 +37,7 @@ ALL_PACKAGES=(
   packages/connectors/http_generic
   packages/connectors/slack
   packages/connectors/github
+  packages/connectors/slack_api
 )
 
 

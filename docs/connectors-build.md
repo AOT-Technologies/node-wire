@@ -290,32 +290,37 @@ connectors:
 
 Declare an `error_map` class attribute on your connector to translate raised exceptions into the standard error taxonomy — including exceptions raised outside the connector class or shared across modules (for example, `.exceptions`).
 
-`src/node_wire_stripe/logic.py` is the worked example — one entry per SDK exception,
-covering all four categories:
+Generated REST connectors (GitHub, Slack API, Stripe) get this map written for them. A 401 is an auth
+error, a 429 is retryable, a 502, 503 or 504 is retryable on reads and deletes only (a gateway error on a
+write may already have run it), and any other status stays `BUSINESS`:
 
 ```python
 from typing import ClassVar
 
+from node_wire_runtime import RestAuthError, RestConnector, RestRateLimited, RestUnavailable
 from node_wire_runtime.models import ErrorCategory
 
 
-class StripeConnector(BaseConnector):
+class StripeConnector(RestConnector):
     connector_id = "stripe"
-    output_model = StripeOperationOutput
 
     error_map: ClassVar[dict[type[BaseException], tuple[ErrorCategory, str]]] = {
-        stripe.error.RateLimitError: (ErrorCategory.RETRYABLE, "STRIPE_RATE_LIMIT"),
-        stripe.error.APIConnectionError: (ErrorCategory.RETRYABLE, "STRIPE_API_CONNECTION"),
-        stripe.error.CardError: (ErrorCategory.BUSINESS, "STRIPE_CARD_ERROR"),
-        stripe.error.InvalidRequestError: (ErrorCategory.BUSINESS, "STRIPE_INVALID_REQUEST"),
-        stripe.error.AuthenticationError: (ErrorCategory.AUTH, "STRIPE_AUTH_ERROR"),
-        stripe.error.StripeError: (ErrorCategory.FATAL, "STRIPE_ERROR"),
+        httpx.TimeoutException: (ErrorCategory.RETRYABLE, "HTTP_TIMEOUT"),
+        httpx.ConnectError: (ErrorCategory.RETRYABLE, "HTTP_CONNECT_ERROR"),
+        httpx.RequestError: (ErrorCategory.FATAL, "HTTP_REQUEST_ERROR"),
+        httpx.HTTPStatusError: (ErrorCategory.BUSINESS, "HTTP_STATUS_ERROR"),
+        RestAuthError: (ErrorCategory.AUTH, "HTTP_AUTH_ERROR"),
+        RestRateLimited: (ErrorCategory.RETRYABLE, "HTTP_RATE_LIMITED"),
+        RestUnavailable: (ErrorCategory.RETRYABLE, "HTTP_UNAVAILABLE"),
     }
 ```
 
-Dict order is irrelevant: resolution walks the raised exception's MRO and takes the
-closest match. `StripeError` is the base class of the preceding rows, so it acts as the
-catch-all for any Stripe exception not named explicitly.
+A hand-written connector maps its own library's exceptions instead: `src/node_wire_smtp/logic.py` is a worked
+example (connect errors and timeouts retryable, a failed login `AUTH`, any other SMTP error `BUSINESS`).
+
+Dict order is irrelevant: resolution walks the raised exception's MRO and takes the closest match.
+`httpx.HTTPStatusError` is the base class of `RestAuthError`, `RestRateLimited` and `RestUnavailable`, so it acts
+as the catch-all for any other status.
 
 `BaseConnector.__init_subclass__` registers these with `ErrorMapper` as soon as `logic.py` is imported — **always scoped to your connector's own `connector_id`**.
 
@@ -601,7 +606,7 @@ The `static_token` block takes the following fields:
 | `header_name` | No | `Authorization` | HTTP header the token is injected into. |
 | `prefix` | No | `Bearer` (no trailing space) | String prepended to the token value. The provider inserts a single space between `prefix` and the token itself — do **not** add a trailing space to `prefix` yourself, or you'll get a double space. Set `prefix: ""` for APIs that expect the raw token (for example, Stripe). Set `prefix: "token"` for APIs that require the `token` scheme (check your vendor's auth docs). |
 
-So `slack` (no `header_name`/`prefix`) produces `Authorization: Bearer <SLACK_BOT_TOKEN>`, and `stripe` (with `prefix: ""`) produces `Authorization: <STRIPE_API_KEY>`.
+So `slack` (no `header_name`/`prefix`) produces `Authorization: Bearer <SLACK_BOT_TOKEN>`, and `stripe` (HTTP Basic, `prefix: Basic` + `encoding: base64`) produces `Authorization: Basic base64(<STRIPE_BASIC_AUTH>)`.
 
 The secret is fetched **once** and cached for the lifetime of the provider instance — `refresh()` only invalidates that cache so the *next* call re-reads the secret; it does not rotate or renew the credential itself. There is no TTL or background refresh. Recreate the provider (for example, redeploy) if the underlying secret is rotated.
 
@@ -646,9 +651,9 @@ connectors:
     enabled: true
     auth:
       provider: static_token
-      secret_key: stripe_api_key
-      header_name: Authorization
-      prefix: ""  # Stripe expects raw key; env var is STRIPE_API_KEY
+      secret_key: STRIPE_BASIC_AUTH
+      prefix: Basic
+      encoding: base64  # value is "<secret key>:"
 
   smtp:
     enabled: true

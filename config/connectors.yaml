@@ -34,18 +34,19 @@ connectors:
     exposed_via: ["rest", "grpc", "mcp"]  # keeping REST unless you explicitly want to remove it
     auth:
       provider: static_token
-      secret_key: stripe_api_key
-      header_name: Authorization
-      prefix: ""  # Stripe expects raw key
+      secret_key: STRIPE_BASIC_AUTH
+      prefix: Basic
+      encoding: base64  # value is "<secret key>:"
 
   google_drive:
     enabled: true
     exposed_via: ["rest", "grpc", "mcp"]
     auth:
       provider: service_account
-      sa_json_secret: GOOGLE_DRIVE_SA_JSON
+      sa_json_secret: GOOGLE_DRIVE_SA_JSON  # the service-account key: its JSON text, or a path to the file
       scopes:
       - https://www.googleapis.com/auth/drive
+    # For a plain OAuth2 access token instead, use: provider: static_token, secret_key: GOOGLE_DRIVE_ACCESS_TOKEN
     # OIDC / per-user Drive (ToolHive upstream bearer passthrough) — credential
     # relay, a trust-boundary decision: Node Wire forwards the caller's own inbound
     # token to Google Drive's API as-is, verifying nothing about whether that token
@@ -130,3 +131,16 @@ connectors:
     headers:
       Accept: application/vnd.github+json
       X-GitHub-Api-Version: '2022-11-28'
+  slack_api:
+    enabled: true
+    exposed_via:
+    - rest
+    - grpc
+    - mcp
+    base_url: https://slack.com/api
+    auth:
+      provider: static_token
+      secret_key: SLACK_API_ACCESS_TOKEN
+      header_name: Authorization
+      prefix: Bearer
+      host_supplied: true

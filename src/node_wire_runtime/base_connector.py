@@ -293,9 +293,15 @@ def sdk_action(
     rate_limit: Optional[Dict[str, Any]] = None,
     deprecated: bool = False,
     idempotent: Optional[bool] = None,
+    http_method: Optional[str] = None,
+    http_path: Optional[str] = None,
+    tags: Tuple[str, ...] = (),
 ):
     """
     Mark a connector method as a named, auto-discoverable action.
+
+    http_method / http_path / tags are descriptive only (set by generated connectors);
+    action exposure profiles select on them. They never change how the action runs.
 
     The decorated method must be async and have full type annotations for its
     params (first arg after self) and return type.
@@ -319,6 +325,9 @@ def sdk_action(
         fn._rate_limit = rate_limit
         fn._deprecated = deprecated
         fn._idempotent = idempotent
+        fn._http_method = http_method
+        fn._http_path = http_path
+        fn._tags = tuple(tags)
         # Backward-compatible alias for legacy callers/tests.
         fn._nw_action_name = name
         return fn
@@ -336,6 +345,9 @@ def nw_action(
     rate_limit: Optional[Dict[str, Any]] = None,
     deprecated: bool = False,
     idempotent: Optional[bool] = None,
+    http_method: Optional[str] = None,
+    http_path: Optional[str] = None,
+    tags: Tuple[str, ...] = (),
 ):
     """Backward-compatible decorator alias for sdk_action().
 
@@ -351,6 +363,9 @@ def nw_action(
         rate_limit=rate_limit,
         deprecated=deprecated,
         idempotent=idempotent,
+        http_method=http_method,
+        http_path=http_path,
+        tags=tags,
     )
 
 
@@ -370,6 +385,9 @@ class NwActionMeta:
     deprecated: bool = False
     # None: judged per failed HTTP request (method, idempotency headers); see with_resilience.
     idempotent: Optional[bool] = None
+    http_method: Optional[str] = None
+    http_path: Optional[str] = None
+    tags: Tuple[str, ...] = ()
 
 
 def _breaker_setting(connector_id: str, suffix: str, default: Any, cast: Any) -> Any:
@@ -486,6 +504,9 @@ class BaseConnector(ABC):
                 rate_limit=getattr(method, "_rate_limit", None),
                 deprecated=getattr(method, "_deprecated", False),
                 idempotent=getattr(method, "_idempotent", None),
+                http_method=getattr(method, "_http_method", None),
+                http_path=getattr(method, "_http_path", None),
+                tags=getattr(method, "_tags", ()),
             )
 
         cls._action_registry = registry

@@ -86,6 +86,14 @@ def test_generated_dockerfile_pip_failure_is_not_masked_by_pycache_cleanup() -> 
     )
 
 
+def test_generated_dockerfile_installs_local_wheels_by_path() -> None:
+    """Regression: installing by name let pip pick a same-version PyPI release
+    of node-wire-runtime over the freshly built wheel in /wheels."""
+    text = _sample_dockerfile()
+    assert "/wheels/*.whl" in text
+    assert "node-wire-runtime node-wire-bindings" not in text
+
+
 def test_generated_dockerfile_ships_bytecode() -> None:
     """The app user cannot write __pycache__, so .pyc must be built into the image;
     deleting them made every container start recompile its imports."""
@@ -140,3 +148,25 @@ def test_repo_dockerfiles_share_generated_base_digest() -> None:
         assert PYTHON_313_SLIM_IMAGE in contents, (
             f"{path.relative_to(_REPO_ROOT)} must use {PYTHON_313_SLIM_IMAGE}"
         )
+
+
+def test_exposure_profiles_are_copied_only_when_the_project_has_them(tmp_path: Path) -> None:
+    from nw_mcp_builder.generate.connector_project import copy_profiles, profiles_in_sync
+
+    kwargs = dict(
+        module_name="smtp_nw_mcp", connector_id="smtp", connector_pkg="node-wire-smtp", mcp_dep="m"
+    )
+    assert "expose/" not in _dockerfile(**kwargs)
+    assert "COPY --chmod=0755 expose/ /app/expose/" in _dockerfile(**kwargs, with_profiles=True)
+    assert "!expose/**" in _dockerignore()
+
+    root, project = tmp_path / "root", tmp_path / "project"
+    project.mkdir()
+    assert copy_profiles(root, "smtp", project) is False
+    (root / "expose" / "smtp").mkdir(parents=True)
+    (root / "expose" / "smtp" / "ro.yaml").write_text("actions: []\n")
+    assert not profiles_in_sync(root, "smtp", project)
+    assert copy_profiles(root, "smtp", project) is True
+    assert profiles_in_sync(root, "smtp", project)
+    (root / "expose" / "smtp" / "ro.yaml").write_text("actions: [a]\n")
+    assert not profiles_in_sync(root, "smtp", project)

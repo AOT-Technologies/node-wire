@@ -40,7 +40,7 @@ Each connector reads its credentials from the following variables:
 | **Google Drive** | `GOOGLE_DRIVE_SA_JSON`, `GOOGLE_DRIVE_FOLDER_ID` | Google Drive connector |
 | **SMTP** | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USE_TLS`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `FROM_EMAIL` | Sending emails; relay pinned to env (not request payload) |
 | **Slack** | `SLACK_BOT_TOKEN` | Sending Slack messages |
-| **Stripe** | `STRIPE_API_KEY` | Stripe payments |
+| **Stripe** | `STRIPE_BASIC_AUTH` | Stripe payments |
 | **Salesforce** | `SALESFORCE_INSTANCE_URL`, `SALESFORCE_TOKEN_URL`, `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_REFRESH_TOKEN` | Salesforce CRM integration |
 | **LLM / Agent** | `LLM_PROVIDER`, `GROQ_API_KEY` / `GROQ_MODEL`, `NVIDIA_API_KEY` / `NVIDIA_BASE_URL` / `NVIDIA_MODEL`, `OPENROUTER_API_KEY` / `OPENROUTER_BASE_URL` / `OPENROUTER_MODEL` / `OPENROUTER_MODELS`, `OLLAMA_BASE_URL` / `OLLAMA_MODEL` / `OLLAMA_API_KEY` (or other provider keys) | AI agent / ToolHive / playground LLM switcher (Groq, NVIDIA, OpenRouter, local Ollama). OpenRouter free models log prompts — do not send PHI/confidential data. |
 
@@ -62,6 +62,9 @@ The following variables control how each binding listens and who may call it:
 | `NW_MCP_AUTH_DISABLED` | Disable MCP authentication (local dev only); default (unset) enforces auth. The legacy `NW_MCP_AUTH_ENABLED` flag is deprecated. | `false` |
 | `NW_MCP_API_KEY` | Shared secret for MCP API-key auth (set in production) | _(unset)_ |
 | `NW_MCP_TOOL_MODE` | `list` — every tool in `tools/list`; `search` — list only `nw_search_tools` + `nw_call_tool` and hand out tool schemas on demand (for large connectors). Unknown values fail at startup | `list` |
+| `NW_EXPOSE_PROFILE` | Serve only the actions in `expose/<connector_id>/<profile>.yaml` on every surface; unset exposes everything. See [Action exposure](exposure.md) | _(unset)_ |
+| `NW_EXPOSE_DIR` | Folder holding the exposure profiles | `expose/` beside `config/` |
+| `NW_EXPOSE_STRICT_VERSION` | `true` refuses to start when a profile was written for another connector version (otherwise a warning) | `false` |
 | `NW_MCP_SCOPE_POLICY_DEFAULT` | Scope policy when action map has no entry: `deny` (conventional `mcp:<connector>.<action>`) or `allow` (map-only). Exactly `allow` or `deny` (any case); **any other value fails startup** with a message naming the variable | `deny` |
 | `NW_MCP_SCOPE_POLICY_STRICT` | Fail startup if scope policy would be disabled (`allow` + empty map) | `false` |
 | `NW_GRPC_API_KEY` | Shared secret for gRPC metadata (`authorization` or `x-api-key`) | _(unset)_ |

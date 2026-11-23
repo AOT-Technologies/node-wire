@@ -8,7 +8,14 @@ from typing import ClassVar, Dict, Tuple, Type
 import httpx
 from pydantic import BaseModel
 
-from node_wire_runtime import RestConnector, RestResponseOutput, nw_action
+from node_wire_runtime import (
+    RestAuthError,
+    RestConnector,
+    RestRateLimited,
+    RestResponseOutput,
+    RestUnavailable,
+    nw_action,
+)
 from node_wire_runtime.models import ErrorCategory
 from node_wire_runtime.tenant_persistence import declare_secret_shape
 
@@ -2504,17 +2511,21 @@ class GithubConnector(RestConnector):
 
     # RestConnector.execute_rest raises these; without a mapping every one
     # of them would default to FATAL and never retry (see execute_rest in
-    # node_wire_runtime/rest.py). SsrfBlockedError is intentionally left
-    # unmapped for now.
+    # node_wire_runtime/rest.py). A 401 is an auth error, a 429 is retryable, and a
+    # 502/503/504 is retryable on reads and deletes only; other statuses stay BUSINESS.
+    # SsrfBlockedError is intentionally left unmapped for now.
     error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
         httpx.TimeoutException: (ErrorCategory.RETRYABLE, "HTTP_TIMEOUT"),
         httpx.ConnectError: (ErrorCategory.RETRYABLE, "HTTP_CONNECT_ERROR"),
         httpx.ReadTimeout: (ErrorCategory.RETRYABLE, "HTTP_READ_TIMEOUT"),
         httpx.RequestError: (ErrorCategory.FATAL, "HTTP_REQUEST_ERROR"),
         httpx.HTTPStatusError: (ErrorCategory.BUSINESS, "HTTP_STATUS_ERROR"),
+        RestAuthError: (ErrorCategory.AUTH, "HTTP_AUTH_ERROR"),
+        RestRateLimited: (ErrorCategory.RETRYABLE, "HTTP_RATE_LIMITED"),
+        RestUnavailable: (ErrorCategory.RETRYABLE, "HTTP_UNAVAILABLE"),
     }
 
-    @nw_action("meta_root")
+    @nw_action("meta_root", http_method="GET", http_path="/")
     async def meta_root(self, params: MetaRootInput, *, trace_id: str) -> MetaRootOutput:
         return await self.execute_rest(
             method="GET",
@@ -2524,7 +2535,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("security_advisories_list_global_advisories")
+    @nw_action(
+        "security_advisories_list_global_advisories", http_method="GET", http_path="/advisories"
+    )
     async def security_advisories_list_global_advisories(
         self, params: SecurityAdvisoriesListGlobalAdvisoriesInput, *, trace_id: str
     ) -> SecurityAdvisoriesListGlobalAdvisoriesOutput:
@@ -2536,7 +2549,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("security_advisories_get_global_advisory")
+    @nw_action(
+        "security_advisories_get_global_advisory",
+        http_method="GET",
+        http_path="/advisories/{ghsa_id}",
+    )
     async def security_advisories_get_global_advisory(
         self, params: SecurityAdvisoriesGetGlobalAdvisoryInput, *, trace_id: str
     ) -> SecurityAdvisoriesGetGlobalAdvisoryOutput:
@@ -2548,7 +2565,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_automations_list_automations")
+    @nw_action(
+        "agent_automations_list_automations", http_method="GET", http_path="/agents/automations"
+    )
     async def agent_automations_list_automations(
         self, params: AgentAutomationsListAutomationsInput, *, trace_id: str
     ) -> AgentAutomationsListAutomationsOutput:
@@ -2560,7 +2579,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_automations_list_available_automation_tools")
+    @nw_action(
+        "agent_automations_list_available_automation_tools",
+        http_method="GET",
+        http_path="/agents/automations/available-tools",
+    )
     async def agent_automations_list_available_automation_tools(
         self, params: AgentAutomationsListAvailableAutomationToolsInput, *, trace_id: str
     ) -> AgentAutomationsListAvailableAutomationToolsOutput:
@@ -2572,7 +2595,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_automations_list_available_automation_triggers")
+    @nw_action(
+        "agent_automations_list_available_automation_triggers",
+        http_method="GET",
+        http_path="/agents/automations/available-triggers",
+    )
     async def agent_automations_list_available_automation_triggers(
         self, params: AgentAutomationsListAvailableAutomationTriggersInput, *, trace_id: str
     ) -> AgentAutomationsListAvailableAutomationTriggersOutput:
@@ -2584,7 +2611,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_automations_get_automation")
+    @nw_action(
+        "agent_automations_get_automation",
+        http_method="GET",
+        http_path="/agents/automations/{automation_id}",
+    )
     async def agent_automations_get_automation(
         self, params: AgentAutomationsGetAutomationInput, *, trace_id: str
     ) -> AgentAutomationsGetAutomationOutput:
@@ -2596,7 +2627,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_automations_list_automation_tasks")
+    @nw_action(
+        "agent_automations_list_automation_tasks",
+        http_method="GET",
+        http_path="/agents/automations/{automation_id}/tasks",
+    )
     async def agent_automations_list_automation_tasks(
         self, params: AgentAutomationsListAutomationTasksInput, *, trace_id: str
     ) -> AgentAutomationsListAutomationTasksOutput:
@@ -2608,7 +2643,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_automations_list_repo_automations")
+    @nw_action(
+        "agent_automations_list_repo_automations",
+        http_method="GET",
+        http_path="/agents/repos/{owner}/{repo}/automations",
+    )
     async def agent_automations_list_repo_automations(
         self, params: AgentAutomationsListRepoAutomationsInput, *, trace_id: str
     ) -> AgentAutomationsListRepoAutomationsOutput:
@@ -2620,7 +2659,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_automations_create_repo_automation")
+    @nw_action(
+        "agent_automations_create_repo_automation",
+        http_method="POST",
+        http_path="/agents/repos/{owner}/{repo}/automations",
+    )
     async def agent_automations_create_repo_automation(
         self, params: AgentAutomationsCreateRepoAutomationInput, *, trace_id: str
     ) -> AgentAutomationsCreateRepoAutomationOutput:
@@ -2632,7 +2675,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_automations_get_repo_automation")
+    @nw_action(
+        "agent_automations_get_repo_automation",
+        http_method="GET",
+        http_path="/agents/repos/{owner}/{repo}/automations/{automation_id}",
+    )
     async def agent_automations_get_repo_automation(
         self, params: AgentAutomationsGetRepoAutomationInput, *, trace_id: str
     ) -> AgentAutomationsGetRepoAutomationOutput:
@@ -2644,7 +2691,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_automations_edit_repo_automation")
+    @nw_action(
+        "agent_automations_edit_repo_automation",
+        http_method="PATCH",
+        http_path="/agents/repos/{owner}/{repo}/automations/{automation_id}",
+    )
     async def agent_automations_edit_repo_automation(
         self, params: AgentAutomationsEditRepoAutomationInput, *, trace_id: str
     ) -> AgentAutomationsEditRepoAutomationOutput:
@@ -2656,7 +2707,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_automations_delete_repo_automation")
+    @nw_action(
+        "agent_automations_delete_repo_automation",
+        http_method="DELETE",
+        http_path="/agents/repos/{owner}/{repo}/automations/{automation_id}",
+    )
     async def agent_automations_delete_repo_automation(
         self, params: AgentAutomationsDeleteRepoAutomationInput, *, trace_id: str
     ) -> AgentAutomationsDeleteRepoAutomationOutput:
@@ -2668,7 +2723,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_tasks_list_tasks_for_repo")
+    @nw_action(
+        "agent_tasks_list_tasks_for_repo",
+        http_method="GET",
+        http_path="/agents/repos/{owner}/{repo}/tasks",
+    )
     async def agent_tasks_list_tasks_for_repo(
         self, params: AgentTasksListTasksForRepoInput, *, trace_id: str
     ) -> AgentTasksListTasksForRepoOutput:
@@ -2680,7 +2739,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_tasks_create_task_in_repo")
+    @nw_action(
+        "agent_tasks_create_task_in_repo",
+        http_method="POST",
+        http_path="/agents/repos/{owner}/{repo}/tasks",
+    )
     async def agent_tasks_create_task_in_repo(
         self, params: AgentTasksCreateTaskInRepoInput, *, trace_id: str
     ) -> AgentTasksCreateTaskInRepoOutput:
@@ -2692,7 +2755,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_tasks_get_task_by_repo_and_id")
+    @nw_action(
+        "agent_tasks_get_task_by_repo_and_id",
+        http_method="GET",
+        http_path="/agents/repos/{owner}/{repo}/tasks/{task_id}",
+    )
     async def agent_tasks_get_task_by_repo_and_id(
         self, params: AgentTasksGetTaskByRepoAndIdInput, *, trace_id: str
     ) -> AgentTasksGetTaskByRepoAndIdOutput:
@@ -2704,7 +2771,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_tasks_list_tasks")
+    @nw_action("agent_tasks_list_tasks", http_method="GET", http_path="/agents/tasks")
     async def agent_tasks_list_tasks(
         self, params: AgentTasksListTasksInput, *, trace_id: str
     ) -> AgentTasksListTasksOutput:
@@ -2716,7 +2783,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agent_tasks_get_task_by_id")
+    @nw_action("agent_tasks_get_task_by_id", http_method="GET", http_path="/agents/tasks/{task_id}")
     async def agent_tasks_get_task_by_id(
         self, params: AgentTasksGetTaskByIdInput, *, trace_id: str
     ) -> AgentTasksGetTaskByIdOutput:
@@ -2728,7 +2795,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_get_authenticated")
+    @nw_action("apps_get_authenticated", http_method="GET", http_path="/app")
     async def apps_get_authenticated(
         self, params: AppsGetAuthenticatedInput, *, trace_id: str
     ) -> AppsGetAuthenticatedOutput:
@@ -2740,7 +2807,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_create_from_manifest")
+    @nw_action(
+        "apps_create_from_manifest",
+        http_method="POST",
+        http_path="/app-manifests/{code}/conversions",
+    )
     async def apps_create_from_manifest(
         self, params: AppsCreateFromManifestInput, *, trace_id: str
     ) -> AppsCreateFromManifestOutput:
@@ -2752,7 +2823,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_get_webhook_config_for_app")
+    @nw_action("apps_get_webhook_config_for_app", http_method="GET", http_path="/app/hook/config")
     async def apps_get_webhook_config_for_app(
         self, params: AppsGetWebhookConfigForAppInput, *, trace_id: str
     ) -> AppsGetWebhookConfigForAppOutput:
@@ -2764,7 +2835,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_update_webhook_config_for_app")
+    @nw_action(
+        "apps_update_webhook_config_for_app", http_method="PATCH", http_path="/app/hook/config"
+    )
     async def apps_update_webhook_config_for_app(
         self, params: AppsUpdateWebhookConfigForAppInput, *, trace_id: str
     ) -> AppsUpdateWebhookConfigForAppOutput:
@@ -2776,7 +2849,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_list_webhook_deliveries")
+    @nw_action("apps_list_webhook_deliveries", http_method="GET", http_path="/app/hook/deliveries")
     async def apps_list_webhook_deliveries(
         self, params: AppsListWebhookDeliveriesInput, *, trace_id: str
     ) -> AppsListWebhookDeliveriesOutput:
@@ -2788,7 +2861,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_get_webhook_delivery")
+    @nw_action(
+        "apps_get_webhook_delivery",
+        http_method="GET",
+        http_path="/app/hook/deliveries/{delivery_id}",
+    )
     async def apps_get_webhook_delivery(
         self, params: AppsGetWebhookDeliveryInput, *, trace_id: str
     ) -> AppsGetWebhookDeliveryOutput:
@@ -2800,7 +2877,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_redeliver_webhook_delivery")
+    @nw_action(
+        "apps_redeliver_webhook_delivery",
+        http_method="POST",
+        http_path="/app/hook/deliveries/{delivery_id}/attempts",
+    )
     async def apps_redeliver_webhook_delivery(
         self, params: AppsRedeliverWebhookDeliveryInput, *, trace_id: str
     ) -> AppsRedeliverWebhookDeliveryOutput:
@@ -2812,7 +2893,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_list_installation_requests_for_authenticated_app")
+    @nw_action(
+        "apps_list_installation_requests_for_authenticated_app",
+        http_method="GET",
+        http_path="/app/installation-requests",
+    )
     async def apps_list_installation_requests_for_authenticated_app(
         self, params: AppsListInstallationRequestsForAuthenticatedAppInput, *, trace_id: str
     ) -> AppsListInstallationRequestsForAuthenticatedAppOutput:
@@ -2824,7 +2909,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_list_installations")
+    @nw_action("apps_list_installations", http_method="GET", http_path="/app/installations")
     async def apps_list_installations(
         self, params: AppsListInstallationsInput, *, trace_id: str
     ) -> AppsListInstallationsOutput:
@@ -2836,7 +2921,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_get_installation")
+    @nw_action(
+        "apps_get_installation", http_method="GET", http_path="/app/installations/{installation_id}"
+    )
     async def apps_get_installation(
         self, params: AppsGetInstallationInput, *, trace_id: str
     ) -> AppsGetInstallationOutput:
@@ -2848,7 +2935,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_delete_installation")
+    @nw_action(
+        "apps_delete_installation",
+        http_method="DELETE",
+        http_path="/app/installations/{installation_id}",
+    )
     async def apps_delete_installation(
         self, params: AppsDeleteInstallationInput, *, trace_id: str
     ) -> AppsDeleteInstallationOutput:
@@ -2860,7 +2951,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_create_installation_access_token")
+    @nw_action(
+        "apps_create_installation_access_token",
+        http_method="POST",
+        http_path="/app/installations/{installation_id}/access_tokens",
+    )
     async def apps_create_installation_access_token(
         self, params: AppsCreateInstallationAccessTokenInput, *, trace_id: str
     ) -> AppsCreateInstallationAccessTokenOutput:
@@ -2872,7 +2967,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_suspend_installation")
+    @nw_action(
+        "apps_suspend_installation",
+        http_method="PUT",
+        http_path="/app/installations/{installation_id}/suspended",
+    )
     async def apps_suspend_installation(
         self, params: AppsSuspendInstallationInput, *, trace_id: str
     ) -> AppsSuspendInstallationOutput:
@@ -2884,7 +2983,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_unsuspend_installation")
+    @nw_action(
+        "apps_unsuspend_installation",
+        http_method="DELETE",
+        http_path="/app/installations/{installation_id}/suspended",
+    )
     async def apps_unsuspend_installation(
         self, params: AppsUnsuspendInstallationInput, *, trace_id: str
     ) -> AppsUnsuspendInstallationOutput:
@@ -2896,7 +2999,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_delete_authorization")
+    @nw_action(
+        "apps_delete_authorization",
+        http_method="DELETE",
+        http_path="/applications/{client_id}/grant",
+    )
     async def apps_delete_authorization(
         self, params: AppsDeleteAuthorizationInput, *, trace_id: str
     ) -> AppsDeleteAuthorizationOutput:
@@ -2908,7 +3015,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_check_token")
+    @nw_action("apps_check_token", http_method="POST", http_path="/applications/{client_id}/token")
     async def apps_check_token(
         self, params: AppsCheckTokenInput, *, trace_id: str
     ) -> AppsCheckTokenOutput:
@@ -2920,7 +3027,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_reset_token")
+    @nw_action("apps_reset_token", http_method="PATCH", http_path="/applications/{client_id}/token")
     async def apps_reset_token(
         self, params: AppsResetTokenInput, *, trace_id: str
     ) -> AppsResetTokenOutput:
@@ -2932,7 +3039,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_delete_token")
+    @nw_action(
+        "apps_delete_token", http_method="DELETE", http_path="/applications/{client_id}/token"
+    )
     async def apps_delete_token(
         self, params: AppsDeleteTokenInput, *, trace_id: str
     ) -> AppsDeleteTokenOutput:
@@ -2944,7 +3053,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_scope_token")
+    @nw_action(
+        "apps_scope_token", http_method="POST", http_path="/applications/{client_id}/token/scoped"
+    )
     async def apps_scope_token(
         self, params: AppsScopeTokenInput, *, trace_id: str
     ) -> AppsScopeTokenOutput:
@@ -2956,7 +3067,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_get_by_slug")
+    @nw_action("apps_get_by_slug", http_method="GET", http_path="/apps/{app_slug}")
     async def apps_get_by_slug(
         self, params: AppsGetBySlugInput, *, trace_id: str
     ) -> AppsGetBySlugOutput:
@@ -2968,7 +3079,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("classroom_get_an_assignment", deprecated=True)
+    @nw_action(
+        "classroom_get_an_assignment",
+        deprecated=True,
+        http_method="GET",
+        http_path="/assignments/{assignment_id}",
+    )
     async def classroom_get_an_assignment(
         self, params: ClassroomGetAnAssignmentInput, *, trace_id: str
     ) -> ClassroomGetAnAssignmentOutput:
@@ -2980,7 +3096,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("classroom_list_accepted_assignments_for_an_assignment", deprecated=True)
+    @nw_action(
+        "classroom_list_accepted_assignments_for_an_assignment",
+        deprecated=True,
+        http_method="GET",
+        http_path="/assignments/{assignment_id}/accepted_assignments",
+    )
     async def classroom_list_accepted_assignments_for_an_assignment(
         self, params: ClassroomListAcceptedAssignmentsForAnAssignmentInput, *, trace_id: str
     ) -> ClassroomListAcceptedAssignmentsForAnAssignmentOutput:
@@ -2992,7 +3113,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("classroom_get_assignment_grades", deprecated=True)
+    @nw_action(
+        "classroom_get_assignment_grades",
+        deprecated=True,
+        http_method="GET",
+        http_path="/assignments/{assignment_id}/grades",
+    )
     async def classroom_get_assignment_grades(
         self, params: ClassroomGetAssignmentGradesInput, *, trace_id: str
     ) -> ClassroomGetAssignmentGradesOutput:
@@ -3004,7 +3130,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("classroom_list_classrooms", deprecated=True)
+    @nw_action(
+        "classroom_list_classrooms", deprecated=True, http_method="GET", http_path="/classrooms"
+    )
     async def classroom_list_classrooms(
         self, params: ClassroomListClassroomsInput, *, trace_id: str
     ) -> ClassroomListClassroomsOutput:
@@ -3016,7 +3144,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("classroom_get_a_classroom", deprecated=True)
+    @nw_action(
+        "classroom_get_a_classroom",
+        deprecated=True,
+        http_method="GET",
+        http_path="/classrooms/{classroom_id}",
+    )
     async def classroom_get_a_classroom(
         self, params: ClassroomGetAClassroomInput, *, trace_id: str
     ) -> ClassroomGetAClassroomOutput:
@@ -3028,7 +3161,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("classroom_list_assignments_for_a_classroom", deprecated=True)
+    @nw_action(
+        "classroom_list_assignments_for_a_classroom",
+        deprecated=True,
+        http_method="GET",
+        http_path="/classrooms/{classroom_id}/assignments",
+    )
     async def classroom_list_assignments_for_a_classroom(
         self, params: ClassroomListAssignmentsForAClassroomInput, *, trace_id: str
     ) -> ClassroomListAssignmentsForAClassroomOutput:
@@ -3040,7 +3178,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codes_of_conduct_get_all_codes_of_conduct")
+    @nw_action(
+        "codes_of_conduct_get_all_codes_of_conduct",
+        http_method="GET",
+        http_path="/codes_of_conduct",
+    )
     async def codes_of_conduct_get_all_codes_of_conduct(
         self, params: CodesOfConductGetAllCodesOfConductInput, *, trace_id: str
     ) -> CodesOfConductGetAllCodesOfConductOutput:
@@ -3052,7 +3194,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codes_of_conduct_get_conduct_code")
+    @nw_action(
+        "codes_of_conduct_get_conduct_code", http_method="GET", http_path="/codes_of_conduct/{key}"
+    )
     async def codes_of_conduct_get_conduct_code(
         self, params: CodesOfConductGetConductCodeInput, *, trace_id: str
     ) -> CodesOfConductGetConductCodeOutput:
@@ -3064,7 +3208,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("credentials_revoke")
+    @nw_action("credentials_revoke", http_method="POST", http_path="/credentials/revoke")
     async def credentials_revoke(
         self, params: CredentialsRevokeInput, *, trace_id: str
     ) -> CredentialsRevokeOutput:
@@ -3076,7 +3220,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("emojis_get")
+    @nw_action("emojis_get", http_method="GET", http_path="/emojis")
     async def emojis_get(self, params: EmojisGetInput, *, trace_id: str) -> EmojisGetOutput:
         return await self.execute_rest(
             method="GET",
@@ -3086,7 +3230,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_actions_cache_retention_limit_for_enterprise")
+    @nw_action(
+        "actions_get_actions_cache_retention_limit_for_enterprise",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/actions/cache/retention-limit",
+    )
     async def actions_get_actions_cache_retention_limit_for_enterprise(
         self, params: ActionsGetActionsCacheRetentionLimitForEnterpriseInput, *, trace_id: str
     ) -> ActionsGetActionsCacheRetentionLimitForEnterpriseOutput:
@@ -3098,7 +3246,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_actions_cache_retention_limit_for_enterprise")
+    @nw_action(
+        "actions_set_actions_cache_retention_limit_for_enterprise",
+        http_method="PUT",
+        http_path="/enterprises/{enterprise}/actions/cache/retention-limit",
+    )
     async def actions_set_actions_cache_retention_limit_for_enterprise(
         self, params: ActionsSetActionsCacheRetentionLimitForEnterpriseInput, *, trace_id: str
     ) -> ActionsSetActionsCacheRetentionLimitForEnterpriseOutput:
@@ -3110,7 +3262,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_actions_cache_storage_limit_for_enterprise")
+    @nw_action(
+        "actions_get_actions_cache_storage_limit_for_enterprise",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/actions/cache/storage-limit",
+    )
     async def actions_get_actions_cache_storage_limit_for_enterprise(
         self, params: ActionsGetActionsCacheStorageLimitForEnterpriseInput, *, trace_id: str
     ) -> ActionsGetActionsCacheStorageLimitForEnterpriseOutput:
@@ -3122,7 +3278,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_actions_cache_storage_limit_for_enterprise")
+    @nw_action(
+        "actions_set_actions_cache_storage_limit_for_enterprise",
+        http_method="PUT",
+        http_path="/enterprises/{enterprise}/actions/cache/storage-limit",
+    )
     async def actions_set_actions_cache_storage_limit_for_enterprise(
         self, params: ActionsSetActionsCacheStorageLimitForEnterpriseInput, *, trace_id: str
     ) -> ActionsSetActionsCacheStorageLimitForEnterpriseOutput:
@@ -3134,7 +3294,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("oidc_list_oidc_custom_property_inclusions_for_enterprise")
+    @nw_action(
+        "oidc_list_oidc_custom_property_inclusions_for_enterprise",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/actions/oidc/customization/properties/repo",
+    )
     async def oidc_list_oidc_custom_property_inclusions_for_enterprise(
         self, params: OidcListOidcCustomPropertyInclusionsForEnterpriseInput, *, trace_id: str
     ) -> OidcListOidcCustomPropertyInclusionsForEnterpriseOutput:
@@ -3146,7 +3310,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("oidc_create_oidc_custom_property_inclusion_for_enterprise")
+    @nw_action(
+        "oidc_create_oidc_custom_property_inclusion_for_enterprise",
+        http_method="POST",
+        http_path="/enterprises/{enterprise}/actions/oidc/customization/properties/repo",
+    )
     async def oidc_create_oidc_custom_property_inclusion_for_enterprise(
         self, params: OidcCreateOidcCustomPropertyInclusionForEnterpriseInput, *, trace_id: str
     ) -> OidcCreateOidcCustomPropertyInclusionForEnterpriseOutput:
@@ -3158,7 +3326,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("oidc_delete_oidc_custom_property_inclusion_for_enterprise")
+    @nw_action(
+        "oidc_delete_oidc_custom_property_inclusion_for_enterprise",
+        http_method="DELETE",
+        http_path="/enterprises/{enterprise}/actions/oidc/customization/properties/repo/{custom_property_name}",
+    )
     async def oidc_delete_oidc_custom_property_inclusion_for_enterprise(
         self, params: OidcDeleteOidcCustomPropertyInclusionForEnterpriseInput, *, trace_id: str
     ) -> OidcDeleteOidcCustomPropertyInclusionForEnterpriseOutput:
@@ -3170,7 +3342,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_get_configurations_for_enterprise")
+    @nw_action(
+        "code_security_get_configurations_for_enterprise",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/code-security/configurations",
+    )
     async def code_security_get_configurations_for_enterprise(
         self, params: CodeSecurityGetConfigurationsForEnterpriseInput, *, trace_id: str
     ) -> CodeSecurityGetConfigurationsForEnterpriseOutput:
@@ -3182,7 +3358,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_create_configuration_for_enterprise")
+    @nw_action(
+        "code_security_create_configuration_for_enterprise",
+        http_method="POST",
+        http_path="/enterprises/{enterprise}/code-security/configurations",
+    )
     async def code_security_create_configuration_for_enterprise(
         self, params: CodeSecurityCreateConfigurationForEnterpriseInput, *, trace_id: str
     ) -> CodeSecurityCreateConfigurationForEnterpriseOutput:
@@ -3194,7 +3374,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_get_default_configurations_for_enterprise")
+    @nw_action(
+        "code_security_get_default_configurations_for_enterprise",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/code-security/configurations/defaults",
+    )
     async def code_security_get_default_configurations_for_enterprise(
         self, params: CodeSecurityGetDefaultConfigurationsForEnterpriseInput, *, trace_id: str
     ) -> CodeSecurityGetDefaultConfigurationsForEnterpriseOutput:
@@ -3206,7 +3390,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_get_single_configuration_for_enterprise")
+    @nw_action(
+        "code_security_get_single_configuration_for_enterprise",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/code-security/configurations/{configuration_id}",
+    )
     async def code_security_get_single_configuration_for_enterprise(
         self, params: CodeSecurityGetSingleConfigurationForEnterpriseInput, *, trace_id: str
     ) -> CodeSecurityGetSingleConfigurationForEnterpriseOutput:
@@ -3218,7 +3406,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_update_enterprise_configuration")
+    @nw_action(
+        "code_security_update_enterprise_configuration",
+        http_method="PATCH",
+        http_path="/enterprises/{enterprise}/code-security/configurations/{configuration_id}",
+    )
     async def code_security_update_enterprise_configuration(
         self, params: CodeSecurityUpdateEnterpriseConfigurationInput, *, trace_id: str
     ) -> CodeSecurityUpdateEnterpriseConfigurationOutput:
@@ -3230,7 +3422,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_delete_configuration_for_enterprise")
+    @nw_action(
+        "code_security_delete_configuration_for_enterprise",
+        http_method="DELETE",
+        http_path="/enterprises/{enterprise}/code-security/configurations/{configuration_id}",
+    )
     async def code_security_delete_configuration_for_enterprise(
         self, params: CodeSecurityDeleteConfigurationForEnterpriseInput, *, trace_id: str
     ) -> CodeSecurityDeleteConfigurationForEnterpriseOutput:
@@ -3242,7 +3438,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_attach_enterprise_configuration")
+    @nw_action(
+        "code_security_attach_enterprise_configuration",
+        http_method="POST",
+        http_path="/enterprises/{enterprise}/code-security/configurations/{configuration_id}/attach",
+    )
     async def code_security_attach_enterprise_configuration(
         self, params: CodeSecurityAttachEnterpriseConfigurationInput, *, trace_id: str
     ) -> CodeSecurityAttachEnterpriseConfigurationOutput:
@@ -3254,7 +3454,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_set_configuration_as_default_for_enterprise")
+    @nw_action(
+        "code_security_set_configuration_as_default_for_enterprise",
+        http_method="PUT",
+        http_path="/enterprises/{enterprise}/code-security/configurations/{configuration_id}/defaults",
+    )
     async def code_security_set_configuration_as_default_for_enterprise(
         self, params: CodeSecuritySetConfigurationAsDefaultForEnterpriseInput, *, trace_id: str
     ) -> CodeSecuritySetConfigurationAsDefaultForEnterpriseOutput:
@@ -3266,7 +3470,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_get_repositories_for_enterprise")
+    @nw_action(
+        "code_security_get_repositories_for_enterprise",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/code-security/configurations/{configuration_id}/repositories",
+    )
     async def code_security_get_repositories_for_enterprise(
         self, params: CodeSecurityGetRepositoriesForEnterpriseInput, *, trace_id: str
     ) -> CodeSecurityGetRepositoriesForEnterpriseOutput:
@@ -3278,7 +3486,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_copilot_enterprise_one_day_usage_metrics")
+    @nw_action(
+        "copilot_copilot_enterprise_one_day_usage_metrics",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/copilot/metrics/reports/enterprise-1-day",
+    )
     async def copilot_copilot_enterprise_one_day_usage_metrics(
         self, params: CopilotCopilotEnterpriseOneDayUsageMetricsInput, *, trace_id: str
     ) -> CopilotCopilotEnterpriseOneDayUsageMetricsOutput:
@@ -3290,7 +3502,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_copilot_enterprise_usage_metrics")
+    @nw_action(
+        "copilot_copilot_enterprise_usage_metrics",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/copilot/metrics/reports/enterprise-28-day/latest",
+    )
     async def copilot_copilot_enterprise_usage_metrics(
         self, params: CopilotCopilotEnterpriseUsageMetricsInput, *, trace_id: str
     ) -> CopilotCopilotEnterpriseUsageMetricsOutput:
@@ -3302,7 +3518,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_copilot_enterprise_repos_one_day_report")
+    @nw_action(
+        "copilot_copilot_enterprise_repos_one_day_report",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/copilot/metrics/reports/repos-1-day",
+    )
     async def copilot_copilot_enterprise_repos_one_day_report(
         self, params: CopilotCopilotEnterpriseReposOneDayReportInput, *, trace_id: str
     ) -> CopilotCopilotEnterpriseReposOneDayReportOutput:
@@ -3314,7 +3534,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_copilot_enterprise_user_teams_one_day_report")
+    @nw_action(
+        "copilot_copilot_enterprise_user_teams_one_day_report",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/copilot/metrics/reports/user-teams-1-day",
+    )
     async def copilot_copilot_enterprise_user_teams_one_day_report(
         self, params: CopilotCopilotEnterpriseUserTeamsOneDayReportInput, *, trace_id: str
     ) -> CopilotCopilotEnterpriseUserTeamsOneDayReportOutput:
@@ -3326,7 +3550,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_copilot_users_one_day_usage_metrics")
+    @nw_action(
+        "copilot_copilot_users_one_day_usage_metrics",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/copilot/metrics/reports/users-1-day",
+    )
     async def copilot_copilot_users_one_day_usage_metrics(
         self, params: CopilotCopilotUsersOneDayUsageMetricsInput, *, trace_id: str
     ) -> CopilotCopilotUsersOneDayUsageMetricsOutput:
@@ -3338,7 +3566,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_copilot_users_usage_metrics")
+    @nw_action(
+        "copilot_copilot_users_usage_metrics",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/copilot/metrics/reports/users-28-day/latest",
+    )
     async def copilot_copilot_users_usage_metrics(
         self, params: CopilotCopilotUsersUsageMetricsInput, *, trace_id: str
     ) -> CopilotCopilotUsersUsageMetricsOutput:
@@ -3350,7 +3582,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_set_enterprise_coding_agent_policy")
+    @nw_action(
+        "copilot_set_enterprise_coding_agent_policy",
+        http_method="PUT",
+        http_path="/enterprises/{enterprise}/copilot/policies/coding_agent",
+    )
     async def copilot_set_enterprise_coding_agent_policy(
         self, params: CopilotSetEnterpriseCodingAgentPolicyInput, *, trace_id: str
     ) -> CopilotSetEnterpriseCodingAgentPolicyOutput:
@@ -3362,7 +3598,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_add_organizations_to_enterprise_coding_agent")
+    @nw_action(
+        "copilot_add_organizations_to_enterprise_coding_agent",
+        http_method="POST",
+        http_path="/enterprises/{enterprise}/copilot/policies/coding_agent/organizations",
+    )
     async def copilot_add_organizations_to_enterprise_coding_agent(
         self, params: CopilotAddOrganizationsToEnterpriseCodingAgentInput, *, trace_id: str
     ) -> CopilotAddOrganizationsToEnterpriseCodingAgentOutput:
@@ -3374,7 +3614,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_remove_organizations_from_enterprise_coding_agent")
+    @nw_action(
+        "copilot_remove_organizations_from_enterprise_coding_agent",
+        http_method="DELETE",
+        http_path="/enterprises/{enterprise}/copilot/policies/coding_agent/organizations",
+    )
     async def copilot_remove_organizations_from_enterprise_coding_agent(
         self, params: CopilotRemoveOrganizationsFromEnterpriseCodingAgentInput, *, trace_id: str
     ) -> CopilotRemoveOrganizationsFromEnterpriseCodingAgentOutput:
@@ -3386,7 +3630,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_list_alerts_for_enterprise")
+    @nw_action(
+        "dependabot_list_alerts_for_enterprise",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/dependabot/alerts",
+    )
     async def dependabot_list_alerts_for_enterprise(
         self, params: DependabotListAlertsForEnterpriseInput, *, trace_id: str
     ) -> DependabotListAlertsForEnterpriseOutput:
@@ -3398,7 +3646,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_repository_access_for_enterprise")
+    @nw_action(
+        "dependabot_repository_access_for_enterprise",
+        http_method="GET",
+        http_path="/enterprises/{enterprise}/dependabot/repository-access",
+    )
     async def dependabot_repository_access_for_enterprise(
         self, params: DependabotRepositoryAccessForEnterpriseInput, *, trace_id: str
     ) -> DependabotRepositoryAccessForEnterpriseOutput:
@@ -3410,7 +3662,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_update_repository_access_for_enterprise")
+    @nw_action(
+        "dependabot_update_repository_access_for_enterprise",
+        http_method="PATCH",
+        http_path="/enterprises/{enterprise}/dependabot/repository-access",
+    )
     async def dependabot_update_repository_access_for_enterprise(
         self, params: DependabotUpdateRepositoryAccessForEnterpriseInput, *, trace_id: str
     ) -> DependabotUpdateRepositoryAccessForEnterpriseOutput:
@@ -3422,7 +3678,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_set_repository_access_default_level_for")
+    @nw_action(
+        "dependabot_set_repository_access_default_level_for",
+        http_method="PUT",
+        http_path="/enterprises/{enterprise}/dependabot/repository-access/default-level",
+    )
     async def dependabot_set_repository_access_default_level_for(
         self, params: DependabotSetRepositoryAccessDefaultLevelForInput, *, trace_id: str
     ) -> DependabotSetRepositoryAccessDefaultLevelForOutput:
@@ -3434,7 +3694,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_public_events")
+    @nw_action("activity_list_public_events", http_method="GET", http_path="/events")
     async def activity_list_public_events(
         self, params: ActivityListPublicEventsInput, *, trace_id: str
     ) -> ActivityListPublicEventsOutput:
@@ -3446,7 +3706,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_get_feeds")
+    @nw_action("activity_get_feeds", http_method="GET", http_path="/feeds")
     async def activity_get_feeds(
         self, params: ActivityGetFeedsInput, *, trace_id: str
     ) -> ActivityGetFeedsOutput:
@@ -3458,7 +3718,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_list")
+    @nw_action("gists_list", http_method="GET", http_path="/gists")
     async def gists_list(self, params: GistsListInput, *, trace_id: str) -> GistsListOutput:
         return await self.execute_rest(
             method="GET",
@@ -3468,7 +3728,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_create")
+    @nw_action("gists_create", http_method="POST", http_path="/gists")
     async def gists_create(self, params: GistsCreateInput, *, trace_id: str) -> GistsCreateOutput:
         return await self.execute_rest(
             method="POST",
@@ -3478,7 +3738,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_list_public")
+    @nw_action("gists_list_public", http_method="GET", http_path="/gists/public")
     async def gists_list_public(
         self, params: GistsListPublicInput, *, trace_id: str
     ) -> GistsListPublicOutput:
@@ -3490,7 +3750,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_list_starred")
+    @nw_action("gists_list_starred", http_method="GET", http_path="/gists/starred")
     async def gists_list_starred(
         self, params: GistsListStarredInput, *, trace_id: str
     ) -> GistsListStarredOutput:
@@ -3502,7 +3762,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_get")
+    @nw_action("gists_get", http_method="GET", http_path="/gists/{gist_id}")
     async def gists_get(self, params: GistsGetInput, *, trace_id: str) -> GistsGetOutput:
         return await self.execute_rest(
             method="GET",
@@ -3512,7 +3772,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_update")
+    @nw_action("gists_update", http_method="PATCH", http_path="/gists/{gist_id}")
     async def gists_update(self, params: GistsUpdateInput, *, trace_id: str) -> GistsUpdateOutput:
         return await self.execute_rest(
             method="PATCH",
@@ -3522,7 +3782,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_delete")
+    @nw_action("gists_delete", http_method="DELETE", http_path="/gists/{gist_id}")
     async def gists_delete(self, params: GistsDeleteInput, *, trace_id: str) -> GistsDeleteOutput:
         return await self.execute_rest(
             method="DELETE",
@@ -3532,7 +3792,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_list_comments")
+    @nw_action("gists_list_comments", http_method="GET", http_path="/gists/{gist_id}/comments")
     async def gists_list_comments(
         self, params: GistsListCommentsInput, *, trace_id: str
     ) -> GistsListCommentsOutput:
@@ -3544,7 +3804,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_create_comment")
+    @nw_action("gists_create_comment", http_method="POST", http_path="/gists/{gist_id}/comments")
     async def gists_create_comment(
         self, params: GistsCreateCommentInput, *, trace_id: str
     ) -> GistsCreateCommentOutput:
@@ -3556,7 +3816,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_get_comment")
+    @nw_action(
+        "gists_get_comment", http_method="GET", http_path="/gists/{gist_id}/comments/{comment_id}"
+    )
     async def gists_get_comment(
         self, params: GistsGetCommentInput, *, trace_id: str
     ) -> GistsGetCommentOutput:
@@ -3568,7 +3830,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_update_comment")
+    @nw_action(
+        "gists_update_comment",
+        http_method="PATCH",
+        http_path="/gists/{gist_id}/comments/{comment_id}",
+    )
     async def gists_update_comment(
         self, params: GistsUpdateCommentInput, *, trace_id: str
     ) -> GistsUpdateCommentOutput:
@@ -3580,7 +3846,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_delete_comment")
+    @nw_action(
+        "gists_delete_comment",
+        http_method="DELETE",
+        http_path="/gists/{gist_id}/comments/{comment_id}",
+    )
     async def gists_delete_comment(
         self, params: GistsDeleteCommentInput, *, trace_id: str
     ) -> GistsDeleteCommentOutput:
@@ -3592,7 +3862,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_list_commits")
+    @nw_action("gists_list_commits", http_method="GET", http_path="/gists/{gist_id}/commits")
     async def gists_list_commits(
         self, params: GistsListCommitsInput, *, trace_id: str
     ) -> GistsListCommitsOutput:
@@ -3604,7 +3874,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_list_forks")
+    @nw_action("gists_list_forks", http_method="GET", http_path="/gists/{gist_id}/forks")
     async def gists_list_forks(
         self, params: GistsListForksInput, *, trace_id: str
     ) -> GistsListForksOutput:
@@ -3616,7 +3886,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_fork")
+    @nw_action("gists_fork", http_method="POST", http_path="/gists/{gist_id}/forks")
     async def gists_fork(self, params: GistsForkInput, *, trace_id: str) -> GistsForkOutput:
         return await self.execute_rest(
             method="POST",
@@ -3626,7 +3896,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_check_is_starred")
+    @nw_action("gists_check_is_starred", http_method="GET", http_path="/gists/{gist_id}/star")
     async def gists_check_is_starred(
         self, params: GistsCheckIsStarredInput, *, trace_id: str
     ) -> GistsCheckIsStarredOutput:
@@ -3638,7 +3908,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_star")
+    @nw_action("gists_star", http_method="PUT", http_path="/gists/{gist_id}/star")
     async def gists_star(self, params: GistsStarInput, *, trace_id: str) -> GistsStarOutput:
         return await self.execute_rest(
             method="PUT",
@@ -3648,7 +3918,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_unstar")
+    @nw_action("gists_unstar", http_method="DELETE", http_path="/gists/{gist_id}/star")
     async def gists_unstar(self, params: GistsUnstarInput, *, trace_id: str) -> GistsUnstarOutput:
         return await self.execute_rest(
             method="DELETE",
@@ -3658,7 +3928,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_get_revision")
+    @nw_action("gists_get_revision", http_method="GET", http_path="/gists/{gist_id}/{sha}")
     async def gists_get_revision(
         self, params: GistsGetRevisionInput, *, trace_id: str
     ) -> GistsGetRevisionOutput:
@@ -3670,7 +3940,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gitignore_get_all_templates")
+    @nw_action("gitignore_get_all_templates", http_method="GET", http_path="/gitignore/templates")
     async def gitignore_get_all_templates(
         self, params: GitignoreGetAllTemplatesInput, *, trace_id: str
     ) -> GitignoreGetAllTemplatesOutput:
@@ -3682,7 +3952,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gitignore_get_template")
+    @nw_action("gitignore_get_template", http_method="GET", http_path="/gitignore/templates/{name}")
     async def gitignore_get_template(
         self, params: GitignoreGetTemplateInput, *, trace_id: str
     ) -> GitignoreGetTemplateOutput:
@@ -3694,7 +3964,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_list_repos_accessible_to_installation")
+    @nw_action(
+        "apps_list_repos_accessible_to_installation",
+        http_method="GET",
+        http_path="/installation/repositories",
+    )
     async def apps_list_repos_accessible_to_installation(
         self, params: AppsListReposAccessibleToInstallationInput, *, trace_id: str
     ) -> AppsListReposAccessibleToInstallationOutput:
@@ -3706,7 +3980,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_revoke_installation_access_token")
+    @nw_action(
+        "apps_revoke_installation_access_token",
+        http_method="DELETE",
+        http_path="/installation/token",
+    )
     async def apps_revoke_installation_access_token(
         self, params: AppsRevokeInstallationAccessTokenInput, *, trace_id: str
     ) -> AppsRevokeInstallationAccessTokenOutput:
@@ -3718,7 +3996,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list")
+    @nw_action("issues_list", http_method="GET", http_path="/issues")
     async def issues_list(self, params: IssuesListInput, *, trace_id: str) -> IssuesListOutput:
         return await self.execute_rest(
             method="GET",
@@ -3728,7 +4006,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("licenses_get_all_commonly_used")
+    @nw_action("licenses_get_all_commonly_used", http_method="GET", http_path="/licenses")
     async def licenses_get_all_commonly_used(
         self, params: LicensesGetAllCommonlyUsedInput, *, trace_id: str
     ) -> LicensesGetAllCommonlyUsedOutput:
@@ -3740,7 +4018,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("licenses_get")
+    @nw_action("licenses_get", http_method="GET", http_path="/licenses/{license}")
     async def licenses_get(self, params: LicensesGetInput, *, trace_id: str) -> LicensesGetOutput:
         return await self.execute_rest(
             method="GET",
@@ -3750,7 +4028,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("markdown_render")
+    @nw_action("markdown_render", http_method="POST", http_path="/markdown")
     async def markdown_render(
         self, params: MarkdownRenderInput, *, trace_id: str
     ) -> MarkdownRenderOutput:
@@ -3762,7 +4040,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("markdown_render_raw")
+    @nw_action("markdown_render_raw", http_method="POST", http_path="/markdown/raw")
     async def markdown_render_raw(
         self, params: MarkdownRenderRawInput, *, trace_id: str
     ) -> MarkdownRenderRawOutput:
@@ -3774,7 +4052,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_get_subscription_plan_for_account")
+    @nw_action(
+        "apps_get_subscription_plan_for_account",
+        http_method="GET",
+        http_path="/marketplace_listing/accounts/{account_id}",
+    )
     async def apps_get_subscription_plan_for_account(
         self, params: AppsGetSubscriptionPlanForAccountInput, *, trace_id: str
     ) -> AppsGetSubscriptionPlanForAccountOutput:
@@ -3786,7 +4068,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_list_plans")
+    @nw_action("apps_list_plans", http_method="GET", http_path="/marketplace_listing/plans")
     async def apps_list_plans(
         self, params: AppsListPlansInput, *, trace_id: str
     ) -> AppsListPlansOutput:
@@ -3798,7 +4080,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_list_accounts_for_plan")
+    @nw_action(
+        "apps_list_accounts_for_plan",
+        http_method="GET",
+        http_path="/marketplace_listing/plans/{plan_id}/accounts",
+    )
     async def apps_list_accounts_for_plan(
         self, params: AppsListAccountsForPlanInput, *, trace_id: str
     ) -> AppsListAccountsForPlanOutput:
@@ -3810,7 +4096,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_get_subscription_plan_for_account_stubbed")
+    @nw_action(
+        "apps_get_subscription_plan_for_account_stubbed",
+        http_method="GET",
+        http_path="/marketplace_listing/stubbed/accounts/{account_id}",
+    )
     async def apps_get_subscription_plan_for_account_stubbed(
         self, params: AppsGetSubscriptionPlanForAccountStubbedInput, *, trace_id: str
     ) -> AppsGetSubscriptionPlanForAccountStubbedOutput:
@@ -3822,7 +4112,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_list_plans_stubbed")
+    @nw_action(
+        "apps_list_plans_stubbed", http_method="GET", http_path="/marketplace_listing/stubbed/plans"
+    )
     async def apps_list_plans_stubbed(
         self, params: AppsListPlansStubbedInput, *, trace_id: str
     ) -> AppsListPlansStubbedOutput:
@@ -3834,7 +4126,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_list_accounts_for_plan_stubbed")
+    @nw_action(
+        "apps_list_accounts_for_plan_stubbed",
+        http_method="GET",
+        http_path="/marketplace_listing/stubbed/plans/{plan_id}/accounts",
+    )
     async def apps_list_accounts_for_plan_stubbed(
         self, params: AppsListAccountsForPlanStubbedInput, *, trace_id: str
     ) -> AppsListAccountsForPlanStubbedOutput:
@@ -3846,7 +4142,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("meta_get")
+    @nw_action("meta_get", http_method="GET", http_path="/meta")
     async def meta_get(self, params: MetaGetInput, *, trace_id: str) -> MetaGetOutput:
         return await self.execute_rest(
             method="GET",
@@ -3856,7 +4152,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_public_events_for_repo_network")
+    @nw_action(
+        "activity_list_public_events_for_repo_network",
+        http_method="GET",
+        http_path="/networks/{owner}/{repo}/events",
+    )
     async def activity_list_public_events_for_repo_network(
         self, params: ActivityListPublicEventsForRepoNetworkInput, *, trace_id: str
     ) -> ActivityListPublicEventsForRepoNetworkOutput:
@@ -3868,7 +4168,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_notifications_for_authenticated_user")
+    @nw_action(
+        "activity_list_notifications_for_authenticated_user",
+        http_method="GET",
+        http_path="/notifications",
+    )
     async def activity_list_notifications_for_authenticated_user(
         self, params: ActivityListNotificationsForAuthenticatedUserInput, *, trace_id: str
     ) -> ActivityListNotificationsForAuthenticatedUserOutput:
@@ -3880,7 +4184,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_mark_notifications_as_read")
+    @nw_action("activity_mark_notifications_as_read", http_method="PUT", http_path="/notifications")
     async def activity_mark_notifications_as_read(
         self, params: ActivityMarkNotificationsAsReadInput, *, trace_id: str
     ) -> ActivityMarkNotificationsAsReadOutput:
@@ -3892,7 +4196,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_get_thread")
+    @nw_action(
+        "activity_get_thread", http_method="GET", http_path="/notifications/threads/{thread_id}"
+    )
     async def activity_get_thread(
         self, params: ActivityGetThreadInput, *, trace_id: str
     ) -> ActivityGetThreadOutput:
@@ -3904,7 +4210,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_mark_thread_as_read")
+    @nw_action(
+        "activity_mark_thread_as_read",
+        http_method="PATCH",
+        http_path="/notifications/threads/{thread_id}",
+    )
     async def activity_mark_thread_as_read(
         self, params: ActivityMarkThreadAsReadInput, *, trace_id: str
     ) -> ActivityMarkThreadAsReadOutput:
@@ -3916,7 +4226,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_mark_thread_as_done")
+    @nw_action(
+        "activity_mark_thread_as_done",
+        http_method="DELETE",
+        http_path="/notifications/threads/{thread_id}",
+    )
     async def activity_mark_thread_as_done(
         self, params: ActivityMarkThreadAsDoneInput, *, trace_id: str
     ) -> ActivityMarkThreadAsDoneOutput:
@@ -3928,7 +4242,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_get_thread_subscription_for_authenticated_user")
+    @nw_action(
+        "activity_get_thread_subscription_for_authenticated_user",
+        http_method="GET",
+        http_path="/notifications/threads/{thread_id}/subscription",
+    )
     async def activity_get_thread_subscription_for_authenticated_user(
         self, params: ActivityGetThreadSubscriptionForAuthenticatedUserInput, *, trace_id: str
     ) -> ActivityGetThreadSubscriptionForAuthenticatedUserOutput:
@@ -3940,7 +4258,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_set_thread_subscription")
+    @nw_action(
+        "activity_set_thread_subscription",
+        http_method="PUT",
+        http_path="/notifications/threads/{thread_id}/subscription",
+    )
     async def activity_set_thread_subscription(
         self, params: ActivitySetThreadSubscriptionInput, *, trace_id: str
     ) -> ActivitySetThreadSubscriptionOutput:
@@ -3952,7 +4274,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_delete_thread_subscription")
+    @nw_action(
+        "activity_delete_thread_subscription",
+        http_method="DELETE",
+        http_path="/notifications/threads/{thread_id}/subscription",
+    )
     async def activity_delete_thread_subscription(
         self, params: ActivityDeleteThreadSubscriptionInput, *, trace_id: str
     ) -> ActivityDeleteThreadSubscriptionOutput:
@@ -3964,7 +4290,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("meta_get_octocat")
+    @nw_action("meta_get_octocat", http_method="GET", http_path="/octocat")
     async def meta_get_octocat(
         self, params: MetaGetOctocatInput, *, trace_id: str
     ) -> MetaGetOctocatOutput:
@@ -3976,7 +4302,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list")
+    @nw_action("orgs_list", http_method="GET", http_path="/organizations")
     async def orgs_list(self, params: OrgsListInput, *, trace_id: str) -> OrgsListOutput:
         return await self.execute_rest(
             method="GET",
@@ -3986,7 +4312,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_actions_cache_retention_limit_for")
+    @nw_action(
+        "actions_get_actions_cache_retention_limit_for",
+        http_method="GET",
+        http_path="/organizations/{org}/actions/cache/retention-limit",
+    )
     async def actions_get_actions_cache_retention_limit_for(
         self, params: ActionsGetActionsCacheRetentionLimitForInput, *, trace_id: str
     ) -> ActionsGetActionsCacheRetentionLimitForOutput:
@@ -3998,7 +4328,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_actions_cache_retention_limit_for")
+    @nw_action(
+        "actions_set_actions_cache_retention_limit_for",
+        http_method="PUT",
+        http_path="/organizations/{org}/actions/cache/retention-limit",
+    )
     async def actions_set_actions_cache_retention_limit_for(
         self, params: ActionsSetActionsCacheRetentionLimitForInput, *, trace_id: str
     ) -> ActionsSetActionsCacheRetentionLimitForOutput:
@@ -4010,7 +4344,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_actions_cache_storage_limit_for_organization")
+    @nw_action(
+        "actions_get_actions_cache_storage_limit_for_organization",
+        http_method="GET",
+        http_path="/organizations/{org}/actions/cache/storage-limit",
+    )
     async def actions_get_actions_cache_storage_limit_for_organization(
         self, params: ActionsGetActionsCacheStorageLimitForOrganizationInput, *, trace_id: str
     ) -> ActionsGetActionsCacheStorageLimitForOrganizationOutput:
@@ -4022,7 +4360,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_actions_cache_storage_limit_for_organization")
+    @nw_action(
+        "actions_set_actions_cache_storage_limit_for_organization",
+        http_method="PUT",
+        http_path="/organizations/{org}/actions/cache/storage-limit",
+    )
     async def actions_set_actions_cache_storage_limit_for_organization(
         self, params: ActionsSetActionsCacheStorageLimitForOrganizationInput, *, trace_id: str
     ) -> ActionsSetActionsCacheStorageLimitForOrganizationOutput:
@@ -4034,7 +4376,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("billing_get_github_billing_ai_credit_usage_report_org")
+    @nw_action(
+        "billing_get_github_billing_ai_credit_usage_report_org",
+        http_method="GET",
+        http_path="/organizations/{org}/settings/billing/ai_credit/usage",
+    )
     async def billing_get_github_billing_ai_credit_usage_report_org(
         self, params: BillingGetGithubBillingAiCreditUsageReportOrgInput, *, trace_id: str
     ) -> BillingGetGithubBillingAiCreditUsageReportOrgOutput:
@@ -4046,7 +4392,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("billing_get_all_budgets_org")
+    @nw_action(
+        "billing_get_all_budgets_org",
+        http_method="GET",
+        http_path="/organizations/{org}/settings/billing/budgets",
+    )
     async def billing_get_all_budgets_org(
         self, params: BillingGetAllBudgetsOrgInput, *, trace_id: str
     ) -> BillingGetAllBudgetsOrgOutput:
@@ -4058,7 +4408,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("billing_create_organization_budget")
+    @nw_action(
+        "billing_create_organization_budget",
+        http_method="POST",
+        http_path="/organizations/{org}/settings/billing/budgets",
+    )
     async def billing_create_organization_budget(
         self, params: BillingCreateOrganizationBudgetInput, *, trace_id: str
     ) -> BillingCreateOrganizationBudgetOutput:
@@ -4070,7 +4424,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("billing_get_budget_org")
+    @nw_action(
+        "billing_get_budget_org",
+        http_method="GET",
+        http_path="/organizations/{org}/settings/billing/budgets/{budget_id}",
+    )
     async def billing_get_budget_org(
         self, params: BillingGetBudgetOrgInput, *, trace_id: str
     ) -> BillingGetBudgetOrgOutput:
@@ -4082,7 +4440,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("billing_update_budget_org")
+    @nw_action(
+        "billing_update_budget_org",
+        http_method="PATCH",
+        http_path="/organizations/{org}/settings/billing/budgets/{budget_id}",
+    )
     async def billing_update_budget_org(
         self, params: BillingUpdateBudgetOrgInput, *, trace_id: str
     ) -> BillingUpdateBudgetOrgOutput:
@@ -4094,7 +4456,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("billing_delete_budget_org")
+    @nw_action(
+        "billing_delete_budget_org",
+        http_method="DELETE",
+        http_path="/organizations/{org}/settings/billing/budgets/{budget_id}",
+    )
     async def billing_delete_budget_org(
         self, params: BillingDeleteBudgetOrgInput, *, trace_id: str
     ) -> BillingDeleteBudgetOrgOutput:
@@ -4106,7 +4472,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("billing_get_github_billing_premium_request_usage_report")
+    @nw_action(
+        "billing_get_github_billing_premium_request_usage_report",
+        http_method="GET",
+        http_path="/organizations/{org}/settings/billing/premium_request/usage",
+    )
     async def billing_get_github_billing_premium_request_usage_report(
         self, params: BillingGetGithubBillingPremiumRequestUsageReportInput, *, trace_id: str
     ) -> BillingGetGithubBillingPremiumRequestUsageReportOutput:
@@ -4118,7 +4488,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("billing_get_github_billing_usage_report_org")
+    @nw_action(
+        "billing_get_github_billing_usage_report_org",
+        http_method="GET",
+        http_path="/organizations/{org}/settings/billing/usage",
+    )
     async def billing_get_github_billing_usage_report_org(
         self, params: BillingGetGithubBillingUsageReportOrgInput, *, trace_id: str
     ) -> BillingGetGithubBillingUsageReportOrgOutput:
@@ -4130,7 +4504,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("billing_get_github_billing_usage_summary_report_org")
+    @nw_action(
+        "billing_get_github_billing_usage_summary_report_org",
+        http_method="GET",
+        http_path="/organizations/{org}/settings/billing/usage/summary",
+    )
     async def billing_get_github_billing_usage_summary_report_org(
         self, params: BillingGetGithubBillingUsageSummaryReportOrgInput, *, trace_id: str
     ) -> BillingGetGithubBillingUsageSummaryReportOrgOutput:
@@ -4142,7 +4520,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_get")
+    @nw_action("orgs_get", http_method="GET", http_path="/orgs/{org}")
     async def orgs_get(self, params: OrgsGetInput, *, trace_id: str) -> OrgsGetOutput:
         return await self.execute_rest(
             method="GET",
@@ -4152,7 +4530,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_update")
+    @nw_action("orgs_update", http_method="PATCH", http_path="/orgs/{org}")
     async def orgs_update(self, params: OrgsUpdateInput, *, trace_id: str) -> OrgsUpdateOutput:
         return await self.execute_rest(
             method="PATCH",
@@ -4162,7 +4540,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_delete")
+    @nw_action("orgs_delete", http_method="DELETE", http_path="/orgs/{org}")
     async def orgs_delete(self, params: OrgsDeleteInput, *, trace_id: str) -> OrgsDeleteOutput:
         return await self.execute_rest(
             method="DELETE",
@@ -4172,7 +4550,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_actions_cache_usage_for_org")
+    @nw_action(
+        "actions_get_actions_cache_usage_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/cache/usage",
+    )
     async def actions_get_actions_cache_usage_for_org(
         self, params: ActionsGetActionsCacheUsageForOrgInput, *, trace_id: str
     ) -> ActionsGetActionsCacheUsageForOrgOutput:
@@ -4184,7 +4566,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_actions_cache_usage_by_repo_for_org")
+    @nw_action(
+        "actions_get_actions_cache_usage_by_repo_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/cache/usage-by-repository",
+    )
     async def actions_get_actions_cache_usage_by_repo_for_org(
         self, params: ActionsGetActionsCacheUsageByRepoForOrgInput, *, trace_id: str
     ) -> ActionsGetActionsCacheUsageByRepoForOrgOutput:
@@ -4196,7 +4582,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_hosted_runners_for_org")
+    @nw_action(
+        "actions_list_hosted_runners_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/hosted-runners",
+    )
     async def actions_list_hosted_runners_for_org(
         self, params: ActionsListHostedRunnersForOrgInput, *, trace_id: str
     ) -> ActionsListHostedRunnersForOrgOutput:
@@ -4208,7 +4598,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_hosted_runner_for_org")
+    @nw_action(
+        "actions_create_hosted_runner_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/actions/hosted-runners",
+    )
     async def actions_create_hosted_runner_for_org(
         self, params: ActionsCreateHostedRunnerForOrgInput, *, trace_id: str
     ) -> ActionsCreateHostedRunnerForOrgOutput:
@@ -4220,7 +4614,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_custom_images_for_org")
+    @nw_action(
+        "actions_list_custom_images_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/hosted-runners/images/custom",
+    )
     async def actions_list_custom_images_for_org(
         self, params: ActionsListCustomImagesForOrgInput, *, trace_id: str
     ) -> ActionsListCustomImagesForOrgOutput:
@@ -4232,7 +4630,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_custom_image_for_org")
+    @nw_action(
+        "actions_get_custom_image_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}",
+    )
     async def actions_get_custom_image_for_org(
         self, params: ActionsGetCustomImageForOrgInput, *, trace_id: str
     ) -> ActionsGetCustomImageForOrgOutput:
@@ -4244,7 +4646,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_custom_image_from_org")
+    @nw_action(
+        "actions_delete_custom_image_from_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}",
+    )
     async def actions_delete_custom_image_from_org(
         self, params: ActionsDeleteCustomImageFromOrgInput, *, trace_id: str
     ) -> ActionsDeleteCustomImageFromOrgOutput:
@@ -4256,7 +4662,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_custom_image_versions_for_org")
+    @nw_action(
+        "actions_list_custom_image_versions_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions",
+    )
     async def actions_list_custom_image_versions_for_org(
         self, params: ActionsListCustomImageVersionsForOrgInput, *, trace_id: str
     ) -> ActionsListCustomImageVersionsForOrgOutput:
@@ -4268,7 +4678,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_custom_image_version_for_org")
+    @nw_action(
+        "actions_get_custom_image_version_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions/{version}",
+    )
     async def actions_get_custom_image_version_for_org(
         self, params: ActionsGetCustomImageVersionForOrgInput, *, trace_id: str
     ) -> ActionsGetCustomImageVersionForOrgOutput:
@@ -4280,7 +4694,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_custom_image_version_from_org")
+    @nw_action(
+        "actions_delete_custom_image_version_from_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions/{version}",
+    )
     async def actions_delete_custom_image_version_from_org(
         self, params: ActionsDeleteCustomImageVersionFromOrgInput, *, trace_id: str
     ) -> ActionsDeleteCustomImageVersionFromOrgOutput:
@@ -4292,7 +4710,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_hosted_runners_github_owned_images_for_org")
+    @nw_action(
+        "actions_get_hosted_runners_github_owned_images_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/hosted-runners/images/github-owned",
+    )
     async def actions_get_hosted_runners_github_owned_images_for_org(
         self, params: ActionsGetHostedRunnersGithubOwnedImagesForOrgInput, *, trace_id: str
     ) -> ActionsGetHostedRunnersGithubOwnedImagesForOrgOutput:
@@ -4304,7 +4726,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_hosted_runners_partner_images_for_org")
+    @nw_action(
+        "actions_get_hosted_runners_partner_images_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/hosted-runners/images/partner",
+    )
     async def actions_get_hosted_runners_partner_images_for_org(
         self, params: ActionsGetHostedRunnersPartnerImagesForOrgInput, *, trace_id: str
     ) -> ActionsGetHostedRunnersPartnerImagesForOrgOutput:
@@ -4316,7 +4742,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_hosted_runners_limits_for_org")
+    @nw_action(
+        "actions_get_hosted_runners_limits_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/hosted-runners/limits",
+    )
     async def actions_get_hosted_runners_limits_for_org(
         self, params: ActionsGetHostedRunnersLimitsForOrgInput, *, trace_id: str
     ) -> ActionsGetHostedRunnersLimitsForOrgOutput:
@@ -4328,7 +4758,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_hosted_runners_machine_specs_for_org")
+    @nw_action(
+        "actions_get_hosted_runners_machine_specs_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/hosted-runners/machine-sizes",
+    )
     async def actions_get_hosted_runners_machine_specs_for_org(
         self, params: ActionsGetHostedRunnersMachineSpecsForOrgInput, *, trace_id: str
     ) -> ActionsGetHostedRunnersMachineSpecsForOrgOutput:
@@ -4340,7 +4774,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_hosted_runners_platforms_for_org")
+    @nw_action(
+        "actions_get_hosted_runners_platforms_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/hosted-runners/platforms",
+    )
     async def actions_get_hosted_runners_platforms_for_org(
         self, params: ActionsGetHostedRunnersPlatformsForOrgInput, *, trace_id: str
     ) -> ActionsGetHostedRunnersPlatformsForOrgOutput:
@@ -4352,7 +4790,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_hosted_runner_for_org")
+    @nw_action(
+        "actions_get_hosted_runner_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/hosted-runners/{hosted_runner_id}",
+    )
     async def actions_get_hosted_runner_for_org(
         self, params: ActionsGetHostedRunnerForOrgInput, *, trace_id: str
     ) -> ActionsGetHostedRunnerForOrgOutput:
@@ -4364,7 +4806,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_update_hosted_runner_for_org")
+    @nw_action(
+        "actions_update_hosted_runner_for_org",
+        http_method="PATCH",
+        http_path="/orgs/{org}/actions/hosted-runners/{hosted_runner_id}",
+    )
     async def actions_update_hosted_runner_for_org(
         self, params: ActionsUpdateHostedRunnerForOrgInput, *, trace_id: str
     ) -> ActionsUpdateHostedRunnerForOrgOutput:
@@ -4376,7 +4822,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_hosted_runner_for_org")
+    @nw_action(
+        "actions_delete_hosted_runner_for_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/hosted-runners/{hosted_runner_id}",
+    )
     async def actions_delete_hosted_runner_for_org(
         self, params: ActionsDeleteHostedRunnerForOrgInput, *, trace_id: str
     ) -> ActionsDeleteHostedRunnerForOrgOutput:
@@ -4388,7 +4838,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("oidc_list_oidc_custom_property_inclusions_for_org")
+    @nw_action(
+        "oidc_list_oidc_custom_property_inclusions_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/oidc/customization/properties/repo",
+    )
     async def oidc_list_oidc_custom_property_inclusions_for_org(
         self, params: OidcListOidcCustomPropertyInclusionsForOrgInput, *, trace_id: str
     ) -> OidcListOidcCustomPropertyInclusionsForOrgOutput:
@@ -4400,7 +4854,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("oidc_create_oidc_custom_property_inclusion_for_org")
+    @nw_action(
+        "oidc_create_oidc_custom_property_inclusion_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/actions/oidc/customization/properties/repo",
+    )
     async def oidc_create_oidc_custom_property_inclusion_for_org(
         self, params: OidcCreateOidcCustomPropertyInclusionForOrgInput, *, trace_id: str
     ) -> OidcCreateOidcCustomPropertyInclusionForOrgOutput:
@@ -4412,7 +4870,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("oidc_delete_oidc_custom_property_inclusion_for_org")
+    @nw_action(
+        "oidc_delete_oidc_custom_property_inclusion_for_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/oidc/customization/properties/repo/{custom_property_name}",
+    )
     async def oidc_delete_oidc_custom_property_inclusion_for_org(
         self, params: OidcDeleteOidcCustomPropertyInclusionForOrgInput, *, trace_id: str
     ) -> OidcDeleteOidcCustomPropertyInclusionForOrgOutput:
@@ -4424,7 +4886,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("oidc_get_oidc_custom_sub_template_for_org")
+    @nw_action(
+        "oidc_get_oidc_custom_sub_template_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/oidc/customization/sub",
+    )
     async def oidc_get_oidc_custom_sub_template_for_org(
         self, params: OidcGetOidcCustomSubTemplateForOrgInput, *, trace_id: str
     ) -> OidcGetOidcCustomSubTemplateForOrgOutput:
@@ -4436,7 +4902,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("oidc_update_oidc_custom_sub_template_for_org")
+    @nw_action(
+        "oidc_update_oidc_custom_sub_template_for_org",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/oidc/customization/sub",
+    )
     async def oidc_update_oidc_custom_sub_template_for_org(
         self, params: OidcUpdateOidcCustomSubTemplateForOrgInput, *, trace_id: str
     ) -> OidcUpdateOidcCustomSubTemplateForOrgOutput:
@@ -4448,7 +4918,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_github_actions_permissions_organization")
+    @nw_action(
+        "actions_get_github_actions_permissions_organization",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/permissions",
+    )
     async def actions_get_github_actions_permissions_organization(
         self, params: ActionsGetGithubActionsPermissionsOrganizationInput, *, trace_id: str
     ) -> ActionsGetGithubActionsPermissionsOrganizationOutput:
@@ -4460,7 +4934,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_github_actions_permissions_organization")
+    @nw_action(
+        "actions_set_github_actions_permissions_organization",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/permissions",
+    )
     async def actions_set_github_actions_permissions_organization(
         self, params: ActionsSetGithubActionsPermissionsOrganizationInput, *, trace_id: str
     ) -> ActionsSetGithubActionsPermissionsOrganizationOutput:
@@ -4472,7 +4950,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_artifact_and_log_retention_settings")
+    @nw_action(
+        "actions_get_artifact_and_log_retention_settings",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/permissions/artifact-and-log-retention",
+    )
     async def actions_get_artifact_and_log_retention_settings(
         self, params: ActionsGetArtifactAndLogRetentionSettingsInput, *, trace_id: str
     ) -> ActionsGetArtifactAndLogRetentionSettingsOutput:
@@ -4484,7 +4966,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_artifact_and_log_retention_settings")
+    @nw_action(
+        "actions_set_artifact_and_log_retention_settings",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/permissions/artifact-and-log-retention",
+    )
     async def actions_set_artifact_and_log_retention_settings(
         self, params: ActionsSetArtifactAndLogRetentionSettingsInput, *, trace_id: str
     ) -> ActionsSetArtifactAndLogRetentionSettingsOutput:
@@ -4496,7 +4982,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_fork_pr_contributor_approval_permissions")
+    @nw_action(
+        "actions_get_fork_pr_contributor_approval_permissions",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/permissions/fork-pr-contributor-approval",
+    )
     async def actions_get_fork_pr_contributor_approval_permissions(
         self, params: ActionsGetForkPrContributorApprovalPermissionsInput, *, trace_id: str
     ) -> ActionsGetForkPrContributorApprovalPermissionsOutput:
@@ -4508,7 +4998,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_fork_pr_contributor_approval_permissions")
+    @nw_action(
+        "actions_set_fork_pr_contributor_approval_permissions",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/permissions/fork-pr-contributor-approval",
+    )
     async def actions_set_fork_pr_contributor_approval_permissions(
         self, params: ActionsSetForkPrContributorApprovalPermissionsInput, *, trace_id: str
     ) -> ActionsSetForkPrContributorApprovalPermissionsOutput:
@@ -4520,7 +5014,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_private_repo_fork_pr_workflows_settings")
+    @nw_action(
+        "actions_get_private_repo_fork_pr_workflows_settings",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/permissions/fork-pr-workflows-private-repos",
+    )
     async def actions_get_private_repo_fork_pr_workflows_settings(
         self, params: ActionsGetPrivateRepoForkPrWorkflowsSettingsInput, *, trace_id: str
     ) -> ActionsGetPrivateRepoForkPrWorkflowsSettingsOutput:
@@ -4532,7 +5030,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_private_repo_fork_pr_workflows_settings")
+    @nw_action(
+        "actions_set_private_repo_fork_pr_workflows_settings",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/permissions/fork-pr-workflows-private-repos",
+    )
     async def actions_set_private_repo_fork_pr_workflows_settings(
         self, params: ActionsSetPrivateRepoForkPrWorkflowsSettingsInput, *, trace_id: str
     ) -> ActionsSetPrivateRepoForkPrWorkflowsSettingsOutput:
@@ -4544,7 +5046,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_selected_repositories_enabled_github_actions")
+    @nw_action(
+        "actions_list_selected_repositories_enabled_github_actions",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/permissions/repositories",
+    )
     async def actions_list_selected_repositories_enabled_github_actions(
         self, params: ActionsListSelectedRepositoriesEnabledGithubActionsInput, *, trace_id: str
     ) -> ActionsListSelectedRepositoriesEnabledGithubActionsOutput:
@@ -4556,7 +5062,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_selected_repositories_enabled_github_actions")
+    @nw_action(
+        "actions_set_selected_repositories_enabled_github_actions",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/permissions/repositories",
+    )
     async def actions_set_selected_repositories_enabled_github_actions(
         self, params: ActionsSetSelectedRepositoriesEnabledGithubActionsInput, *, trace_id: str
     ) -> ActionsSetSelectedRepositoriesEnabledGithubActionsOutput:
@@ -4568,7 +5078,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_enable_selected_repository_github_actions")
+    @nw_action(
+        "actions_enable_selected_repository_github_actions",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/permissions/repositories/{repository_id}",
+    )
     async def actions_enable_selected_repository_github_actions(
         self, params: ActionsEnableSelectedRepositoryGithubActionsInput, *, trace_id: str
     ) -> ActionsEnableSelectedRepositoryGithubActionsOutput:
@@ -4580,7 +5094,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_disable_selected_repository_github_actions")
+    @nw_action(
+        "actions_disable_selected_repository_github_actions",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/permissions/repositories/{repository_id}",
+    )
     async def actions_disable_selected_repository_github_actions(
         self, params: ActionsDisableSelectedRepositoryGithubActionsInput, *, trace_id: str
     ) -> ActionsDisableSelectedRepositoryGithubActionsOutput:
@@ -4592,7 +5110,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_allowed_actions_organization")
+    @nw_action(
+        "actions_get_allowed_actions_organization",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/permissions/selected-actions",
+    )
     async def actions_get_allowed_actions_organization(
         self, params: ActionsGetAllowedActionsOrganizationInput, *, trace_id: str
     ) -> ActionsGetAllowedActionsOrganizationOutput:
@@ -4604,7 +5126,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_allowed_actions_organization")
+    @nw_action(
+        "actions_set_allowed_actions_organization",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/permissions/selected-actions",
+    )
     async def actions_set_allowed_actions_organization(
         self, params: ActionsSetAllowedActionsOrganizationInput, *, trace_id: str
     ) -> ActionsSetAllowedActionsOrganizationOutput:
@@ -4616,7 +5142,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_self_hosted_runners_permissions_organization")
+    @nw_action(
+        "actions_get_self_hosted_runners_permissions_organization",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/permissions/self-hosted-runners",
+    )
     async def actions_get_self_hosted_runners_permissions_organization(
         self, params: ActionsGetSelfHostedRunnersPermissionsOrganizationInput, *, trace_id: str
     ) -> ActionsGetSelfHostedRunnersPermissionsOrganizationOutput:
@@ -4628,7 +5158,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_self_hosted_runners_permissions_organization")
+    @nw_action(
+        "actions_set_self_hosted_runners_permissions_organization",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/permissions/self-hosted-runners",
+    )
     async def actions_set_self_hosted_runners_permissions_organization(
         self, params: ActionsSetSelfHostedRunnersPermissionsOrganizationInput, *, trace_id: str
     ) -> ActionsSetSelfHostedRunnersPermissionsOrganizationOutput:
@@ -4640,7 +5174,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_selected_repositories_self_hosted_runners")
+    @nw_action(
+        "actions_list_selected_repositories_self_hosted_runners",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/permissions/self-hosted-runners/repositories",
+    )
     async def actions_list_selected_repositories_self_hosted_runners(
         self, params: ActionsListSelectedRepositoriesSelfHostedRunnersInput, *, trace_id: str
     ) -> ActionsListSelectedRepositoriesSelfHostedRunnersOutput:
@@ -4652,7 +5190,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_selected_repositories_self_hosted_runners")
+    @nw_action(
+        "actions_set_selected_repositories_self_hosted_runners",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/permissions/self-hosted-runners/repositories",
+    )
     async def actions_set_selected_repositories_self_hosted_runners(
         self, params: ActionsSetSelectedRepositoriesSelfHostedRunnersInput, *, trace_id: str
     ) -> ActionsSetSelectedRepositoriesSelfHostedRunnersOutput:
@@ -4664,7 +5206,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_enable_selected_repository_self_hosted_runners")
+    @nw_action(
+        "actions_enable_selected_repository_self_hosted_runners",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/permissions/self-hosted-runners/repositories/{repository_id}",
+    )
     async def actions_enable_selected_repository_self_hosted_runners(
         self, params: ActionsEnableSelectedRepositorySelfHostedRunnersInput, *, trace_id: str
     ) -> ActionsEnableSelectedRepositorySelfHostedRunnersOutput:
@@ -4676,7 +5222,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_disable_selected_repository_self_hosted_runners")
+    @nw_action(
+        "actions_disable_selected_repository_self_hosted_runners",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/permissions/self-hosted-runners/repositories/{repository_id}",
+    )
     async def actions_disable_selected_repository_self_hosted_runners(
         self, params: ActionsDisableSelectedRepositorySelfHostedRunnersInput, *, trace_id: str
     ) -> ActionsDisableSelectedRepositorySelfHostedRunnersOutput:
@@ -4688,7 +5238,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_github_actions_default_workflow_permissions")
+    @nw_action(
+        "actions_get_github_actions_default_workflow_permissions",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/permissions/workflow",
+    )
     async def actions_get_github_actions_default_workflow_permissions(
         self, params: ActionsGetGithubActionsDefaultWorkflowPermissionsInput, *, trace_id: str
     ) -> ActionsGetGithubActionsDefaultWorkflowPermissionsOutput:
@@ -4700,7 +5254,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_github_actions_default_workflow_permissions")
+    @nw_action(
+        "actions_set_github_actions_default_workflow_permissions",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/permissions/workflow",
+    )
     async def actions_set_github_actions_default_workflow_permissions(
         self, params: ActionsSetGithubActionsDefaultWorkflowPermissionsInput, *, trace_id: str
     ) -> ActionsSetGithubActionsDefaultWorkflowPermissionsOutput:
@@ -4712,7 +5270,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_org_actions_policies")
+    @nw_action(
+        "actions_get_org_actions_policies",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/policies",
+    )
     async def actions_get_org_actions_policies(
         self, params: ActionsGetOrgActionsPoliciesInput, *, trace_id: str
     ) -> ActionsGetOrgActionsPoliciesOutput:
@@ -4724,7 +5286,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_org_actions_policy")
+    @nw_action(
+        "actions_create_org_actions_policy",
+        http_method="POST",
+        http_path="/orgs/{org}/actions/policies",
+    )
     async def actions_create_org_actions_policy(
         self, params: ActionsCreateOrgActionsPolicyInput, *, trace_id: str
     ) -> ActionsCreateOrgActionsPolicyOutput:
@@ -4736,7 +5302,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_org_actions_policy")
+    @nw_action(
+        "actions_get_org_actions_policy",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/policies/{policy_id}",
+    )
     async def actions_get_org_actions_policy(
         self, params: ActionsGetOrgActionsPolicyInput, *, trace_id: str
     ) -> ActionsGetOrgActionsPolicyOutput:
@@ -4748,7 +5318,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_update_org_actions_policy")
+    @nw_action(
+        "actions_update_org_actions_policy",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/policies/{policy_id}",
+    )
     async def actions_update_org_actions_policy(
         self, params: ActionsUpdateOrgActionsPolicyInput, *, trace_id: str
     ) -> ActionsUpdateOrgActionsPolicyOutput:
@@ -4760,7 +5334,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_org_actions_policy")
+    @nw_action(
+        "actions_delete_org_actions_policy",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/policies/{policy_id}",
+    )
     async def actions_delete_org_actions_policy(
         self, params: ActionsDeleteOrgActionsPolicyInput, *, trace_id: str
     ) -> ActionsDeleteOrgActionsPolicyOutput:
@@ -4772,7 +5350,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_self_hosted_runner_groups_for_org")
+    @nw_action(
+        "actions_list_self_hosted_runner_groups_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/runner-groups",
+    )
     async def actions_list_self_hosted_runner_groups_for_org(
         self, params: ActionsListSelfHostedRunnerGroupsForOrgInput, *, trace_id: str
     ) -> ActionsListSelfHostedRunnerGroupsForOrgOutput:
@@ -4784,7 +5366,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_self_hosted_runner_group_for_org")
+    @nw_action(
+        "actions_create_self_hosted_runner_group_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/actions/runner-groups",
+    )
     async def actions_create_self_hosted_runner_group_for_org(
         self, params: ActionsCreateSelfHostedRunnerGroupForOrgInput, *, trace_id: str
     ) -> ActionsCreateSelfHostedRunnerGroupForOrgOutput:
@@ -4796,7 +5382,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_self_hosted_runner_group_for_org")
+    @nw_action(
+        "actions_get_self_hosted_runner_group_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/runner-groups/{runner_group_id}",
+    )
     async def actions_get_self_hosted_runner_group_for_org(
         self, params: ActionsGetSelfHostedRunnerGroupForOrgInput, *, trace_id: str
     ) -> ActionsGetSelfHostedRunnerGroupForOrgOutput:
@@ -4808,7 +5398,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_update_self_hosted_runner_group_for_org")
+    @nw_action(
+        "actions_update_self_hosted_runner_group_for_org",
+        http_method="PATCH",
+        http_path="/orgs/{org}/actions/runner-groups/{runner_group_id}",
+    )
     async def actions_update_self_hosted_runner_group_for_org(
         self, params: ActionsUpdateSelfHostedRunnerGroupForOrgInput, *, trace_id: str
     ) -> ActionsUpdateSelfHostedRunnerGroupForOrgOutput:
@@ -4820,7 +5414,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_self_hosted_runner_group_from_org")
+    @nw_action(
+        "actions_delete_self_hosted_runner_group_from_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/runner-groups/{runner_group_id}",
+    )
     async def actions_delete_self_hosted_runner_group_from_org(
         self, params: ActionsDeleteSelfHostedRunnerGroupFromOrgInput, *, trace_id: str
     ) -> ActionsDeleteSelfHostedRunnerGroupFromOrgOutput:
@@ -4832,7 +5430,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_github_hosted_runners_in_group_for_org")
+    @nw_action(
+        "actions_list_github_hosted_runners_in_group_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/runner-groups/{runner_group_id}/hosted-runners",
+    )
     async def actions_list_github_hosted_runners_in_group_for_org(
         self, params: ActionsListGithubHostedRunnersInGroupForOrgInput, *, trace_id: str
     ) -> ActionsListGithubHostedRunnersInGroupForOrgOutput:
@@ -4844,7 +5446,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_repo_access_to_self_hosted_runner_group_in")
+    @nw_action(
+        "actions_list_repo_access_to_self_hosted_runner_group_in",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/runner-groups/{runner_group_id}/repositories",
+    )
     async def actions_list_repo_access_to_self_hosted_runner_group_in(
         self, params: ActionsListRepoAccessToSelfHostedRunnerGroupInInput, *, trace_id: str
     ) -> ActionsListRepoAccessToSelfHostedRunnerGroupInOutput:
@@ -4856,7 +5462,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_repo_access_to_self_hosted_runner_group_in")
+    @nw_action(
+        "actions_set_repo_access_to_self_hosted_runner_group_in",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/runner-groups/{runner_group_id}/repositories",
+    )
     async def actions_set_repo_access_to_self_hosted_runner_group_in(
         self, params: ActionsSetRepoAccessToSelfHostedRunnerGroupInInput, *, trace_id: str
     ) -> ActionsSetRepoAccessToSelfHostedRunnerGroupInOutput:
@@ -4868,7 +5478,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_add_repo_access_to_self_hosted_runner_group_in")
+    @nw_action(
+        "actions_add_repo_access_to_self_hosted_runner_group_in",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/runner-groups/{runner_group_id}/repositories/{repository_id}",
+    )
     async def actions_add_repo_access_to_self_hosted_runner_group_in(
         self, params: ActionsAddRepoAccessToSelfHostedRunnerGroupInInput, *, trace_id: str
     ) -> ActionsAddRepoAccessToSelfHostedRunnerGroupInOutput:
@@ -4880,7 +5494,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_remove_repo_access_to_self_hosted_runner_group_in")
+    @nw_action(
+        "actions_remove_repo_access_to_self_hosted_runner_group_in",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/runner-groups/{runner_group_id}/repositories/{repository_id}",
+    )
     async def actions_remove_repo_access_to_self_hosted_runner_group_in(
         self, params: ActionsRemoveRepoAccessToSelfHostedRunnerGroupInInput, *, trace_id: str
     ) -> ActionsRemoveRepoAccessToSelfHostedRunnerGroupInOutput:
@@ -4892,7 +5510,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_self_hosted_runners_in_group_for_org")
+    @nw_action(
+        "actions_list_self_hosted_runners_in_group_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/runner-groups/{runner_group_id}/runners",
+    )
     async def actions_list_self_hosted_runners_in_group_for_org(
         self, params: ActionsListSelfHostedRunnersInGroupForOrgInput, *, trace_id: str
     ) -> ActionsListSelfHostedRunnersInGroupForOrgOutput:
@@ -4904,7 +5526,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_self_hosted_runners_in_group_for_org")
+    @nw_action(
+        "actions_set_self_hosted_runners_in_group_for_org",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/runner-groups/{runner_group_id}/runners",
+    )
     async def actions_set_self_hosted_runners_in_group_for_org(
         self, params: ActionsSetSelfHostedRunnersInGroupForOrgInput, *, trace_id: str
     ) -> ActionsSetSelfHostedRunnersInGroupForOrgOutput:
@@ -4916,7 +5542,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_add_self_hosted_runner_to_group_for_org")
+    @nw_action(
+        "actions_add_self_hosted_runner_to_group_for_org",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/runner-groups/{runner_group_id}/runners/{runner_id}",
+    )
     async def actions_add_self_hosted_runner_to_group_for_org(
         self, params: ActionsAddSelfHostedRunnerToGroupForOrgInput, *, trace_id: str
     ) -> ActionsAddSelfHostedRunnerToGroupForOrgOutput:
@@ -4928,7 +5558,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_remove_self_hosted_runner_from_group_for_org")
+    @nw_action(
+        "actions_remove_self_hosted_runner_from_group_for_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/runner-groups/{runner_group_id}/runners/{runner_id}",
+    )
     async def actions_remove_self_hosted_runner_from_group_for_org(
         self, params: ActionsRemoveSelfHostedRunnerFromGroupForOrgInput, *, trace_id: str
     ) -> ActionsRemoveSelfHostedRunnerFromGroupForOrgOutput:
@@ -4940,7 +5574,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_self_hosted_runners_for_org")
+    @nw_action(
+        "actions_list_self_hosted_runners_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/runners",
+    )
     async def actions_list_self_hosted_runners_for_org(
         self, params: ActionsListSelfHostedRunnersForOrgInput, *, trace_id: str
     ) -> ActionsListSelfHostedRunnersForOrgOutput:
@@ -4952,7 +5590,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_runner_version_deprecation_for_org")
+    @nw_action(
+        "actions_get_runner_version_deprecation_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/runners/deprecations/{version}",
+    )
     async def actions_get_runner_version_deprecation_for_org(
         self, params: ActionsGetRunnerVersionDeprecationForOrgInput, *, trace_id: str
     ) -> ActionsGetRunnerVersionDeprecationForOrgOutput:
@@ -4964,7 +5606,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_runner_applications_for_org")
+    @nw_action(
+        "actions_list_runner_applications_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/runners/downloads",
+    )
     async def actions_list_runner_applications_for_org(
         self, params: ActionsListRunnerApplicationsForOrgInput, *, trace_id: str
     ) -> ActionsListRunnerApplicationsForOrgOutput:
@@ -4976,7 +5622,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_generate_runner_jitconfig_for_org")
+    @nw_action(
+        "actions_generate_runner_jitconfig_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/actions/runners/generate-jitconfig",
+    )
     async def actions_generate_runner_jitconfig_for_org(
         self, params: ActionsGenerateRunnerJitconfigForOrgInput, *, trace_id: str
     ) -> ActionsGenerateRunnerJitconfigForOrgOutput:
@@ -4988,7 +5638,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_registration_token_for_org")
+    @nw_action(
+        "actions_create_registration_token_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/actions/runners/registration-token",
+    )
     async def actions_create_registration_token_for_org(
         self, params: ActionsCreateRegistrationTokenForOrgInput, *, trace_id: str
     ) -> ActionsCreateRegistrationTokenForOrgOutput:
@@ -5000,7 +5654,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_remove_token_for_org")
+    @nw_action(
+        "actions_create_remove_token_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/actions/runners/remove-token",
+    )
     async def actions_create_remove_token_for_org(
         self, params: ActionsCreateRemoveTokenForOrgInput, *, trace_id: str
     ) -> ActionsCreateRemoveTokenForOrgOutput:
@@ -5012,7 +5670,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_self_hosted_runner_for_org")
+    @nw_action(
+        "actions_get_self_hosted_runner_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/runners/{runner_id}",
+    )
     async def actions_get_self_hosted_runner_for_org(
         self, params: ActionsGetSelfHostedRunnerForOrgInput, *, trace_id: str
     ) -> ActionsGetSelfHostedRunnerForOrgOutput:
@@ -5024,7 +5686,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_self_hosted_runner_from_org")
+    @nw_action(
+        "actions_delete_self_hosted_runner_from_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/runners/{runner_id}",
+    )
     async def actions_delete_self_hosted_runner_from_org(
         self, params: ActionsDeleteSelfHostedRunnerFromOrgInput, *, trace_id: str
     ) -> ActionsDeleteSelfHostedRunnerFromOrgOutput:
@@ -5036,7 +5702,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_labels_for_self_hosted_runner_for_org")
+    @nw_action(
+        "actions_list_labels_for_self_hosted_runner_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/runners/{runner_id}/labels",
+    )
     async def actions_list_labels_for_self_hosted_runner_for_org(
         self, params: ActionsListLabelsForSelfHostedRunnerForOrgInput, *, trace_id: str
     ) -> ActionsListLabelsForSelfHostedRunnerForOrgOutput:
@@ -5048,7 +5718,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_add_custom_labels_to_self_hosted_runner_for_org")
+    @nw_action(
+        "actions_add_custom_labels_to_self_hosted_runner_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/actions/runners/{runner_id}/labels",
+    )
     async def actions_add_custom_labels_to_self_hosted_runner_for_org(
         self, params: ActionsAddCustomLabelsToSelfHostedRunnerForOrgInput, *, trace_id: str
     ) -> ActionsAddCustomLabelsToSelfHostedRunnerForOrgOutput:
@@ -5060,7 +5734,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_custom_labels_for_self_hosted_runner_for_org")
+    @nw_action(
+        "actions_set_custom_labels_for_self_hosted_runner_for_org",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/runners/{runner_id}/labels",
+    )
     async def actions_set_custom_labels_for_self_hosted_runner_for_org(
         self, params: ActionsSetCustomLabelsForSelfHostedRunnerForOrgInput, *, trace_id: str
     ) -> ActionsSetCustomLabelsForSelfHostedRunnerForOrgOutput:
@@ -5072,7 +5750,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_remove_all_custom_labels_from_self_hosted_runner")
+    @nw_action(
+        "actions_remove_all_custom_labels_from_self_hosted_runner",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/runners/{runner_id}/labels",
+    )
     async def actions_remove_all_custom_labels_from_self_hosted_runner(
         self, params: ActionsRemoveAllCustomLabelsFromSelfHostedRunnerInput, *, trace_id: str
     ) -> ActionsRemoveAllCustomLabelsFromSelfHostedRunnerOutput:
@@ -5084,7 +5766,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_remove_custom_label_from_self_hosted_runner_for")
+    @nw_action(
+        "actions_remove_custom_label_from_self_hosted_runner_for",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/runners/{runner_id}/labels/{name}",
+    )
     async def actions_remove_custom_label_from_self_hosted_runner_for(
         self, params: ActionsRemoveCustomLabelFromSelfHostedRunnerForInput, *, trace_id: str
     ) -> ActionsRemoveCustomLabelFromSelfHostedRunnerForOutput:
@@ -5096,7 +5782,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_org_secrets")
+    @nw_action(
+        "actions_list_org_secrets", http_method="GET", http_path="/orgs/{org}/actions/secrets"
+    )
     async def actions_list_org_secrets(
         self, params: ActionsListOrgSecretsInput, *, trace_id: str
     ) -> ActionsListOrgSecretsOutput:
@@ -5108,7 +5796,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_org_public_key")
+    @nw_action(
+        "actions_get_org_public_key",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/secrets/public-key",
+    )
     async def actions_get_org_public_key(
         self, params: ActionsGetOrgPublicKeyInput, *, trace_id: str
     ) -> ActionsGetOrgPublicKeyOutput:
@@ -5120,7 +5812,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_org_secret")
+    @nw_action(
+        "actions_get_org_secret",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/secrets/{secret_name}",
+    )
     async def actions_get_org_secret(
         self, params: ActionsGetOrgSecretInput, *, trace_id: str
     ) -> ActionsGetOrgSecretOutput:
@@ -5132,7 +5828,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_or_update_org_secret")
+    @nw_action(
+        "actions_create_or_update_org_secret",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/secrets/{secret_name}",
+    )
     async def actions_create_or_update_org_secret(
         self, params: ActionsCreateOrUpdateOrgSecretInput, *, trace_id: str
     ) -> ActionsCreateOrUpdateOrgSecretOutput:
@@ -5144,7 +5844,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_org_secret")
+    @nw_action(
+        "actions_delete_org_secret",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/secrets/{secret_name}",
+    )
     async def actions_delete_org_secret(
         self, params: ActionsDeleteOrgSecretInput, *, trace_id: str
     ) -> ActionsDeleteOrgSecretOutput:
@@ -5156,7 +5860,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_selected_repos_for_org_secret")
+    @nw_action(
+        "actions_list_selected_repos_for_org_secret",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/secrets/{secret_name}/repositories",
+    )
     async def actions_list_selected_repos_for_org_secret(
         self, params: ActionsListSelectedReposForOrgSecretInput, *, trace_id: str
     ) -> ActionsListSelectedReposForOrgSecretOutput:
@@ -5168,7 +5876,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_selected_repos_for_org_secret")
+    @nw_action(
+        "actions_set_selected_repos_for_org_secret",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/secrets/{secret_name}/repositories",
+    )
     async def actions_set_selected_repos_for_org_secret(
         self, params: ActionsSetSelectedReposForOrgSecretInput, *, trace_id: str
     ) -> ActionsSetSelectedReposForOrgSecretOutput:
@@ -5180,7 +5892,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_add_selected_repo_to_org_secret")
+    @nw_action(
+        "actions_add_selected_repo_to_org_secret",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/secrets/{secret_name}/repositories/{repository_id}",
+    )
     async def actions_add_selected_repo_to_org_secret(
         self, params: ActionsAddSelectedRepoToOrgSecretInput, *, trace_id: str
     ) -> ActionsAddSelectedRepoToOrgSecretOutput:
@@ -5192,7 +5908,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_remove_selected_repo_from_org_secret")
+    @nw_action(
+        "actions_remove_selected_repo_from_org_secret",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/secrets/{secret_name}/repositories/{repository_id}",
+    )
     async def actions_remove_selected_repo_from_org_secret(
         self, params: ActionsRemoveSelectedRepoFromOrgSecretInput, *, trace_id: str
     ) -> ActionsRemoveSelectedRepoFromOrgSecretOutput:
@@ -5204,7 +5924,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_org_variables")
+    @nw_action(
+        "actions_list_org_variables", http_method="GET", http_path="/orgs/{org}/actions/variables"
+    )
     async def actions_list_org_variables(
         self, params: ActionsListOrgVariablesInput, *, trace_id: str
     ) -> ActionsListOrgVariablesOutput:
@@ -5216,7 +5938,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_org_variable")
+    @nw_action(
+        "actions_create_org_variable", http_method="POST", http_path="/orgs/{org}/actions/variables"
+    )
     async def actions_create_org_variable(
         self, params: ActionsCreateOrgVariableInput, *, trace_id: str
     ) -> ActionsCreateOrgVariableOutput:
@@ -5228,7 +5952,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_org_variable")
+    @nw_action(
+        "actions_get_org_variable",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/variables/{name}",
+    )
     async def actions_get_org_variable(
         self, params: ActionsGetOrgVariableInput, *, trace_id: str
     ) -> ActionsGetOrgVariableOutput:
@@ -5240,7 +5968,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_update_org_variable")
+    @nw_action(
+        "actions_update_org_variable",
+        http_method="PATCH",
+        http_path="/orgs/{org}/actions/variables/{name}",
+    )
     async def actions_update_org_variable(
         self, params: ActionsUpdateOrgVariableInput, *, trace_id: str
     ) -> ActionsUpdateOrgVariableOutput:
@@ -5252,7 +5984,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_org_variable")
+    @nw_action(
+        "actions_delete_org_variable",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/variables/{name}",
+    )
     async def actions_delete_org_variable(
         self, params: ActionsDeleteOrgVariableInput, *, trace_id: str
     ) -> ActionsDeleteOrgVariableOutput:
@@ -5264,7 +6000,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_selected_repos_for_org_variable")
+    @nw_action(
+        "actions_list_selected_repos_for_org_variable",
+        http_method="GET",
+        http_path="/orgs/{org}/actions/variables/{name}/repositories",
+    )
     async def actions_list_selected_repos_for_org_variable(
         self, params: ActionsListSelectedReposForOrgVariableInput, *, trace_id: str
     ) -> ActionsListSelectedReposForOrgVariableOutput:
@@ -5276,7 +6016,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_selected_repos_for_org_variable")
+    @nw_action(
+        "actions_set_selected_repos_for_org_variable",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/variables/{name}/repositories",
+    )
     async def actions_set_selected_repos_for_org_variable(
         self, params: ActionsSetSelectedReposForOrgVariableInput, *, trace_id: str
     ) -> ActionsSetSelectedReposForOrgVariableOutput:
@@ -5288,7 +6032,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_add_selected_repo_to_org_variable")
+    @nw_action(
+        "actions_add_selected_repo_to_org_variable",
+        http_method="PUT",
+        http_path="/orgs/{org}/actions/variables/{name}/repositories/{repository_id}",
+    )
     async def actions_add_selected_repo_to_org_variable(
         self, params: ActionsAddSelectedRepoToOrgVariableInput, *, trace_id: str
     ) -> ActionsAddSelectedRepoToOrgVariableOutput:
@@ -5300,7 +6048,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_remove_selected_repo_from_org_variable")
+    @nw_action(
+        "actions_remove_selected_repo_from_org_variable",
+        http_method="DELETE",
+        http_path="/orgs/{org}/actions/variables/{name}/repositories/{repository_id}",
+    )
     async def actions_remove_selected_repo_from_org_variable(
         self, params: ActionsRemoveSelectedRepoFromOrgVariableInput, *, trace_id: str
     ) -> ActionsRemoveSelectedRepoFromOrgVariableOutput:
@@ -5312,7 +6064,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_list_org_secrets")
+    @nw_action("agents_list_org_secrets", http_method="GET", http_path="/orgs/{org}/agents/secrets")
     async def agents_list_org_secrets(
         self, params: AgentsListOrgSecretsInput, *, trace_id: str
     ) -> AgentsListOrgSecretsOutput:
@@ -5324,7 +6076,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_get_org_public_key")
+    @nw_action(
+        "agents_get_org_public_key",
+        http_method="GET",
+        http_path="/orgs/{org}/agents/secrets/public-key",
+    )
     async def agents_get_org_public_key(
         self, params: AgentsGetOrgPublicKeyInput, *, trace_id: str
     ) -> AgentsGetOrgPublicKeyOutput:
@@ -5336,7 +6092,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_get_org_secret")
+    @nw_action(
+        "agents_get_org_secret",
+        http_method="GET",
+        http_path="/orgs/{org}/agents/secrets/{secret_name}",
+    )
     async def agents_get_org_secret(
         self, params: AgentsGetOrgSecretInput, *, trace_id: str
     ) -> AgentsGetOrgSecretOutput:
@@ -5348,7 +6108,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_create_or_update_org_secret")
+    @nw_action(
+        "agents_create_or_update_org_secret",
+        http_method="PUT",
+        http_path="/orgs/{org}/agents/secrets/{secret_name}",
+    )
     async def agents_create_or_update_org_secret(
         self, params: AgentsCreateOrUpdateOrgSecretInput, *, trace_id: str
     ) -> AgentsCreateOrUpdateOrgSecretOutput:
@@ -5360,7 +6124,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_delete_org_secret")
+    @nw_action(
+        "agents_delete_org_secret",
+        http_method="DELETE",
+        http_path="/orgs/{org}/agents/secrets/{secret_name}",
+    )
     async def agents_delete_org_secret(
         self, params: AgentsDeleteOrgSecretInput, *, trace_id: str
     ) -> AgentsDeleteOrgSecretOutput:
@@ -5372,7 +6140,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_list_selected_repos_for_org_secret")
+    @nw_action(
+        "agents_list_selected_repos_for_org_secret",
+        http_method="GET",
+        http_path="/orgs/{org}/agents/secrets/{secret_name}/repositories",
+    )
     async def agents_list_selected_repos_for_org_secret(
         self, params: AgentsListSelectedReposForOrgSecretInput, *, trace_id: str
     ) -> AgentsListSelectedReposForOrgSecretOutput:
@@ -5384,7 +6156,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_set_selected_repos_for_org_secret")
+    @nw_action(
+        "agents_set_selected_repos_for_org_secret",
+        http_method="PUT",
+        http_path="/orgs/{org}/agents/secrets/{secret_name}/repositories",
+    )
     async def agents_set_selected_repos_for_org_secret(
         self, params: AgentsSetSelectedReposForOrgSecretInput, *, trace_id: str
     ) -> AgentsSetSelectedReposForOrgSecretOutput:
@@ -5396,7 +6172,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_add_selected_repo_to_org_secret")
+    @nw_action(
+        "agents_add_selected_repo_to_org_secret",
+        http_method="PUT",
+        http_path="/orgs/{org}/agents/secrets/{secret_name}/repositories/{repository_id}",
+    )
     async def agents_add_selected_repo_to_org_secret(
         self, params: AgentsAddSelectedRepoToOrgSecretInput, *, trace_id: str
     ) -> AgentsAddSelectedRepoToOrgSecretOutput:
@@ -5408,7 +6188,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_remove_selected_repo_from_org_secret")
+    @nw_action(
+        "agents_remove_selected_repo_from_org_secret",
+        http_method="DELETE",
+        http_path="/orgs/{org}/agents/secrets/{secret_name}/repositories/{repository_id}",
+    )
     async def agents_remove_selected_repo_from_org_secret(
         self, params: AgentsRemoveSelectedRepoFromOrgSecretInput, *, trace_id: str
     ) -> AgentsRemoveSelectedRepoFromOrgSecretOutput:
@@ -5420,7 +6204,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_list_org_variables")
+    @nw_action(
+        "agents_list_org_variables", http_method="GET", http_path="/orgs/{org}/agents/variables"
+    )
     async def agents_list_org_variables(
         self, params: AgentsListOrgVariablesInput, *, trace_id: str
     ) -> AgentsListOrgVariablesOutput:
@@ -5432,7 +6218,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_create_org_variable")
+    @nw_action(
+        "agents_create_org_variable", http_method="POST", http_path="/orgs/{org}/agents/variables"
+    )
     async def agents_create_org_variable(
         self, params: AgentsCreateOrgVariableInput, *, trace_id: str
     ) -> AgentsCreateOrgVariableOutput:
@@ -5444,7 +6232,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_get_org_variable")
+    @nw_action(
+        "agents_get_org_variable",
+        http_method="GET",
+        http_path="/orgs/{org}/agents/variables/{name}",
+    )
     async def agents_get_org_variable(
         self, params: AgentsGetOrgVariableInput, *, trace_id: str
     ) -> AgentsGetOrgVariableOutput:
@@ -5456,7 +6248,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_update_org_variable")
+    @nw_action(
+        "agents_update_org_variable",
+        http_method="PATCH",
+        http_path="/orgs/{org}/agents/variables/{name}",
+    )
     async def agents_update_org_variable(
         self, params: AgentsUpdateOrgVariableInput, *, trace_id: str
     ) -> AgentsUpdateOrgVariableOutput:
@@ -5468,7 +6264,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_delete_org_variable")
+    @nw_action(
+        "agents_delete_org_variable",
+        http_method="DELETE",
+        http_path="/orgs/{org}/agents/variables/{name}",
+    )
     async def agents_delete_org_variable(
         self, params: AgentsDeleteOrgVariableInput, *, trace_id: str
     ) -> AgentsDeleteOrgVariableOutput:
@@ -5480,7 +6280,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_list_selected_repos_for_org_variable")
+    @nw_action(
+        "agents_list_selected_repos_for_org_variable",
+        http_method="GET",
+        http_path="/orgs/{org}/agents/variables/{name}/repositories",
+    )
     async def agents_list_selected_repos_for_org_variable(
         self, params: AgentsListSelectedReposForOrgVariableInput, *, trace_id: str
     ) -> AgentsListSelectedReposForOrgVariableOutput:
@@ -5492,7 +6296,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_set_selected_repos_for_org_variable")
+    @nw_action(
+        "agents_set_selected_repos_for_org_variable",
+        http_method="PUT",
+        http_path="/orgs/{org}/agents/variables/{name}/repositories",
+    )
     async def agents_set_selected_repos_for_org_variable(
         self, params: AgentsSetSelectedReposForOrgVariableInput, *, trace_id: str
     ) -> AgentsSetSelectedReposForOrgVariableOutput:
@@ -5504,7 +6312,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_add_selected_repo_to_org_variable")
+    @nw_action(
+        "agents_add_selected_repo_to_org_variable",
+        http_method="PUT",
+        http_path="/orgs/{org}/agents/variables/{name}/repositories/{repository_id}",
+    )
     async def agents_add_selected_repo_to_org_variable(
         self, params: AgentsAddSelectedRepoToOrgVariableInput, *, trace_id: str
     ) -> AgentsAddSelectedRepoToOrgVariableOutput:
@@ -5516,7 +6328,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_remove_selected_repo_from_org_variable")
+    @nw_action(
+        "agents_remove_selected_repo_from_org_variable",
+        http_method="DELETE",
+        http_path="/orgs/{org}/agents/variables/{name}/repositories/{repository_id}",
+    )
     async def agents_remove_selected_repo_from_org_variable(
         self, params: AgentsRemoveSelectedRepoFromOrgVariableInput, *, trace_id: str
     ) -> AgentsRemoveSelectedRepoFromOrgVariableOutput:
@@ -5528,7 +6344,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_create_artifact_deployment_record")
+    @nw_action(
+        "orgs_create_artifact_deployment_record",
+        http_method="POST",
+        http_path="/orgs/{org}/artifacts/metadata/deployment-record",
+    )
     async def orgs_create_artifact_deployment_record(
         self, params: OrgsCreateArtifactDeploymentRecordInput, *, trace_id: str
     ) -> OrgsCreateArtifactDeploymentRecordOutput:
@@ -5540,7 +6360,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_set_cluster_deployment_records")
+    @nw_action(
+        "orgs_set_cluster_deployment_records",
+        http_method="POST",
+        http_path="/orgs/{org}/artifacts/metadata/deployment-record/cluster/{cluster}",
+    )
     async def orgs_set_cluster_deployment_records(
         self, params: OrgsSetClusterDeploymentRecordsInput, *, trace_id: str
     ) -> OrgsSetClusterDeploymentRecordsOutput:
@@ -5552,7 +6376,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_create_cluster_deployment_records_job")
+    @nw_action(
+        "orgs_create_cluster_deployment_records_job",
+        http_method="POST",
+        http_path="/orgs/{org}/artifacts/metadata/deployment-record/cluster/{cluster}/jobs",
+    )
     async def orgs_create_cluster_deployment_records_job(
         self, params: OrgsCreateClusterDeploymentRecordsJobInput, *, trace_id: str
     ) -> OrgsCreateClusterDeploymentRecordsJobOutput:
@@ -5564,7 +6392,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_get_cluster_deployment_records_job")
+    @nw_action(
+        "orgs_get_cluster_deployment_records_job",
+        http_method="GET",
+        http_path="/orgs/{org}/artifacts/metadata/deployment-record/cluster/{cluster}/jobs/{job_id}",
+    )
     async def orgs_get_cluster_deployment_records_job(
         self, params: OrgsGetClusterDeploymentRecordsJobInput, *, trace_id: str
     ) -> OrgsGetClusterDeploymentRecordsJobOutput:
@@ -5576,7 +6408,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_create_artifact_storage_record")
+    @nw_action(
+        "orgs_create_artifact_storage_record",
+        http_method="POST",
+        http_path="/orgs/{org}/artifacts/metadata/storage-record",
+    )
     async def orgs_create_artifact_storage_record(
         self, params: OrgsCreateArtifactStorageRecordInput, *, trace_id: str
     ) -> OrgsCreateArtifactStorageRecordOutput:
@@ -5588,7 +6424,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_artifact_deployment_records")
+    @nw_action(
+        "orgs_list_artifact_deployment_records",
+        http_method="GET",
+        http_path="/orgs/{org}/artifacts/{subject_digest}/metadata/deployment-records",
+    )
     async def orgs_list_artifact_deployment_records(
         self, params: OrgsListArtifactDeploymentRecordsInput, *, trace_id: str
     ) -> OrgsListArtifactDeploymentRecordsOutput:
@@ -5600,7 +6440,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_artifact_storage_records")
+    @nw_action(
+        "orgs_list_artifact_storage_records",
+        http_method="GET",
+        http_path="/orgs/{org}/artifacts/{subject_digest}/metadata/storage-records",
+    )
     async def orgs_list_artifact_storage_records(
         self, params: OrgsListArtifactStorageRecordsInput, *, trace_id: str
     ) -> OrgsListArtifactStorageRecordsOutput:
@@ -5612,7 +6456,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_attestations_bulk")
+    @nw_action(
+        "orgs_list_attestations_bulk",
+        http_method="POST",
+        http_path="/orgs/{org}/attestations/bulk-list",
+    )
     async def orgs_list_attestations_bulk(
         self, params: OrgsListAttestationsBulkInput, *, trace_id: str
     ) -> OrgsListAttestationsBulkOutput:
@@ -5624,7 +6472,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_delete_attestations_bulk")
+    @nw_action(
+        "orgs_delete_attestations_bulk",
+        http_method="POST",
+        http_path="/orgs/{org}/attestations/delete-request",
+    )
     async def orgs_delete_attestations_bulk(
         self, params: OrgsDeleteAttestationsBulkInput, *, trace_id: str
     ) -> OrgsDeleteAttestationsBulkOutput:
@@ -5636,7 +6488,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_delete_attestations_by_subject_digest")
+    @nw_action(
+        "orgs_delete_attestations_by_subject_digest",
+        http_method="DELETE",
+        http_path="/orgs/{org}/attestations/digest/{subject_digest}",
+    )
     async def orgs_delete_attestations_by_subject_digest(
         self, params: OrgsDeleteAttestationsBySubjectDigestInput, *, trace_id: str
     ) -> OrgsDeleteAttestationsBySubjectDigestOutput:
@@ -5648,7 +6504,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_attestation_repositories")
+    @nw_action(
+        "orgs_list_attestation_repositories",
+        http_method="GET",
+        http_path="/orgs/{org}/attestations/repositories",
+    )
     async def orgs_list_attestation_repositories(
         self, params: OrgsListAttestationRepositoriesInput, *, trace_id: str
     ) -> OrgsListAttestationRepositoriesOutput:
@@ -5660,7 +6520,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_delete_attestations_by_id")
+    @nw_action(
+        "orgs_delete_attestations_by_id",
+        http_method="DELETE",
+        http_path="/orgs/{org}/attestations/{attestation_id}",
+    )
     async def orgs_delete_attestations_by_id(
         self, params: OrgsDeleteAttestationsByIdInput, *, trace_id: str
     ) -> OrgsDeleteAttestationsByIdOutput:
@@ -5672,7 +6536,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_attestations")
+    @nw_action(
+        "orgs_list_attestations",
+        http_method="GET",
+        http_path="/orgs/{org}/attestations/{subject_digest}",
+    )
     async def orgs_list_attestations(
         self, params: OrgsListAttestationsInput, *, trace_id: str
     ) -> OrgsListAttestationsOutput:
@@ -5684,7 +6552,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_blocked_users")
+    @nw_action("orgs_list_blocked_users", http_method="GET", http_path="/orgs/{org}/blocks")
     async def orgs_list_blocked_users(
         self, params: OrgsListBlockedUsersInput, *, trace_id: str
     ) -> OrgsListBlockedUsersOutput:
@@ -5696,7 +6564,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_check_blocked_user")
+    @nw_action(
+        "orgs_check_blocked_user", http_method="GET", http_path="/orgs/{org}/blocks/{username}"
+    )
     async def orgs_check_blocked_user(
         self, params: OrgsCheckBlockedUserInput, *, trace_id: str
     ) -> OrgsCheckBlockedUserOutput:
@@ -5708,7 +6578,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_block_user")
+    @nw_action("orgs_block_user", http_method="PUT", http_path="/orgs/{org}/blocks/{username}")
     async def orgs_block_user(
         self, params: OrgsBlockUserInput, *, trace_id: str
     ) -> OrgsBlockUserOutput:
@@ -5720,7 +6590,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_unblock_user")
+    @nw_action("orgs_unblock_user", http_method="DELETE", http_path="/orgs/{org}/blocks/{username}")
     async def orgs_unblock_user(
         self, params: OrgsUnblockUserInput, *, trace_id: str
     ) -> OrgsUnblockUserOutput:
@@ -5732,7 +6602,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("campaigns_list_org_campaigns")
+    @nw_action("campaigns_list_org_campaigns", http_method="GET", http_path="/orgs/{org}/campaigns")
     async def campaigns_list_org_campaigns(
         self, params: CampaignsListOrgCampaignsInput, *, trace_id: str
     ) -> CampaignsListOrgCampaignsOutput:
@@ -5744,7 +6614,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("campaigns_create_campaign")
+    @nw_action("campaigns_create_campaign", http_method="POST", http_path="/orgs/{org}/campaigns")
     async def campaigns_create_campaign(
         self, params: CampaignsCreateCampaignInput, *, trace_id: str
     ) -> CampaignsCreateCampaignOutput:
@@ -5756,7 +6626,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("campaigns_get_campaign_summary")
+    @nw_action(
+        "campaigns_get_campaign_summary",
+        http_method="GET",
+        http_path="/orgs/{org}/campaigns/{campaign_number}",
+    )
     async def campaigns_get_campaign_summary(
         self, params: CampaignsGetCampaignSummaryInput, *, trace_id: str
     ) -> CampaignsGetCampaignSummaryOutput:
@@ -5768,7 +6642,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("campaigns_update_campaign")
+    @nw_action(
+        "campaigns_update_campaign",
+        http_method="PATCH",
+        http_path="/orgs/{org}/campaigns/{campaign_number}",
+    )
     async def campaigns_update_campaign(
         self, params: CampaignsUpdateCampaignInput, *, trace_id: str
     ) -> CampaignsUpdateCampaignOutput:
@@ -5780,7 +6658,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("campaigns_delete_campaign")
+    @nw_action(
+        "campaigns_delete_campaign",
+        http_method="DELETE",
+        http_path="/orgs/{org}/campaigns/{campaign_number}",
+    )
     async def campaigns_delete_campaign(
         self, params: CampaignsDeleteCampaignInput, *, trace_id: str
     ) -> CampaignsDeleteCampaignOutput:
@@ -5792,7 +6674,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_get_ai_scan_enablement_for_org")
+    @nw_action(
+        "code_scanning_get_ai_scan_enablement_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/code-scanning/ai-scan",
+    )
     async def code_scanning_get_ai_scan_enablement_for_org(
         self, params: CodeScanningGetAiScanEnablementForOrgInput, *, trace_id: str
     ) -> CodeScanningGetAiScanEnablementForOrgOutput:
@@ -5804,7 +6690,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_update_ai_scan_enablement_for_org")
+    @nw_action(
+        "code_scanning_update_ai_scan_enablement_for_org",
+        http_method="PATCH",
+        http_path="/orgs/{org}/code-scanning/ai-scan",
+    )
     async def code_scanning_update_ai_scan_enablement_for_org(
         self, params: CodeScanningUpdateAiScanEnablementForOrgInput, *, trace_id: str
     ) -> CodeScanningUpdateAiScanEnablementForOrgOutput:
@@ -5816,7 +6706,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_list_alerts_for_org")
+    @nw_action(
+        "code_scanning_list_alerts_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/code-scanning/alerts",
+    )
     async def code_scanning_list_alerts_for_org(
         self, params: CodeScanningListAlertsForOrgInput, *, trace_id: str
     ) -> CodeScanningListAlertsForOrgOutput:
@@ -5828,7 +6722,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_get_configurations_for_org")
+    @nw_action(
+        "code_security_get_configurations_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/code-security/configurations",
+    )
     async def code_security_get_configurations_for_org(
         self, params: CodeSecurityGetConfigurationsForOrgInput, *, trace_id: str
     ) -> CodeSecurityGetConfigurationsForOrgOutput:
@@ -5840,7 +6738,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_create_configuration")
+    @nw_action(
+        "code_security_create_configuration",
+        http_method="POST",
+        http_path="/orgs/{org}/code-security/configurations",
+    )
     async def code_security_create_configuration(
         self, params: CodeSecurityCreateConfigurationInput, *, trace_id: str
     ) -> CodeSecurityCreateConfigurationOutput:
@@ -5852,7 +6754,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_get_default_configurations")
+    @nw_action(
+        "code_security_get_default_configurations",
+        http_method="GET",
+        http_path="/orgs/{org}/code-security/configurations/defaults",
+    )
     async def code_security_get_default_configurations(
         self, params: CodeSecurityGetDefaultConfigurationsInput, *, trace_id: str
     ) -> CodeSecurityGetDefaultConfigurationsOutput:
@@ -5864,7 +6770,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_detach_configuration")
+    @nw_action(
+        "code_security_detach_configuration",
+        http_method="DELETE",
+        http_path="/orgs/{org}/code-security/configurations/detach",
+    )
     async def code_security_detach_configuration(
         self, params: CodeSecurityDetachConfigurationInput, *, trace_id: str
     ) -> CodeSecurityDetachConfigurationOutput:
@@ -5876,7 +6786,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_get_configuration")
+    @nw_action(
+        "code_security_get_configuration",
+        http_method="GET",
+        http_path="/orgs/{org}/code-security/configurations/{configuration_id}",
+    )
     async def code_security_get_configuration(
         self, params: CodeSecurityGetConfigurationInput, *, trace_id: str
     ) -> CodeSecurityGetConfigurationOutput:
@@ -5888,7 +6802,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_update_configuration")
+    @nw_action(
+        "code_security_update_configuration",
+        http_method="PATCH",
+        http_path="/orgs/{org}/code-security/configurations/{configuration_id}",
+    )
     async def code_security_update_configuration(
         self, params: CodeSecurityUpdateConfigurationInput, *, trace_id: str
     ) -> CodeSecurityUpdateConfigurationOutput:
@@ -5900,7 +6818,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_delete_configuration")
+    @nw_action(
+        "code_security_delete_configuration",
+        http_method="DELETE",
+        http_path="/orgs/{org}/code-security/configurations/{configuration_id}",
+    )
     async def code_security_delete_configuration(
         self, params: CodeSecurityDeleteConfigurationInput, *, trace_id: str
     ) -> CodeSecurityDeleteConfigurationOutput:
@@ -5912,7 +6834,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_attach_configuration")
+    @nw_action(
+        "code_security_attach_configuration",
+        http_method="POST",
+        http_path="/orgs/{org}/code-security/configurations/{configuration_id}/attach",
+    )
     async def code_security_attach_configuration(
         self, params: CodeSecurityAttachConfigurationInput, *, trace_id: str
     ) -> CodeSecurityAttachConfigurationOutput:
@@ -5924,7 +6850,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_set_configuration_as_default")
+    @nw_action(
+        "code_security_set_configuration_as_default",
+        http_method="PUT",
+        http_path="/orgs/{org}/code-security/configurations/{configuration_id}/defaults",
+    )
     async def code_security_set_configuration_as_default(
         self, params: CodeSecuritySetConfigurationAsDefaultInput, *, trace_id: str
     ) -> CodeSecuritySetConfigurationAsDefaultOutput:
@@ -5936,7 +6866,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_get_repositories_for_configuration")
+    @nw_action(
+        "code_security_get_repositories_for_configuration",
+        http_method="GET",
+        http_path="/orgs/{org}/code-security/configurations/{configuration_id}/repositories",
+    )
     async def code_security_get_repositories_for_configuration(
         self, params: CodeSecurityGetRepositoriesForConfigurationInput, *, trace_id: str
     ) -> CodeSecurityGetRepositoriesForConfigurationOutput:
@@ -5948,7 +6882,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_list_in_organization")
+    @nw_action(
+        "codespaces_list_in_organization", http_method="GET", http_path="/orgs/{org}/codespaces"
+    )
     async def codespaces_list_in_organization(
         self, params: CodespacesListInOrganizationInput, *, trace_id: str
     ) -> CodespacesListInOrganizationOutput:
@@ -5960,7 +6896,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_set_codespaces_access", deprecated=True)
+    @nw_action(
+        "codespaces_set_codespaces_access",
+        deprecated=True,
+        http_method="PUT",
+        http_path="/orgs/{org}/codespaces/access",
+    )
     async def codespaces_set_codespaces_access(
         self, params: CodespacesSetCodespacesAccessInput, *, trace_id: str
     ) -> CodespacesSetCodespacesAccessOutput:
@@ -5972,7 +6913,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_set_codespaces_access_users", deprecated=True)
+    @nw_action(
+        "codespaces_set_codespaces_access_users",
+        deprecated=True,
+        http_method="POST",
+        http_path="/orgs/{org}/codespaces/access/selected_users",
+    )
     async def codespaces_set_codespaces_access_users(
         self, params: CodespacesSetCodespacesAccessUsersInput, *, trace_id: str
     ) -> CodespacesSetCodespacesAccessUsersOutput:
@@ -5984,7 +6930,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_delete_codespaces_access_users", deprecated=True)
+    @nw_action(
+        "codespaces_delete_codespaces_access_users",
+        deprecated=True,
+        http_method="DELETE",
+        http_path="/orgs/{org}/codespaces/access/selected_users",
+    )
     async def codespaces_delete_codespaces_access_users(
         self, params: CodespacesDeleteCodespacesAccessUsersInput, *, trace_id: str
     ) -> CodespacesDeleteCodespacesAccessUsersOutput:
@@ -5996,7 +6947,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_list_org_secrets")
+    @nw_action(
+        "codespaces_list_org_secrets", http_method="GET", http_path="/orgs/{org}/codespaces/secrets"
+    )
     async def codespaces_list_org_secrets(
         self, params: CodespacesListOrgSecretsInput, *, trace_id: str
     ) -> CodespacesListOrgSecretsOutput:
@@ -6008,7 +6961,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_get_org_public_key")
+    @nw_action(
+        "codespaces_get_org_public_key",
+        http_method="GET",
+        http_path="/orgs/{org}/codespaces/secrets/public-key",
+    )
     async def codespaces_get_org_public_key(
         self, params: CodespacesGetOrgPublicKeyInput, *, trace_id: str
     ) -> CodespacesGetOrgPublicKeyOutput:
@@ -6020,7 +6977,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_get_org_secret")
+    @nw_action(
+        "codespaces_get_org_secret",
+        http_method="GET",
+        http_path="/orgs/{org}/codespaces/secrets/{secret_name}",
+    )
     async def codespaces_get_org_secret(
         self, params: CodespacesGetOrgSecretInput, *, trace_id: str
     ) -> CodespacesGetOrgSecretOutput:
@@ -6032,7 +6993,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_create_or_update_org_secret")
+    @nw_action(
+        "codespaces_create_or_update_org_secret",
+        http_method="PUT",
+        http_path="/orgs/{org}/codespaces/secrets/{secret_name}",
+    )
     async def codespaces_create_or_update_org_secret(
         self, params: CodespacesCreateOrUpdateOrgSecretInput, *, trace_id: str
     ) -> CodespacesCreateOrUpdateOrgSecretOutput:
@@ -6044,7 +7009,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_delete_org_secret")
+    @nw_action(
+        "codespaces_delete_org_secret",
+        http_method="DELETE",
+        http_path="/orgs/{org}/codespaces/secrets/{secret_name}",
+    )
     async def codespaces_delete_org_secret(
         self, params: CodespacesDeleteOrgSecretInput, *, trace_id: str
     ) -> CodespacesDeleteOrgSecretOutput:
@@ -6056,7 +7025,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_list_selected_repos_for_org_secret")
+    @nw_action(
+        "codespaces_list_selected_repos_for_org_secret",
+        http_method="GET",
+        http_path="/orgs/{org}/codespaces/secrets/{secret_name}/repositories",
+    )
     async def codespaces_list_selected_repos_for_org_secret(
         self, params: CodespacesListSelectedReposForOrgSecretInput, *, trace_id: str
     ) -> CodespacesListSelectedReposForOrgSecretOutput:
@@ -6068,7 +7041,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_set_selected_repos_for_org_secret")
+    @nw_action(
+        "codespaces_set_selected_repos_for_org_secret",
+        http_method="PUT",
+        http_path="/orgs/{org}/codespaces/secrets/{secret_name}/repositories",
+    )
     async def codespaces_set_selected_repos_for_org_secret(
         self, params: CodespacesSetSelectedReposForOrgSecretInput, *, trace_id: str
     ) -> CodespacesSetSelectedReposForOrgSecretOutput:
@@ -6080,7 +7057,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_add_selected_repo_to_org_secret")
+    @nw_action(
+        "codespaces_add_selected_repo_to_org_secret",
+        http_method="PUT",
+        http_path="/orgs/{org}/codespaces/secrets/{secret_name}/repositories/{repository_id}",
+    )
     async def codespaces_add_selected_repo_to_org_secret(
         self, params: CodespacesAddSelectedRepoToOrgSecretInput, *, trace_id: str
     ) -> CodespacesAddSelectedRepoToOrgSecretOutput:
@@ -6092,7 +7073,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_remove_selected_repo_from_org_secret")
+    @nw_action(
+        "codespaces_remove_selected_repo_from_org_secret",
+        http_method="DELETE",
+        http_path="/orgs/{org}/codespaces/secrets/{secret_name}/repositories/{repository_id}",
+    )
     async def codespaces_remove_selected_repo_from_org_secret(
         self, params: CodespacesRemoveSelectedRepoFromOrgSecretInput, *, trace_id: str
     ) -> CodespacesRemoveSelectedRepoFromOrgSecretOutput:
@@ -6104,7 +7089,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_list_for_org")
+    @nw_action(
+        "copilot_spaces_list_for_org", http_method="GET", http_path="/orgs/{org}/copilot-spaces"
+    )
     async def copilot_spaces_list_for_org(
         self, params: CopilotSpacesListForOrgInput, *, trace_id: str
     ) -> CopilotSpacesListForOrgOutput:
@@ -6116,7 +7103,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_create_for_org")
+    @nw_action(
+        "copilot_spaces_create_for_org", http_method="POST", http_path="/orgs/{org}/copilot-spaces"
+    )
     async def copilot_spaces_create_for_org(
         self, params: CopilotSpacesCreateForOrgInput, *, trace_id: str
     ) -> CopilotSpacesCreateForOrgOutput:
@@ -6128,7 +7117,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_get_for_org")
+    @nw_action(
+        "copilot_spaces_get_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot-spaces/{space_number}",
+    )
     async def copilot_spaces_get_for_org(
         self, params: CopilotSpacesGetForOrgInput, *, trace_id: str
     ) -> CopilotSpacesGetForOrgOutput:
@@ -6140,7 +7133,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_update_for_org")
+    @nw_action(
+        "copilot_spaces_update_for_org",
+        http_method="PUT",
+        http_path="/orgs/{org}/copilot-spaces/{space_number}",
+    )
     async def copilot_spaces_update_for_org(
         self, params: CopilotSpacesUpdateForOrgInput, *, trace_id: str
     ) -> CopilotSpacesUpdateForOrgOutput:
@@ -6152,7 +7149,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_delete_for_org")
+    @nw_action(
+        "copilot_spaces_delete_for_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/copilot-spaces/{space_number}",
+    )
     async def copilot_spaces_delete_for_org(
         self, params: CopilotSpacesDeleteForOrgInput, *, trace_id: str
     ) -> CopilotSpacesDeleteForOrgOutput:
@@ -6164,7 +7165,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_list_collaborators_for_org")
+    @nw_action(
+        "copilot_spaces_list_collaborators_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot-spaces/{space_number}/collaborators",
+    )
     async def copilot_spaces_list_collaborators_for_org(
         self, params: CopilotSpacesListCollaboratorsForOrgInput, *, trace_id: str
     ) -> CopilotSpacesListCollaboratorsForOrgOutput:
@@ -6176,7 +7181,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_add_collaborator_for_org")
+    @nw_action(
+        "copilot_spaces_add_collaborator_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/copilot-spaces/{space_number}/collaborators",
+    )
     async def copilot_spaces_add_collaborator_for_org(
         self, params: CopilotSpacesAddCollaboratorForOrgInput, *, trace_id: str
     ) -> CopilotSpacesAddCollaboratorForOrgOutput:
@@ -6188,7 +7197,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_update_collaborator_for_org")
+    @nw_action(
+        "copilot_spaces_update_collaborator_for_org",
+        http_method="PUT",
+        http_path="/orgs/{org}/copilot-spaces/{space_number}/collaborators/{actor_type}/{actor_identifier}",
+    )
     async def copilot_spaces_update_collaborator_for_org(
         self, params: CopilotSpacesUpdateCollaboratorForOrgInput, *, trace_id: str
     ) -> CopilotSpacesUpdateCollaboratorForOrgOutput:
@@ -6200,7 +7213,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_remove_collaborator_for_org")
+    @nw_action(
+        "copilot_spaces_remove_collaborator_for_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/copilot-spaces/{space_number}/collaborators/{actor_type}/{actor_identifier}",
+    )
     async def copilot_spaces_remove_collaborator_for_org(
         self, params: CopilotSpacesRemoveCollaboratorForOrgInput, *, trace_id: str
     ) -> CopilotSpacesRemoveCollaboratorForOrgOutput:
@@ -6212,7 +7229,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_list_resources_for_org")
+    @nw_action(
+        "copilot_spaces_list_resources_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot-spaces/{space_number}/resources",
+    )
     async def copilot_spaces_list_resources_for_org(
         self, params: CopilotSpacesListResourcesForOrgInput, *, trace_id: str
     ) -> CopilotSpacesListResourcesForOrgOutput:
@@ -6224,7 +7245,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_create_resource_for_org")
+    @nw_action(
+        "copilot_spaces_create_resource_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/copilot-spaces/{space_number}/resources",
+    )
     async def copilot_spaces_create_resource_for_org(
         self, params: CopilotSpacesCreateResourceForOrgInput, *, trace_id: str
     ) -> CopilotSpacesCreateResourceForOrgOutput:
@@ -6236,7 +7261,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_get_resource_for_org")
+    @nw_action(
+        "copilot_spaces_get_resource_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot-spaces/{space_number}/resources/{space_resource_id}",
+    )
     async def copilot_spaces_get_resource_for_org(
         self, params: CopilotSpacesGetResourceForOrgInput, *, trace_id: str
     ) -> CopilotSpacesGetResourceForOrgOutput:
@@ -6248,7 +7277,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_update_resource_for_org")
+    @nw_action(
+        "copilot_spaces_update_resource_for_org",
+        http_method="PUT",
+        http_path="/orgs/{org}/copilot-spaces/{space_number}/resources/{space_resource_id}",
+    )
     async def copilot_spaces_update_resource_for_org(
         self, params: CopilotSpacesUpdateResourceForOrgInput, *, trace_id: str
     ) -> CopilotSpacesUpdateResourceForOrgOutput:
@@ -6260,7 +7293,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_delete_resource_for_org")
+    @nw_action(
+        "copilot_spaces_delete_resource_for_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/copilot-spaces/{space_number}/resources/{space_resource_id}",
+    )
     async def copilot_spaces_delete_resource_for_org(
         self, params: CopilotSpacesDeleteResourceForOrgInput, *, trace_id: str
     ) -> CopilotSpacesDeleteResourceForOrgOutput:
@@ -6272,7 +7309,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_get_copilot_organization_details")
+    @nw_action(
+        "copilot_get_copilot_organization_details",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot/billing",
+    )
     async def copilot_get_copilot_organization_details(
         self, params: CopilotGetCopilotOrganizationDetailsInput, *, trace_id: str
     ) -> CopilotGetCopilotOrganizationDetailsOutput:
@@ -6284,7 +7325,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_list_copilot_seats")
+    @nw_action(
+        "copilot_list_copilot_seats",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot/billing/seats",
+    )
     async def copilot_list_copilot_seats(
         self, params: CopilotListCopilotSeatsInput, *, trace_id: str
     ) -> CopilotListCopilotSeatsOutput:
@@ -6296,7 +7341,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_add_copilot_seats_for_teams")
+    @nw_action(
+        "copilot_add_copilot_seats_for_teams",
+        http_method="POST",
+        http_path="/orgs/{org}/copilot/billing/selected_teams",
+    )
     async def copilot_add_copilot_seats_for_teams(
         self, params: CopilotAddCopilotSeatsForTeamsInput, *, trace_id: str
     ) -> CopilotAddCopilotSeatsForTeamsOutput:
@@ -6308,7 +7357,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_cancel_copilot_seat_assignment_for_teams")
+    @nw_action(
+        "copilot_cancel_copilot_seat_assignment_for_teams",
+        http_method="DELETE",
+        http_path="/orgs/{org}/copilot/billing/selected_teams",
+    )
     async def copilot_cancel_copilot_seat_assignment_for_teams(
         self, params: CopilotCancelCopilotSeatAssignmentForTeamsInput, *, trace_id: str
     ) -> CopilotCancelCopilotSeatAssignmentForTeamsOutput:
@@ -6320,7 +7373,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_add_copilot_seats_for_users")
+    @nw_action(
+        "copilot_add_copilot_seats_for_users",
+        http_method="POST",
+        http_path="/orgs/{org}/copilot/billing/selected_users",
+    )
     async def copilot_add_copilot_seats_for_users(
         self, params: CopilotAddCopilotSeatsForUsersInput, *, trace_id: str
     ) -> CopilotAddCopilotSeatsForUsersOutput:
@@ -6332,7 +7389,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_cancel_copilot_seat_assignment_for_users")
+    @nw_action(
+        "copilot_cancel_copilot_seat_assignment_for_users",
+        http_method="DELETE",
+        http_path="/orgs/{org}/copilot/billing/selected_users",
+    )
     async def copilot_cancel_copilot_seat_assignment_for_users(
         self, params: CopilotCancelCopilotSeatAssignmentForUsersInput, *, trace_id: str
     ) -> CopilotCancelCopilotSeatAssignmentForUsersOutput:
@@ -6344,7 +7405,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_get_copilot_coding_agent_permissions_organization")
+    @nw_action(
+        "copilot_get_copilot_coding_agent_permissions_organization",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot/coding-agent/permissions",
+    )
     async def copilot_get_copilot_coding_agent_permissions_organization(
         self, params: CopilotGetCopilotCodingAgentPermissionsOrganizationInput, *, trace_id: str
     ) -> CopilotGetCopilotCodingAgentPermissionsOrganizationOutput:
@@ -6356,7 +7421,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_set_copilot_coding_agent_permissions_organization")
+    @nw_action(
+        "copilot_set_copilot_coding_agent_permissions_organization",
+        http_method="PUT",
+        http_path="/orgs/{org}/copilot/coding-agent/permissions",
+    )
     async def copilot_set_copilot_coding_agent_permissions_organization(
         self, params: CopilotSetCopilotCodingAgentPermissionsOrganizationInput, *, trace_id: str
     ) -> CopilotSetCopilotCodingAgentPermissionsOrganizationOutput:
@@ -6368,7 +7437,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_list_copilot_coding_agent_selected_repositories")
+    @nw_action(
+        "copilot_list_copilot_coding_agent_selected_repositories",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot/coding-agent/permissions/repositories",
+    )
     async def copilot_list_copilot_coding_agent_selected_repositories(
         self, params: CopilotListCopilotCodingAgentSelectedRepositoriesInput, *, trace_id: str
     ) -> CopilotListCopilotCodingAgentSelectedRepositoriesOutput:
@@ -6380,7 +7453,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_set_copilot_coding_agent_selected_repositories")
+    @nw_action(
+        "copilot_set_copilot_coding_agent_selected_repositories",
+        http_method="PUT",
+        http_path="/orgs/{org}/copilot/coding-agent/permissions/repositories",
+    )
     async def copilot_set_copilot_coding_agent_selected_repositories(
         self, params: CopilotSetCopilotCodingAgentSelectedRepositoriesInput, *, trace_id: str
     ) -> CopilotSetCopilotCodingAgentSelectedRepositoriesOutput:
@@ -6392,7 +7469,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_enable_copilot_coding_agent_for_repository_in")
+    @nw_action(
+        "copilot_enable_copilot_coding_agent_for_repository_in",
+        http_method="PUT",
+        http_path="/orgs/{org}/copilot/coding-agent/permissions/repositories/{repository_id}",
+    )
     async def copilot_enable_copilot_coding_agent_for_repository_in(
         self, params: CopilotEnableCopilotCodingAgentForRepositoryInInput, *, trace_id: str
     ) -> CopilotEnableCopilotCodingAgentForRepositoryInOutput:
@@ -6404,7 +7485,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_disable_copilot_coding_agent_for_repository_in")
+    @nw_action(
+        "copilot_disable_copilot_coding_agent_for_repository_in",
+        http_method="DELETE",
+        http_path="/orgs/{org}/copilot/coding-agent/permissions/repositories/{repository_id}",
+    )
     async def copilot_disable_copilot_coding_agent_for_repository_in(
         self, params: CopilotDisableCopilotCodingAgentForRepositoryInInput, *, trace_id: str
     ) -> CopilotDisableCopilotCodingAgentForRepositoryInOutput:
@@ -6416,7 +7501,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_copilot_content_exclusion_for_organization")
+    @nw_action(
+        "copilot_copilot_content_exclusion_for_organization",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot/content_exclusion",
+    )
     async def copilot_copilot_content_exclusion_for_organization(
         self, params: CopilotCopilotContentExclusionForOrganizationInput, *, trace_id: str
     ) -> CopilotCopilotContentExclusionForOrganizationOutput:
@@ -6428,7 +7517,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_set_copilot_content_exclusion_for_organization")
+    @nw_action(
+        "copilot_set_copilot_content_exclusion_for_organization",
+        http_method="PUT",
+        http_path="/orgs/{org}/copilot/content_exclusion",
+    )
     async def copilot_set_copilot_content_exclusion_for_organization(
         self, params: CopilotSetCopilotContentExclusionForOrganizationInput, *, trace_id: str
     ) -> CopilotSetCopilotContentExclusionForOrganizationOutput:
@@ -6440,7 +7533,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_copilot_organization_one_day_usage_metrics")
+    @nw_action(
+        "copilot_copilot_organization_one_day_usage_metrics",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot/metrics/reports/organization-1-day",
+    )
     async def copilot_copilot_organization_one_day_usage_metrics(
         self, params: CopilotCopilotOrganizationOneDayUsageMetricsInput, *, trace_id: str
     ) -> CopilotCopilotOrganizationOneDayUsageMetricsOutput:
@@ -6452,7 +7549,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_copilot_organization_usage_metrics")
+    @nw_action(
+        "copilot_copilot_organization_usage_metrics",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot/metrics/reports/organization-28-day/latest",
+    )
     async def copilot_copilot_organization_usage_metrics(
         self, params: CopilotCopilotOrganizationUsageMetricsInput, *, trace_id: str
     ) -> CopilotCopilotOrganizationUsageMetricsOutput:
@@ -6464,7 +7565,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_copilot_organization_repos_one_day_report")
+    @nw_action(
+        "copilot_copilot_organization_repos_one_day_report",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot/metrics/reports/repos-1-day",
+    )
     async def copilot_copilot_organization_repos_one_day_report(
         self, params: CopilotCopilotOrganizationReposOneDayReportInput, *, trace_id: str
     ) -> CopilotCopilotOrganizationReposOneDayReportOutput:
@@ -6476,7 +7581,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_copilot_organization_user_teams_one_day_report")
+    @nw_action(
+        "copilot_copilot_organization_user_teams_one_day_report",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot/metrics/reports/user-teams-1-day",
+    )
     async def copilot_copilot_organization_user_teams_one_day_report(
         self, params: CopilotCopilotOrganizationUserTeamsOneDayReportInput, *, trace_id: str
     ) -> CopilotCopilotOrganizationUserTeamsOneDayReportOutput:
@@ -6488,7 +7597,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_copilot_organization_users_one_day_usage_metrics")
+    @nw_action(
+        "copilot_copilot_organization_users_one_day_usage_metrics",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot/metrics/reports/users-1-day",
+    )
     async def copilot_copilot_organization_users_one_day_usage_metrics(
         self, params: CopilotCopilotOrganizationUsersOneDayUsageMetricsInput, *, trace_id: str
     ) -> CopilotCopilotOrganizationUsersOneDayUsageMetricsOutput:
@@ -6500,7 +7613,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_copilot_organization_users_usage_metrics")
+    @nw_action(
+        "copilot_copilot_organization_users_usage_metrics",
+        http_method="GET",
+        http_path="/orgs/{org}/copilot/metrics/reports/users-28-day/latest",
+    )
     async def copilot_copilot_organization_users_usage_metrics(
         self, params: CopilotCopilotOrganizationUsersUsageMetricsInput, *, trace_id: str
     ) -> CopilotCopilotOrganizationUsersUsageMetricsOutput:
@@ -6512,7 +7629,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_list_alerts_for_org")
+    @nw_action(
+        "dependabot_list_alerts_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/dependabot/alerts",
+    )
     async def dependabot_list_alerts_for_org(
         self, params: DependabotListAlertsForOrgInput, *, trace_id: str
     ) -> DependabotListAlertsForOrgOutput:
@@ -6524,7 +7645,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_repository_access_for_org")
+    @nw_action(
+        "dependabot_repository_access_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/dependabot/repository-access",
+    )
     async def dependabot_repository_access_for_org(
         self, params: DependabotRepositoryAccessForOrgInput, *, trace_id: str
     ) -> DependabotRepositoryAccessForOrgOutput:
@@ -6536,7 +7661,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_update_repository_access_for_org")
+    @nw_action(
+        "dependabot_update_repository_access_for_org",
+        http_method="PATCH",
+        http_path="/orgs/{org}/dependabot/repository-access",
+    )
     async def dependabot_update_repository_access_for_org(
         self, params: DependabotUpdateRepositoryAccessForOrgInput, *, trace_id: str
     ) -> DependabotUpdateRepositoryAccessForOrgOutput:
@@ -6548,7 +7677,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_set_repository_access_default_level")
+    @nw_action(
+        "dependabot_set_repository_access_default_level",
+        http_method="PUT",
+        http_path="/orgs/{org}/dependabot/repository-access/default-level",
+    )
     async def dependabot_set_repository_access_default_level(
         self, params: DependabotSetRepositoryAccessDefaultLevelInput, *, trace_id: str
     ) -> DependabotSetRepositoryAccessDefaultLevelOutput:
@@ -6560,7 +7693,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_list_org_secrets")
+    @nw_action(
+        "dependabot_list_org_secrets", http_method="GET", http_path="/orgs/{org}/dependabot/secrets"
+    )
     async def dependabot_list_org_secrets(
         self, params: DependabotListOrgSecretsInput, *, trace_id: str
     ) -> DependabotListOrgSecretsOutput:
@@ -6572,7 +7707,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_get_org_public_key")
+    @nw_action(
+        "dependabot_get_org_public_key",
+        http_method="GET",
+        http_path="/orgs/{org}/dependabot/secrets/public-key",
+    )
     async def dependabot_get_org_public_key(
         self, params: DependabotGetOrgPublicKeyInput, *, trace_id: str
     ) -> DependabotGetOrgPublicKeyOutput:
@@ -6584,7 +7723,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_get_org_secret")
+    @nw_action(
+        "dependabot_get_org_secret",
+        http_method="GET",
+        http_path="/orgs/{org}/dependabot/secrets/{secret_name}",
+    )
     async def dependabot_get_org_secret(
         self, params: DependabotGetOrgSecretInput, *, trace_id: str
     ) -> DependabotGetOrgSecretOutput:
@@ -6596,7 +7739,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_create_or_update_org_secret")
+    @nw_action(
+        "dependabot_create_or_update_org_secret",
+        http_method="PUT",
+        http_path="/orgs/{org}/dependabot/secrets/{secret_name}",
+    )
     async def dependabot_create_or_update_org_secret(
         self, params: DependabotCreateOrUpdateOrgSecretInput, *, trace_id: str
     ) -> DependabotCreateOrUpdateOrgSecretOutput:
@@ -6608,7 +7755,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_delete_org_secret")
+    @nw_action(
+        "dependabot_delete_org_secret",
+        http_method="DELETE",
+        http_path="/orgs/{org}/dependabot/secrets/{secret_name}",
+    )
     async def dependabot_delete_org_secret(
         self, params: DependabotDeleteOrgSecretInput, *, trace_id: str
     ) -> DependabotDeleteOrgSecretOutput:
@@ -6620,7 +7771,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_list_selected_repos_for_org_secret")
+    @nw_action(
+        "dependabot_list_selected_repos_for_org_secret",
+        http_method="GET",
+        http_path="/orgs/{org}/dependabot/secrets/{secret_name}/repositories",
+    )
     async def dependabot_list_selected_repos_for_org_secret(
         self, params: DependabotListSelectedReposForOrgSecretInput, *, trace_id: str
     ) -> DependabotListSelectedReposForOrgSecretOutput:
@@ -6632,7 +7787,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_set_selected_repos_for_org_secret")
+    @nw_action(
+        "dependabot_set_selected_repos_for_org_secret",
+        http_method="PUT",
+        http_path="/orgs/{org}/dependabot/secrets/{secret_name}/repositories",
+    )
     async def dependabot_set_selected_repos_for_org_secret(
         self, params: DependabotSetSelectedReposForOrgSecretInput, *, trace_id: str
     ) -> DependabotSetSelectedReposForOrgSecretOutput:
@@ -6644,7 +7803,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_add_selected_repo_to_org_secret")
+    @nw_action(
+        "dependabot_add_selected_repo_to_org_secret",
+        http_method="PUT",
+        http_path="/orgs/{org}/dependabot/secrets/{secret_name}/repositories/{repository_id}",
+    )
     async def dependabot_add_selected_repo_to_org_secret(
         self, params: DependabotAddSelectedRepoToOrgSecretInput, *, trace_id: str
     ) -> DependabotAddSelectedRepoToOrgSecretOutput:
@@ -6656,7 +7819,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_remove_selected_repo_from_org_secret")
+    @nw_action(
+        "dependabot_remove_selected_repo_from_org_secret",
+        http_method="DELETE",
+        http_path="/orgs/{org}/dependabot/secrets/{secret_name}/repositories/{repository_id}",
+    )
     async def dependabot_remove_selected_repo_from_org_secret(
         self, params: DependabotRemoveSelectedRepoFromOrgSecretInput, *, trace_id: str
     ) -> DependabotRemoveSelectedRepoFromOrgSecretOutput:
@@ -6668,7 +7835,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_list_docker_migration_conflicting_packages_for")
+    @nw_action(
+        "packages_list_docker_migration_conflicting_packages_for",
+        http_method="GET",
+        http_path="/orgs/{org}/docker/conflicts",
+    )
     async def packages_list_docker_migration_conflicting_packages_for(
         self, params: PackagesListDockerMigrationConflictingPackagesForInput, *, trace_id: str
     ) -> PackagesListDockerMigrationConflictingPackagesForOutput:
@@ -6680,7 +7851,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_public_org_events")
+    @nw_action("activity_list_public_org_events", http_method="GET", http_path="/orgs/{org}/events")
     async def activity_list_public_org_events(
         self, params: ActivityListPublicOrgEventsInput, *, trace_id: str
     ) -> ActivityListPublicOrgEventsOutput:
@@ -6692,7 +7863,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_failed_invitations")
+    @nw_action(
+        "orgs_list_failed_invitations",
+        http_method="GET",
+        http_path="/orgs/{org}/failed_invitations",
+    )
     async def orgs_list_failed_invitations(
         self, params: OrgsListFailedInvitationsInput, *, trace_id: str
     ) -> OrgsListFailedInvitationsOutput:
@@ -6704,7 +7879,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_webhooks")
+    @nw_action("orgs_list_webhooks", http_method="GET", http_path="/orgs/{org}/hooks")
     async def orgs_list_webhooks(
         self, params: OrgsListWebhooksInput, *, trace_id: str
     ) -> OrgsListWebhooksOutput:
@@ -6716,7 +7891,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_create_webhook")
+    @nw_action("orgs_create_webhook", http_method="POST", http_path="/orgs/{org}/hooks")
     async def orgs_create_webhook(
         self, params: OrgsCreateWebhookInput, *, trace_id: str
     ) -> OrgsCreateWebhookOutput:
@@ -6728,7 +7903,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_get_webhook")
+    @nw_action("orgs_get_webhook", http_method="GET", http_path="/orgs/{org}/hooks/{hook_id}")
     async def orgs_get_webhook(
         self, params: OrgsGetWebhookInput, *, trace_id: str
     ) -> OrgsGetWebhookOutput:
@@ -6740,7 +7915,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_update_webhook")
+    @nw_action("orgs_update_webhook", http_method="PATCH", http_path="/orgs/{org}/hooks/{hook_id}")
     async def orgs_update_webhook(
         self, params: OrgsUpdateWebhookInput, *, trace_id: str
     ) -> OrgsUpdateWebhookOutput:
@@ -6752,7 +7927,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_delete_webhook")
+    @nw_action("orgs_delete_webhook", http_method="DELETE", http_path="/orgs/{org}/hooks/{hook_id}")
     async def orgs_delete_webhook(
         self, params: OrgsDeleteWebhookInput, *, trace_id: str
     ) -> OrgsDeleteWebhookOutput:
@@ -6764,7 +7939,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_get_webhook_config_for_org")
+    @nw_action(
+        "orgs_get_webhook_config_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/hooks/{hook_id}/config",
+    )
     async def orgs_get_webhook_config_for_org(
         self, params: OrgsGetWebhookConfigForOrgInput, *, trace_id: str
     ) -> OrgsGetWebhookConfigForOrgOutput:
@@ -6776,7 +7955,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_update_webhook_config_for_org")
+    @nw_action(
+        "orgs_update_webhook_config_for_org",
+        http_method="PATCH",
+        http_path="/orgs/{org}/hooks/{hook_id}/config",
+    )
     async def orgs_update_webhook_config_for_org(
         self, params: OrgsUpdateWebhookConfigForOrgInput, *, trace_id: str
     ) -> OrgsUpdateWebhookConfigForOrgOutput:
@@ -6788,7 +7971,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_webhook_deliveries")
+    @nw_action(
+        "orgs_list_webhook_deliveries",
+        http_method="GET",
+        http_path="/orgs/{org}/hooks/{hook_id}/deliveries",
+    )
     async def orgs_list_webhook_deliveries(
         self, params: OrgsListWebhookDeliveriesInput, *, trace_id: str
     ) -> OrgsListWebhookDeliveriesOutput:
@@ -6800,7 +7987,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_get_webhook_delivery")
+    @nw_action(
+        "orgs_get_webhook_delivery",
+        http_method="GET",
+        http_path="/orgs/{org}/hooks/{hook_id}/deliveries/{delivery_id}",
+    )
     async def orgs_get_webhook_delivery(
         self, params: OrgsGetWebhookDeliveryInput, *, trace_id: str
     ) -> OrgsGetWebhookDeliveryOutput:
@@ -6812,7 +8003,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_redeliver_webhook_delivery")
+    @nw_action(
+        "orgs_redeliver_webhook_delivery",
+        http_method="POST",
+        http_path="/orgs/{org}/hooks/{hook_id}/deliveries/{delivery_id}/attempts",
+    )
     async def orgs_redeliver_webhook_delivery(
         self, params: OrgsRedeliverWebhookDeliveryInput, *, trace_id: str
     ) -> OrgsRedeliverWebhookDeliveryOutput:
@@ -6824,7 +8019,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_ping_webhook")
+    @nw_action(
+        "orgs_ping_webhook", http_method="POST", http_path="/orgs/{org}/hooks/{hook_id}/pings"
+    )
     async def orgs_ping_webhook(
         self, params: OrgsPingWebhookInput, *, trace_id: str
     ) -> OrgsPingWebhookOutput:
@@ -6836,7 +8033,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("api_insights_get_route_stats_by_actor")
+    @nw_action(
+        "api_insights_get_route_stats_by_actor",
+        http_method="GET",
+        http_path="/orgs/{org}/insights/api/route-stats/{actor_type}/{actor_id}",
+    )
     async def api_insights_get_route_stats_by_actor(
         self, params: ApiInsightsGetRouteStatsByActorInput, *, trace_id: str
     ) -> ApiInsightsGetRouteStatsByActorOutput:
@@ -6848,7 +8049,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("api_insights_get_subject_stats")
+    @nw_action(
+        "api_insights_get_subject_stats",
+        http_method="GET",
+        http_path="/orgs/{org}/insights/api/subject-stats",
+    )
     async def api_insights_get_subject_stats(
         self, params: ApiInsightsGetSubjectStatsInput, *, trace_id: str
     ) -> ApiInsightsGetSubjectStatsOutput:
@@ -6860,7 +8065,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("api_insights_get_summary_stats")
+    @nw_action(
+        "api_insights_get_summary_stats",
+        http_method="GET",
+        http_path="/orgs/{org}/insights/api/summary-stats",
+    )
     async def api_insights_get_summary_stats(
         self, params: ApiInsightsGetSummaryStatsInput, *, trace_id: str
     ) -> ApiInsightsGetSummaryStatsOutput:
@@ -6872,7 +8081,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("api_insights_get_summary_stats_by_user")
+    @nw_action(
+        "api_insights_get_summary_stats_by_user",
+        http_method="GET",
+        http_path="/orgs/{org}/insights/api/summary-stats/users/{user_id}",
+    )
     async def api_insights_get_summary_stats_by_user(
         self, params: ApiInsightsGetSummaryStatsByUserInput, *, trace_id: str
     ) -> ApiInsightsGetSummaryStatsByUserOutput:
@@ -6884,7 +8097,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("api_insights_get_summary_stats_by_actor")
+    @nw_action(
+        "api_insights_get_summary_stats_by_actor",
+        http_method="GET",
+        http_path="/orgs/{org}/insights/api/summary-stats/{actor_type}/{actor_id}",
+    )
     async def api_insights_get_summary_stats_by_actor(
         self, params: ApiInsightsGetSummaryStatsByActorInput, *, trace_id: str
     ) -> ApiInsightsGetSummaryStatsByActorOutput:
@@ -6896,7 +8113,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("api_insights_get_time_stats")
+    @nw_action(
+        "api_insights_get_time_stats",
+        http_method="GET",
+        http_path="/orgs/{org}/insights/api/time-stats",
+    )
     async def api_insights_get_time_stats(
         self, params: ApiInsightsGetTimeStatsInput, *, trace_id: str
     ) -> ApiInsightsGetTimeStatsOutput:
@@ -6908,7 +8129,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("api_insights_get_time_stats_by_user")
+    @nw_action(
+        "api_insights_get_time_stats_by_user",
+        http_method="GET",
+        http_path="/orgs/{org}/insights/api/time-stats/users/{user_id}",
+    )
     async def api_insights_get_time_stats_by_user(
         self, params: ApiInsightsGetTimeStatsByUserInput, *, trace_id: str
     ) -> ApiInsightsGetTimeStatsByUserOutput:
@@ -6920,7 +8145,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("api_insights_get_time_stats_by_actor")
+    @nw_action(
+        "api_insights_get_time_stats_by_actor",
+        http_method="GET",
+        http_path="/orgs/{org}/insights/api/time-stats/{actor_type}/{actor_id}",
+    )
     async def api_insights_get_time_stats_by_actor(
         self, params: ApiInsightsGetTimeStatsByActorInput, *, trace_id: str
     ) -> ApiInsightsGetTimeStatsByActorOutput:
@@ -6932,7 +8161,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("api_insights_get_user_stats")
+    @nw_action(
+        "api_insights_get_user_stats",
+        http_method="GET",
+        http_path="/orgs/{org}/insights/api/user-stats/{user_id}",
+    )
     async def api_insights_get_user_stats(
         self, params: ApiInsightsGetUserStatsInput, *, trace_id: str
     ) -> ApiInsightsGetUserStatsOutput:
@@ -6944,7 +8177,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_get_org_installation")
+    @nw_action("apps_get_org_installation", http_method="GET", http_path="/orgs/{org}/installation")
     async def apps_get_org_installation(
         self, params: AppsGetOrgInstallationInput, *, trace_id: str
     ) -> AppsGetOrgInstallationOutput:
@@ -6956,7 +8189,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_app_installations")
+    @nw_action(
+        "orgs_list_app_installations", http_method="GET", http_path="/orgs/{org}/installations"
+    )
     async def orgs_list_app_installations(
         self, params: OrgsListAppInstallationsInput, *, trace_id: str
     ) -> OrgsListAppInstallationsOutput:
@@ -6968,7 +8203,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_get_restrictions_for_org")
+    @nw_action(
+        "interactions_get_restrictions_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/interaction-limits",
+    )
     async def interactions_get_restrictions_for_org(
         self, params: InteractionsGetRestrictionsForOrgInput, *, trace_id: str
     ) -> InteractionsGetRestrictionsForOrgOutput:
@@ -6980,7 +8219,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_set_restrictions_for_org")
+    @nw_action(
+        "interactions_set_restrictions_for_org",
+        http_method="PUT",
+        http_path="/orgs/{org}/interaction-limits",
+    )
     async def interactions_set_restrictions_for_org(
         self, params: InteractionsSetRestrictionsForOrgInput, *, trace_id: str
     ) -> InteractionsSetRestrictionsForOrgOutput:
@@ -6992,7 +8235,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_remove_restrictions_for_org")
+    @nw_action(
+        "interactions_remove_restrictions_for_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/interaction-limits",
+    )
     async def interactions_remove_restrictions_for_org(
         self, params: InteractionsRemoveRestrictionsForOrgInput, *, trace_id: str
     ) -> InteractionsRemoveRestrictionsForOrgOutput:
@@ -7004,7 +8251,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_get_pull_request_creation_cap_for_org")
+    @nw_action(
+        "interactions_get_pull_request_creation_cap_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/interaction-limits/pulls/creation-cap",
+    )
     async def interactions_get_pull_request_creation_cap_for_org(
         self, params: InteractionsGetPullRequestCreationCapForOrgInput, *, trace_id: str
     ) -> InteractionsGetPullRequestCreationCapForOrgOutput:
@@ -7016,7 +8267,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_update_pull_request_creation_cap_for_org")
+    @nw_action(
+        "interactions_update_pull_request_creation_cap_for_org",
+        http_method="PATCH",
+        http_path="/orgs/{org}/interaction-limits/pulls/creation-cap",
+    )
     async def interactions_update_pull_request_creation_cap_for_org(
         self, params: InteractionsUpdatePullRequestCreationCapForOrgInput, *, trace_id: str
     ) -> InteractionsUpdatePullRequestCreationCapForOrgOutput:
@@ -7028,7 +8283,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_pending_invitations")
+    @nw_action(
+        "orgs_list_pending_invitations", http_method="GET", http_path="/orgs/{org}/invitations"
+    )
     async def orgs_list_pending_invitations(
         self, params: OrgsListPendingInvitationsInput, *, trace_id: str
     ) -> OrgsListPendingInvitationsOutput:
@@ -7040,7 +8297,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_create_invitation")
+    @nw_action("orgs_create_invitation", http_method="POST", http_path="/orgs/{org}/invitations")
     async def orgs_create_invitation(
         self, params: OrgsCreateInvitationInput, *, trace_id: str
     ) -> OrgsCreateInvitationOutput:
@@ -7052,7 +8309,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_cancel_invitation")
+    @nw_action(
+        "orgs_cancel_invitation",
+        http_method="DELETE",
+        http_path="/orgs/{org}/invitations/{invitation_id}",
+    )
     async def orgs_cancel_invitation(
         self, params: OrgsCancelInvitationInput, *, trace_id: str
     ) -> OrgsCancelInvitationOutput:
@@ -7064,7 +8325,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_invitation_teams")
+    @nw_action(
+        "orgs_list_invitation_teams",
+        http_method="GET",
+        http_path="/orgs/{org}/invitations/{invitation_id}/teams",
+    )
     async def orgs_list_invitation_teams(
         self, params: OrgsListInvitationTeamsInput, *, trace_id: str
     ) -> OrgsListInvitationTeamsOutput:
@@ -7076,7 +8341,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_issue_fields")
+    @nw_action("orgs_list_issue_fields", http_method="GET", http_path="/orgs/{org}/issue-fields")
     async def orgs_list_issue_fields(
         self, params: OrgsListIssueFieldsInput, *, trace_id: str
     ) -> OrgsListIssueFieldsOutput:
@@ -7088,7 +8353,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_create_issue_field")
+    @nw_action("orgs_create_issue_field", http_method="POST", http_path="/orgs/{org}/issue-fields")
     async def orgs_create_issue_field(
         self, params: OrgsCreateIssueFieldInput, *, trace_id: str
     ) -> OrgsCreateIssueFieldOutput:
@@ -7100,7 +8365,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_update_issue_field")
+    @nw_action(
+        "orgs_update_issue_field",
+        http_method="PATCH",
+        http_path="/orgs/{org}/issue-fields/{issue_field_id}",
+    )
     async def orgs_update_issue_field(
         self, params: OrgsUpdateIssueFieldInput, *, trace_id: str
     ) -> OrgsUpdateIssueFieldOutput:
@@ -7112,7 +8381,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_delete_issue_field")
+    @nw_action(
+        "orgs_delete_issue_field",
+        http_method="DELETE",
+        http_path="/orgs/{org}/issue-fields/{issue_field_id}",
+    )
     async def orgs_delete_issue_field(
         self, params: OrgsDeleteIssueFieldInput, *, trace_id: str
     ) -> OrgsDeleteIssueFieldOutput:
@@ -7124,7 +8397,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_issue_types")
+    @nw_action("orgs_list_issue_types", http_method="GET", http_path="/orgs/{org}/issue-types")
     async def orgs_list_issue_types(
         self, params: OrgsListIssueTypesInput, *, trace_id: str
     ) -> OrgsListIssueTypesOutput:
@@ -7136,7 +8409,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_create_issue_type")
+    @nw_action("orgs_create_issue_type", http_method="POST", http_path="/orgs/{org}/issue-types")
     async def orgs_create_issue_type(
         self, params: OrgsCreateIssueTypeInput, *, trace_id: str
     ) -> OrgsCreateIssueTypeOutput:
@@ -7148,7 +8421,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_update_issue_type")
+    @nw_action(
+        "orgs_update_issue_type",
+        http_method="PUT",
+        http_path="/orgs/{org}/issue-types/{issue_type_id}",
+    )
     async def orgs_update_issue_type(
         self, params: OrgsUpdateIssueTypeInput, *, trace_id: str
     ) -> OrgsUpdateIssueTypeOutput:
@@ -7160,7 +8437,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_delete_issue_type")
+    @nw_action(
+        "orgs_delete_issue_type",
+        http_method="DELETE",
+        http_path="/orgs/{org}/issue-types/{issue_type_id}",
+    )
     async def orgs_delete_issue_type(
         self, params: OrgsDeleteIssueTypeInput, *, trace_id: str
     ) -> OrgsDeleteIssueTypeOutput:
@@ -7172,7 +8453,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_for_org")
+    @nw_action("issues_list_for_org", http_method="GET", http_path="/orgs/{org}/issues")
     async def issues_list_for_org(
         self, params: IssuesListForOrgInput, *, trace_id: str
     ) -> IssuesListForOrgOutput:
@@ -7184,7 +8465,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_members")
+    @nw_action("orgs_list_members", http_method="GET", http_path="/orgs/{org}/members")
     async def orgs_list_members(
         self, params: OrgsListMembersInput, *, trace_id: str
     ) -> OrgsListMembersOutput:
@@ -7196,7 +8477,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_check_membership_for_user")
+    @nw_action(
+        "orgs_check_membership_for_user",
+        http_method="GET",
+        http_path="/orgs/{org}/members/{username}",
+    )
     async def orgs_check_membership_for_user(
         self, params: OrgsCheckMembershipForUserInput, *, trace_id: str
     ) -> OrgsCheckMembershipForUserOutput:
@@ -7208,7 +8493,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_remove_member")
+    @nw_action(
+        "orgs_remove_member", http_method="DELETE", http_path="/orgs/{org}/members/{username}"
+    )
     async def orgs_remove_member(
         self, params: OrgsRemoveMemberInput, *, trace_id: str
     ) -> OrgsRemoveMemberOutput:
@@ -7220,7 +8507,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_get_codespaces_for_user_in_org")
+    @nw_action(
+        "codespaces_get_codespaces_for_user_in_org",
+        http_method="GET",
+        http_path="/orgs/{org}/members/{username}/codespaces",
+    )
     async def codespaces_get_codespaces_for_user_in_org(
         self, params: CodespacesGetCodespacesForUserInOrgInput, *, trace_id: str
     ) -> CodespacesGetCodespacesForUserInOrgOutput:
@@ -7232,7 +8523,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_delete_from_organization")
+    @nw_action(
+        "codespaces_delete_from_organization",
+        http_method="DELETE",
+        http_path="/orgs/{org}/members/{username}/codespaces/{codespace_name}",
+    )
     async def codespaces_delete_from_organization(
         self, params: CodespacesDeleteFromOrganizationInput, *, trace_id: str
     ) -> CodespacesDeleteFromOrganizationOutput:
@@ -7244,7 +8539,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_stop_in_organization")
+    @nw_action(
+        "codespaces_stop_in_organization",
+        http_method="POST",
+        http_path="/orgs/{org}/members/{username}/codespaces/{codespace_name}/stop",
+    )
     async def codespaces_stop_in_organization(
         self, params: CodespacesStopInOrganizationInput, *, trace_id: str
     ) -> CodespacesStopInOrganizationOutput:
@@ -7256,7 +8555,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_get_copilot_seat_details_for_user")
+    @nw_action(
+        "copilot_get_copilot_seat_details_for_user",
+        http_method="GET",
+        http_path="/orgs/{org}/members/{username}/copilot",
+    )
     async def copilot_get_copilot_seat_details_for_user(
         self, params: CopilotGetCopilotSeatDetailsForUserInput, *, trace_id: str
     ) -> CopilotGetCopilotSeatDetailsForUserOutput:
@@ -7268,7 +8571,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_get_membership_for_user")
+    @nw_action(
+        "orgs_get_membership_for_user",
+        http_method="GET",
+        http_path="/orgs/{org}/memberships/{username}",
+    )
     async def orgs_get_membership_for_user(
         self, params: OrgsGetMembershipForUserInput, *, trace_id: str
     ) -> OrgsGetMembershipForUserOutput:
@@ -7280,7 +8587,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_set_membership_for_user")
+    @nw_action(
+        "orgs_set_membership_for_user",
+        http_method="PUT",
+        http_path="/orgs/{org}/memberships/{username}",
+    )
     async def orgs_set_membership_for_user(
         self, params: OrgsSetMembershipForUserInput, *, trace_id: str
     ) -> OrgsSetMembershipForUserOutput:
@@ -7292,7 +8603,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_remove_membership_for_user")
+    @nw_action(
+        "orgs_remove_membership_for_user",
+        http_method="DELETE",
+        http_path="/orgs/{org}/memberships/{username}",
+    )
     async def orgs_remove_membership_for_user(
         self, params: OrgsRemoveMembershipForUserInput, *, trace_id: str
     ) -> OrgsRemoveMembershipForUserOutput:
@@ -7304,7 +8619,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_list_for_org")
+    @nw_action("migrations_list_for_org", http_method="GET", http_path="/orgs/{org}/migrations")
     async def migrations_list_for_org(
         self, params: MigrationsListForOrgInput, *, trace_id: str
     ) -> MigrationsListForOrgOutput:
@@ -7316,7 +8631,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_start_for_org")
+    @nw_action("migrations_start_for_org", http_method="POST", http_path="/orgs/{org}/migrations")
     async def migrations_start_for_org(
         self, params: MigrationsStartForOrgInput, *, trace_id: str
     ) -> MigrationsStartForOrgOutput:
@@ -7328,7 +8643,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_get_status_for_org")
+    @nw_action(
+        "migrations_get_status_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/migrations/{migration_id}",
+    )
     async def migrations_get_status_for_org(
         self, params: MigrationsGetStatusForOrgInput, *, trace_id: str
     ) -> MigrationsGetStatusForOrgOutput:
@@ -7340,7 +8659,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_download_archive_for_org")
+    @nw_action(
+        "migrations_download_archive_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/migrations/{migration_id}/archive",
+    )
     async def migrations_download_archive_for_org(
         self, params: MigrationsDownloadArchiveForOrgInput, *, trace_id: str
     ) -> MigrationsDownloadArchiveForOrgOutput:
@@ -7352,7 +8675,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_delete_archive_for_org")
+    @nw_action(
+        "migrations_delete_archive_for_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/migrations/{migration_id}/archive",
+    )
     async def migrations_delete_archive_for_org(
         self, params: MigrationsDeleteArchiveForOrgInput, *, trace_id: str
     ) -> MigrationsDeleteArchiveForOrgOutput:
@@ -7364,7 +8691,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_unlock_repo_for_org")
+    @nw_action(
+        "migrations_unlock_repo_for_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/migrations/{migration_id}/repos/{repo_name}/lock",
+    )
     async def migrations_unlock_repo_for_org(
         self, params: MigrationsUnlockRepoForOrgInput, *, trace_id: str
     ) -> MigrationsUnlockRepoForOrgOutput:
@@ -7376,7 +8707,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_list_repos_for_org")
+    @nw_action(
+        "migrations_list_repos_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/migrations/{migration_id}/repositories",
+    )
     async def migrations_list_repos_for_org(
         self, params: MigrationsListReposForOrgInput, *, trace_id: str
     ) -> MigrationsListReposForOrgOutput:
@@ -7388,7 +8723,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_org_roles")
+    @nw_action("orgs_list_org_roles", http_method="GET", http_path="/orgs/{org}/organization-roles")
     async def orgs_list_org_roles(
         self, params: OrgsListOrgRolesInput, *, trace_id: str
     ) -> OrgsListOrgRolesOutput:
@@ -7400,7 +8735,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_revoke_all_org_roles_team")
+    @nw_action(
+        "orgs_revoke_all_org_roles_team",
+        http_method="DELETE",
+        http_path="/orgs/{org}/organization-roles/teams/{team_slug}",
+    )
     async def orgs_revoke_all_org_roles_team(
         self, params: OrgsRevokeAllOrgRolesTeamInput, *, trace_id: str
     ) -> OrgsRevokeAllOrgRolesTeamOutput:
@@ -7412,7 +8751,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_assign_team_to_org_role")
+    @nw_action(
+        "orgs_assign_team_to_org_role",
+        http_method="PUT",
+        http_path="/orgs/{org}/organization-roles/teams/{team_slug}/{role_id}",
+    )
     async def orgs_assign_team_to_org_role(
         self, params: OrgsAssignTeamToOrgRoleInput, *, trace_id: str
     ) -> OrgsAssignTeamToOrgRoleOutput:
@@ -7424,7 +8767,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_revoke_org_role_team")
+    @nw_action(
+        "orgs_revoke_org_role_team",
+        http_method="DELETE",
+        http_path="/orgs/{org}/organization-roles/teams/{team_slug}/{role_id}",
+    )
     async def orgs_revoke_org_role_team(
         self, params: OrgsRevokeOrgRoleTeamInput, *, trace_id: str
     ) -> OrgsRevokeOrgRoleTeamOutput:
@@ -7436,7 +8783,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_revoke_all_org_roles_user")
+    @nw_action(
+        "orgs_revoke_all_org_roles_user",
+        http_method="DELETE",
+        http_path="/orgs/{org}/organization-roles/users/{username}",
+    )
     async def orgs_revoke_all_org_roles_user(
         self, params: OrgsRevokeAllOrgRolesUserInput, *, trace_id: str
     ) -> OrgsRevokeAllOrgRolesUserOutput:
@@ -7448,7 +8799,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_assign_user_to_org_role")
+    @nw_action(
+        "orgs_assign_user_to_org_role",
+        http_method="PUT",
+        http_path="/orgs/{org}/organization-roles/users/{username}/{role_id}",
+    )
     async def orgs_assign_user_to_org_role(
         self, params: OrgsAssignUserToOrgRoleInput, *, trace_id: str
     ) -> OrgsAssignUserToOrgRoleOutput:
@@ -7460,7 +8815,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_revoke_org_role_user")
+    @nw_action(
+        "orgs_revoke_org_role_user",
+        http_method="DELETE",
+        http_path="/orgs/{org}/organization-roles/users/{username}/{role_id}",
+    )
     async def orgs_revoke_org_role_user(
         self, params: OrgsRevokeOrgRoleUserInput, *, trace_id: str
     ) -> OrgsRevokeOrgRoleUserOutput:
@@ -7472,7 +8831,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_get_org_role")
+    @nw_action(
+        "orgs_get_org_role", http_method="GET", http_path="/orgs/{org}/organization-roles/{role_id}"
+    )
     async def orgs_get_org_role(
         self, params: OrgsGetOrgRoleInput, *, trace_id: str
     ) -> OrgsGetOrgRoleOutput:
@@ -7484,7 +8845,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_org_role_teams")
+    @nw_action(
+        "orgs_list_org_role_teams",
+        http_method="GET",
+        http_path="/orgs/{org}/organization-roles/{role_id}/teams",
+    )
     async def orgs_list_org_role_teams(
         self, params: OrgsListOrgRoleTeamsInput, *, trace_id: str
     ) -> OrgsListOrgRoleTeamsOutput:
@@ -7496,7 +8861,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_org_role_users")
+    @nw_action(
+        "orgs_list_org_role_users",
+        http_method="GET",
+        http_path="/orgs/{org}/organization-roles/{role_id}/users",
+    )
     async def orgs_list_org_role_users(
         self, params: OrgsListOrgRoleUsersInput, *, trace_id: str
     ) -> OrgsListOrgRoleUsersOutput:
@@ -7508,7 +8877,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_outside_collaborators")
+    @nw_action(
+        "orgs_list_outside_collaborators",
+        http_method="GET",
+        http_path="/orgs/{org}/outside_collaborators",
+    )
     async def orgs_list_outside_collaborators(
         self, params: OrgsListOutsideCollaboratorsInput, *, trace_id: str
     ) -> OrgsListOutsideCollaboratorsOutput:
@@ -7520,7 +8893,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_convert_member_to_outside_collaborator")
+    @nw_action(
+        "orgs_convert_member_to_outside_collaborator",
+        http_method="PUT",
+        http_path="/orgs/{org}/outside_collaborators/{username}",
+    )
     async def orgs_convert_member_to_outside_collaborator(
         self, params: OrgsConvertMemberToOutsideCollaboratorInput, *, trace_id: str
     ) -> OrgsConvertMemberToOutsideCollaboratorOutput:
@@ -7532,7 +8909,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_remove_outside_collaborator")
+    @nw_action(
+        "orgs_remove_outside_collaborator",
+        http_method="DELETE",
+        http_path="/orgs/{org}/outside_collaborators/{username}",
+    )
     async def orgs_remove_outside_collaborator(
         self, params: OrgsRemoveOutsideCollaboratorInput, *, trace_id: str
     ) -> OrgsRemoveOutsideCollaboratorOutput:
@@ -7544,7 +8925,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_list_packages_for_organization")
+    @nw_action(
+        "packages_list_packages_for_organization",
+        http_method="GET",
+        http_path="/orgs/{org}/packages",
+    )
     async def packages_list_packages_for_organization(
         self, params: PackagesListPackagesForOrganizationInput, *, trace_id: str
     ) -> PackagesListPackagesForOrganizationOutput:
@@ -7556,7 +8941,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_get_package_for_organization")
+    @nw_action(
+        "packages_get_package_for_organization",
+        http_method="GET",
+        http_path="/orgs/{org}/packages/{package_type}/{package_name}",
+    )
     async def packages_get_package_for_organization(
         self, params: PackagesGetPackageForOrganizationInput, *, trace_id: str
     ) -> PackagesGetPackageForOrganizationOutput:
@@ -7568,7 +8957,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_delete_package_for_org")
+    @nw_action(
+        "packages_delete_package_for_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/packages/{package_type}/{package_name}",
+    )
     async def packages_delete_package_for_org(
         self, params: PackagesDeletePackageForOrgInput, *, trace_id: str
     ) -> PackagesDeletePackageForOrgOutput:
@@ -7580,7 +8973,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_restore_package_for_org")
+    @nw_action(
+        "packages_restore_package_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/packages/{package_type}/{package_name}/restore",
+    )
     async def packages_restore_package_for_org(
         self, params: PackagesRestorePackageForOrgInput, *, trace_id: str
     ) -> PackagesRestorePackageForOrgOutput:
@@ -7592,7 +8989,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_get_all_package_versions_for_package_owned_by")
+    @nw_action(
+        "packages_get_all_package_versions_for_package_owned_by",
+        http_method="GET",
+        http_path="/orgs/{org}/packages/{package_type}/{package_name}/versions",
+    )
     async def packages_get_all_package_versions_for_package_owned_by(
         self, params: PackagesGetAllPackageVersionsForPackageOwnedByInput, *, trace_id: str
     ) -> PackagesGetAllPackageVersionsForPackageOwnedByOutput:
@@ -7604,7 +9005,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_get_package_version_for_organization")
+    @nw_action(
+        "packages_get_package_version_for_organization",
+        http_method="GET",
+        http_path="/orgs/{org}/packages/{package_type}/{package_name}/versions/{package_version_id}",
+    )
     async def packages_get_package_version_for_organization(
         self, params: PackagesGetPackageVersionForOrganizationInput, *, trace_id: str
     ) -> PackagesGetPackageVersionForOrganizationOutput:
@@ -7616,7 +9021,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_delete_package_version_for_org")
+    @nw_action(
+        "packages_delete_package_version_for_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/packages/{package_type}/{package_name}/versions/{package_version_id}",
+    )
     async def packages_delete_package_version_for_org(
         self, params: PackagesDeletePackageVersionForOrgInput, *, trace_id: str
     ) -> PackagesDeletePackageVersionForOrgOutput:
@@ -7628,7 +9037,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_restore_package_version_for_org")
+    @nw_action(
+        "packages_restore_package_version_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/packages/{package_type}/{package_name}/versions/{package_version_id}/restore",
+    )
     async def packages_restore_package_version_for_org(
         self, params: PackagesRestorePackageVersionForOrgInput, *, trace_id: str
     ) -> PackagesRestorePackageVersionForOrgOutput:
@@ -7640,7 +9053,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_pat_grant_requests")
+    @nw_action(
+        "orgs_list_pat_grant_requests",
+        http_method="GET",
+        http_path="/orgs/{org}/personal-access-token-requests",
+    )
     async def orgs_list_pat_grant_requests(
         self, params: OrgsListPatGrantRequestsInput, *, trace_id: str
     ) -> OrgsListPatGrantRequestsOutput:
@@ -7652,7 +9069,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_review_pat_grant_requests_in_bulk")
+    @nw_action(
+        "orgs_review_pat_grant_requests_in_bulk",
+        http_method="POST",
+        http_path="/orgs/{org}/personal-access-token-requests",
+    )
     async def orgs_review_pat_grant_requests_in_bulk(
         self, params: OrgsReviewPatGrantRequestsInBulkInput, *, trace_id: str
     ) -> OrgsReviewPatGrantRequestsInBulkOutput:
@@ -7664,7 +9085,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_review_pat_grant_request")
+    @nw_action(
+        "orgs_review_pat_grant_request",
+        http_method="POST",
+        http_path="/orgs/{org}/personal-access-token-requests/{pat_request_id}",
+    )
     async def orgs_review_pat_grant_request(
         self, params: OrgsReviewPatGrantRequestInput, *, trace_id: str
     ) -> OrgsReviewPatGrantRequestOutput:
@@ -7676,7 +9101,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_pat_grant_request_repositories")
+    @nw_action(
+        "orgs_list_pat_grant_request_repositories",
+        http_method="GET",
+        http_path="/orgs/{org}/personal-access-token-requests/{pat_request_id}/repositories",
+    )
     async def orgs_list_pat_grant_request_repositories(
         self, params: OrgsListPatGrantRequestRepositoriesInput, *, trace_id: str
     ) -> OrgsListPatGrantRequestRepositoriesOutput:
@@ -7688,7 +9117,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_pat_grants")
+    @nw_action(
+        "orgs_list_pat_grants", http_method="GET", http_path="/orgs/{org}/personal-access-tokens"
+    )
     async def orgs_list_pat_grants(
         self, params: OrgsListPatGrantsInput, *, trace_id: str
     ) -> OrgsListPatGrantsOutput:
@@ -7700,7 +9131,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_update_pat_accesses")
+    @nw_action(
+        "orgs_update_pat_accesses",
+        http_method="POST",
+        http_path="/orgs/{org}/personal-access-tokens",
+    )
     async def orgs_update_pat_accesses(
         self, params: OrgsUpdatePatAccessesInput, *, trace_id: str
     ) -> OrgsUpdatePatAccessesOutput:
@@ -7712,7 +9147,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_update_pat_access")
+    @nw_action(
+        "orgs_update_pat_access",
+        http_method="POST",
+        http_path="/orgs/{org}/personal-access-tokens/{pat_id}",
+    )
     async def orgs_update_pat_access(
         self, params: OrgsUpdatePatAccessInput, *, trace_id: str
     ) -> OrgsUpdatePatAccessOutput:
@@ -7724,7 +9163,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_pat_grant_repositories")
+    @nw_action(
+        "orgs_list_pat_grant_repositories",
+        http_method="GET",
+        http_path="/orgs/{org}/personal-access-tokens/{pat_id}/repositories",
+    )
     async def orgs_list_pat_grant_repositories(
         self, params: OrgsListPatGrantRepositoriesInput, *, trace_id: str
     ) -> OrgsListPatGrantRepositoriesOutput:
@@ -7736,7 +9179,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("private_registries_list_org_private_registries")
+    @nw_action(
+        "private_registries_list_org_private_registries",
+        http_method="GET",
+        http_path="/orgs/{org}/private-registries",
+    )
     async def private_registries_list_org_private_registries(
         self, params: PrivateRegistriesListOrgPrivateRegistriesInput, *, trace_id: str
     ) -> PrivateRegistriesListOrgPrivateRegistriesOutput:
@@ -7748,7 +9195,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("private_registries_create_org_private_registry")
+    @nw_action(
+        "private_registries_create_org_private_registry",
+        http_method="POST",
+        http_path="/orgs/{org}/private-registries",
+    )
     async def private_registries_create_org_private_registry(
         self, params: PrivateRegistriesCreateOrgPrivateRegistryInput, *, trace_id: str
     ) -> PrivateRegistriesCreateOrgPrivateRegistryOutput:
@@ -7760,7 +9211,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("private_registries_get_org_public_key")
+    @nw_action(
+        "private_registries_get_org_public_key",
+        http_method="GET",
+        http_path="/orgs/{org}/private-registries/public-key",
+    )
     async def private_registries_get_org_public_key(
         self, params: PrivateRegistriesGetOrgPublicKeyInput, *, trace_id: str
     ) -> PrivateRegistriesGetOrgPublicKeyOutput:
@@ -7772,7 +9227,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("private_registries_get_org_private_registry")
+    @nw_action(
+        "private_registries_get_org_private_registry",
+        http_method="GET",
+        http_path="/orgs/{org}/private-registries/{secret_name}",
+    )
     async def private_registries_get_org_private_registry(
         self, params: PrivateRegistriesGetOrgPrivateRegistryInput, *, trace_id: str
     ) -> PrivateRegistriesGetOrgPrivateRegistryOutput:
@@ -7784,7 +9243,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("private_registries_update_org_private_registry")
+    @nw_action(
+        "private_registries_update_org_private_registry",
+        http_method="PATCH",
+        http_path="/orgs/{org}/private-registries/{secret_name}",
+    )
     async def private_registries_update_org_private_registry(
         self, params: PrivateRegistriesUpdateOrgPrivateRegistryInput, *, trace_id: str
     ) -> PrivateRegistriesUpdateOrgPrivateRegistryOutput:
@@ -7796,7 +9259,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("private_registries_delete_org_private_registry")
+    @nw_action(
+        "private_registries_delete_org_private_registry",
+        http_method="DELETE",
+        http_path="/orgs/{org}/private-registries/{secret_name}",
+    )
     async def private_registries_delete_org_private_registry(
         self, params: PrivateRegistriesDeleteOrgPrivateRegistryInput, *, trace_id: str
     ) -> PrivateRegistriesDeleteOrgPrivateRegistryOutput:
@@ -7808,7 +9275,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_list_for_org")
+    @nw_action("projects_list_for_org", http_method="GET", http_path="/orgs/{org}/projectsV2")
     async def projects_list_for_org(
         self, params: ProjectsListForOrgInput, *, trace_id: str
     ) -> ProjectsListForOrgOutput:
@@ -7820,7 +9287,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_get_for_org")
+    @nw_action(
+        "projects_get_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/projectsV2/{project_number}",
+    )
     async def projects_get_for_org(
         self, params: ProjectsGetForOrgInput, *, trace_id: str
     ) -> ProjectsGetForOrgOutput:
@@ -7832,7 +9303,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_create_draft_item_for_org")
+    @nw_action(
+        "projects_create_draft_item_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/projectsV2/{project_number}/drafts",
+    )
     async def projects_create_draft_item_for_org(
         self, params: ProjectsCreateDraftItemForOrgInput, *, trace_id: str
     ) -> ProjectsCreateDraftItemForOrgOutput:
@@ -7844,7 +9319,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_list_fields_for_org")
+    @nw_action(
+        "projects_list_fields_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/projectsV2/{project_number}/fields",
+    )
     async def projects_list_fields_for_org(
         self, params: ProjectsListFieldsForOrgInput, *, trace_id: str
     ) -> ProjectsListFieldsForOrgOutput:
@@ -7856,7 +9335,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_add_field_for_org")
+    @nw_action(
+        "projects_add_field_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/projectsV2/{project_number}/fields",
+    )
     async def projects_add_field_for_org(
         self, params: ProjectsAddFieldForOrgInput, *, trace_id: str
     ) -> ProjectsAddFieldForOrgOutput:
@@ -7868,7 +9351,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_get_field_for_org")
+    @nw_action(
+        "projects_get_field_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/projectsV2/{project_number}/fields/{field_id}",
+    )
     async def projects_get_field_for_org(
         self, params: ProjectsGetFieldForOrgInput, *, trace_id: str
     ) -> ProjectsGetFieldForOrgOutput:
@@ -7880,7 +9367,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_list_items_for_org")
+    @nw_action(
+        "projects_list_items_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/projectsV2/{project_number}/items",
+    )
     async def projects_list_items_for_org(
         self, params: ProjectsListItemsForOrgInput, *, trace_id: str
     ) -> ProjectsListItemsForOrgOutput:
@@ -7892,7 +9383,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_add_item_for_org")
+    @nw_action(
+        "projects_add_item_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/projectsV2/{project_number}/items",
+    )
     async def projects_add_item_for_org(
         self, params: ProjectsAddItemForOrgInput, *, trace_id: str
     ) -> ProjectsAddItemForOrgOutput:
@@ -7904,7 +9399,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_get_org_item")
+    @nw_action(
+        "projects_get_org_item",
+        http_method="GET",
+        http_path="/orgs/{org}/projectsV2/{project_number}/items/{item_id}",
+    )
     async def projects_get_org_item(
         self, params: ProjectsGetOrgItemInput, *, trace_id: str
     ) -> ProjectsGetOrgItemOutput:
@@ -7916,7 +9415,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_update_item_for_org")
+    @nw_action(
+        "projects_update_item_for_org",
+        http_method="PATCH",
+        http_path="/orgs/{org}/projectsV2/{project_number}/items/{item_id}",
+    )
     async def projects_update_item_for_org(
         self, params: ProjectsUpdateItemForOrgInput, *, trace_id: str
     ) -> ProjectsUpdateItemForOrgOutput:
@@ -7928,7 +9431,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_delete_item_for_org")
+    @nw_action(
+        "projects_delete_item_for_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/projectsV2/{project_number}/items/{item_id}",
+    )
     async def projects_delete_item_for_org(
         self, params: ProjectsDeleteItemForOrgInput, *, trace_id: str
     ) -> ProjectsDeleteItemForOrgOutput:
@@ -7940,7 +9447,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_create_view_for_org")
+    @nw_action(
+        "projects_create_view_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/projectsV2/{project_number}/views",
+    )
     async def projects_create_view_for_org(
         self, params: ProjectsCreateViewForOrgInput, *, trace_id: str
     ) -> ProjectsCreateViewForOrgOutput:
@@ -7952,7 +9463,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_list_view_items_for_org")
+    @nw_action(
+        "projects_list_view_items_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/projectsV2/{project_number}/views/{view_number}/items",
+    )
     async def projects_list_view_items_for_org(
         self, params: ProjectsListViewItemsForOrgInput, *, trace_id: str
     ) -> ProjectsListViewItemsForOrgOutput:
@@ -7964,7 +9479,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_external_properties_for_repos_get_organization_app")
+    @nw_action(
+        "orgs_external_properties_for_repos_get_organization_app",
+        http_method="GET",
+        http_path="/orgs/{org}/properties/installations",
+    )
     async def orgs_external_properties_for_repos_get_organization_app(
         self, params: OrgsExternalPropertiesForReposGetOrganizationAppInput, *, trace_id: str
     ) -> OrgsExternalPropertiesForReposGetOrganizationAppOutput:
@@ -7976,7 +9495,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_external_properties_for_repos_register_organization")
+    @nw_action(
+        "orgs_external_properties_for_repos_register_organization",
+        http_method="POST",
+        http_path="/orgs/{org}/properties/installations",
+    )
     async def orgs_external_properties_for_repos_register_organization(
         self, params: OrgsExternalPropertiesForReposRegisterOrganizationInput, *, trace_id: str
     ) -> OrgsExternalPropertiesForReposRegisterOrganizationOutput:
@@ -7988,7 +9511,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_external_properties_for_repos_get_organization")
+    @nw_action(
+        "orgs_external_properties_for_repos_get_organization",
+        http_method="GET",
+        http_path="/orgs/{org}/properties/installations/schema",
+    )
     async def orgs_external_properties_for_repos_get_organization(
         self, params: OrgsExternalPropertiesForReposGetOrganizationInput, *, trace_id: str
     ) -> OrgsExternalPropertiesForReposGetOrganizationOutput:
@@ -8000,7 +9527,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_external_properties_for_repos_create_or_update")
+    @nw_action(
+        "orgs_external_properties_for_repos_create_or_update",
+        http_method="PATCH",
+        http_path="/orgs/{org}/properties/installations/values",
+    )
     async def orgs_external_properties_for_repos_create_or_update(
         self, params: OrgsExternalPropertiesForReposCreateOrUpdateInput, *, trace_id: str
     ) -> OrgsExternalPropertiesForReposCreateOrUpdateOutput:
@@ -8012,7 +9543,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_external_properties_for_repos_create_or_update_1")
+    @nw_action(
+        "orgs_external_properties_for_repos_create_or_update_1",
+        http_method="PATCH",
+        http_path="/orgs/{org}/properties/installations/values/{property_name}",
+    )
     async def orgs_external_properties_for_repos_create_or_update_1(
         self, params: OrgsExternalPropertiesForReposCreateOrUpdate1Input, *, trace_id: str
     ) -> OrgsExternalPropertiesForReposCreateOrUpdate1Output:
@@ -8024,7 +9559,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_external_properties_for_repos_delete_organization")
+    @nw_action(
+        "orgs_external_properties_for_repos_delete_organization",
+        http_method="DELETE",
+        http_path="/orgs/{org}/properties/installations/values/{property_name}",
+    )
     async def orgs_external_properties_for_repos_delete_organization(
         self, params: OrgsExternalPropertiesForReposDeleteOrganizationInput, *, trace_id: str
     ) -> OrgsExternalPropertiesForReposDeleteOrganizationOutput:
@@ -8036,7 +9575,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_custom_properties_for_repos_get_organization")
+    @nw_action(
+        "orgs_custom_properties_for_repos_get_organization",
+        http_method="GET",
+        http_path="/orgs/{org}/properties/schema",
+    )
     async def orgs_custom_properties_for_repos_get_organization(
         self, params: OrgsCustomPropertiesForReposGetOrganizationInput, *, trace_id: str
     ) -> OrgsCustomPropertiesForReposGetOrganizationOutput:
@@ -8048,7 +9591,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_custom_properties_for_repos_create_or_update")
+    @nw_action(
+        "orgs_custom_properties_for_repos_create_or_update",
+        http_method="PATCH",
+        http_path="/orgs/{org}/properties/schema",
+    )
     async def orgs_custom_properties_for_repos_create_or_update(
         self, params: OrgsCustomPropertiesForReposCreateOrUpdateInput, *, trace_id: str
     ) -> OrgsCustomPropertiesForReposCreateOrUpdateOutput:
@@ -8060,7 +9607,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_custom_properties_for_repos_get_organization_1")
+    @nw_action(
+        "orgs_custom_properties_for_repos_get_organization_1",
+        http_method="GET",
+        http_path="/orgs/{org}/properties/schema/{custom_property_name}",
+    )
     async def orgs_custom_properties_for_repos_get_organization_1(
         self, params: OrgsCustomPropertiesForReposGetOrganization1Input, *, trace_id: str
     ) -> OrgsCustomPropertiesForReposGetOrganization1Output:
@@ -8072,7 +9623,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_custom_properties_for_repos_create_or_update_1")
+    @nw_action(
+        "orgs_custom_properties_for_repos_create_or_update_1",
+        http_method="PUT",
+        http_path="/orgs/{org}/properties/schema/{custom_property_name}",
+    )
     async def orgs_custom_properties_for_repos_create_or_update_1(
         self, params: OrgsCustomPropertiesForReposCreateOrUpdate1Input, *, trace_id: str
     ) -> OrgsCustomPropertiesForReposCreateOrUpdate1Output:
@@ -8084,7 +9639,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_custom_properties_for_repos_delete_organization")
+    @nw_action(
+        "orgs_custom_properties_for_repos_delete_organization",
+        http_method="DELETE",
+        http_path="/orgs/{org}/properties/schema/{custom_property_name}",
+    )
     async def orgs_custom_properties_for_repos_delete_organization(
         self, params: OrgsCustomPropertiesForReposDeleteOrganizationInput, *, trace_id: str
     ) -> OrgsCustomPropertiesForReposDeleteOrganizationOutput:
@@ -8096,7 +9655,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_custom_properties_for_repos_get_organization_values")
+    @nw_action(
+        "orgs_custom_properties_for_repos_get_organization_values",
+        http_method="GET",
+        http_path="/orgs/{org}/properties/values",
+    )
     async def orgs_custom_properties_for_repos_get_organization_values(
         self, params: OrgsCustomPropertiesForReposGetOrganizationValuesInput, *, trace_id: str
     ) -> OrgsCustomPropertiesForReposGetOrganizationValuesOutput:
@@ -8108,7 +9671,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_custom_properties_for_repos_create_or_update_2")
+    @nw_action(
+        "orgs_custom_properties_for_repos_create_or_update_2",
+        http_method="PATCH",
+        http_path="/orgs/{org}/properties/values",
+    )
     async def orgs_custom_properties_for_repos_create_or_update_2(
         self, params: OrgsCustomPropertiesForReposCreateOrUpdate2Input, *, trace_id: str
     ) -> OrgsCustomPropertiesForReposCreateOrUpdate2Output:
@@ -8120,7 +9687,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_public_members")
+    @nw_action(
+        "orgs_list_public_members", http_method="GET", http_path="/orgs/{org}/public_members"
+    )
     async def orgs_list_public_members(
         self, params: OrgsListPublicMembersInput, *, trace_id: str
     ) -> OrgsListPublicMembersOutput:
@@ -8132,7 +9701,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_check_public_membership_for_user")
+    @nw_action(
+        "orgs_check_public_membership_for_user",
+        http_method="GET",
+        http_path="/orgs/{org}/public_members/{username}",
+    )
     async def orgs_check_public_membership_for_user(
         self, params: OrgsCheckPublicMembershipForUserInput, *, trace_id: str
     ) -> OrgsCheckPublicMembershipForUserOutput:
@@ -8144,7 +9717,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_set_public_membership_for_authenticated_user")
+    @nw_action(
+        "orgs_set_public_membership_for_authenticated_user",
+        http_method="PUT",
+        http_path="/orgs/{org}/public_members/{username}",
+    )
     async def orgs_set_public_membership_for_authenticated_user(
         self, params: OrgsSetPublicMembershipForAuthenticatedUserInput, *, trace_id: str
     ) -> OrgsSetPublicMembershipForAuthenticatedUserOutput:
@@ -8156,7 +9733,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_remove_public_membership_for_authenticated_user")
+    @nw_action(
+        "orgs_remove_public_membership_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/orgs/{org}/public_members/{username}",
+    )
     async def orgs_remove_public_membership_for_authenticated_user(
         self, params: OrgsRemovePublicMembershipForAuthenticatedUserInput, *, trace_id: str
     ) -> OrgsRemovePublicMembershipForAuthenticatedUserOutput:
@@ -8168,7 +9749,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_for_org")
+    @nw_action("repos_list_for_org", http_method="GET", http_path="/orgs/{org}/repos")
     async def repos_list_for_org(
         self, params: ReposListForOrgInput, *, trace_id: str
     ) -> ReposListForOrgOutput:
@@ -8180,7 +9761,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_in_org")
+    @nw_action("repos_create_in_org", http_method="POST", http_path="/orgs/{org}/repos")
     async def repos_create_in_org(
         self, params: ReposCreateInOrgInput, *, trace_id: str
     ) -> ReposCreateInOrgOutput:
@@ -8192,7 +9773,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_org_rulesets")
+    @nw_action("repos_get_org_rulesets", http_method="GET", http_path="/orgs/{org}/rulesets")
     async def repos_get_org_rulesets(
         self, params: ReposGetOrgRulesetsInput, *, trace_id: str
     ) -> ReposGetOrgRulesetsOutput:
@@ -8204,7 +9785,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_org_ruleset")
+    @nw_action("repos_create_org_ruleset", http_method="POST", http_path="/orgs/{org}/rulesets")
     async def repos_create_org_ruleset(
         self, params: ReposCreateOrgRulesetInput, *, trace_id: str
     ) -> ReposCreateOrgRulesetOutput:
@@ -8216,7 +9797,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_org_rule_suites")
+    @nw_action(
+        "repos_get_org_rule_suites", http_method="GET", http_path="/orgs/{org}/rulesets/rule-suites"
+    )
     async def repos_get_org_rule_suites(
         self, params: ReposGetOrgRuleSuitesInput, *, trace_id: str
     ) -> ReposGetOrgRuleSuitesOutput:
@@ -8228,7 +9811,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_org_rule_suite")
+    @nw_action(
+        "repos_get_org_rule_suite",
+        http_method="GET",
+        http_path="/orgs/{org}/rulesets/rule-suites/{rule_suite_id}",
+    )
     async def repos_get_org_rule_suite(
         self, params: ReposGetOrgRuleSuiteInput, *, trace_id: str
     ) -> ReposGetOrgRuleSuiteOutput:
@@ -8240,7 +9827,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_org_ruleset")
+    @nw_action(
+        "repos_get_org_ruleset", http_method="GET", http_path="/orgs/{org}/rulesets/{ruleset_id}"
+    )
     async def repos_get_org_ruleset(
         self, params: ReposGetOrgRulesetInput, *, trace_id: str
     ) -> ReposGetOrgRulesetOutput:
@@ -8252,7 +9841,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_update_org_ruleset")
+    @nw_action(
+        "repos_update_org_ruleset", http_method="PUT", http_path="/orgs/{org}/rulesets/{ruleset_id}"
+    )
     async def repos_update_org_ruleset(
         self, params: ReposUpdateOrgRulesetInput, *, trace_id: str
     ) -> ReposUpdateOrgRulesetOutput:
@@ -8264,7 +9855,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_org_ruleset")
+    @nw_action(
+        "repos_delete_org_ruleset",
+        http_method="DELETE",
+        http_path="/orgs/{org}/rulesets/{ruleset_id}",
+    )
     async def repos_delete_org_ruleset(
         self, params: ReposDeleteOrgRulesetInput, *, trace_id: str
     ) -> ReposDeleteOrgRulesetOutput:
@@ -8276,7 +9871,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_get_org_ruleset_history")
+    @nw_action(
+        "orgs_get_org_ruleset_history",
+        http_method="GET",
+        http_path="/orgs/{org}/rulesets/{ruleset_id}/history",
+    )
     async def orgs_get_org_ruleset_history(
         self, params: OrgsGetOrgRulesetHistoryInput, *, trace_id: str
     ) -> OrgsGetOrgRulesetHistoryOutput:
@@ -8288,7 +9887,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_get_org_ruleset_version")
+    @nw_action(
+        "orgs_get_org_ruleset_version",
+        http_method="GET",
+        http_path="/orgs/{org}/rulesets/{ruleset_id}/history/{version_id}",
+    )
     async def orgs_get_org_ruleset_version(
         self, params: OrgsGetOrgRulesetVersionInput, *, trace_id: str
     ) -> OrgsGetOrgRulesetVersionOutput:
@@ -8300,7 +9903,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_list_alerts_for_org")
+    @nw_action(
+        "secret_scanning_list_alerts_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/secret-scanning/alerts",
+    )
     async def secret_scanning_list_alerts_for_org(
         self, params: SecretScanningListAlertsForOrgInput, *, trace_id: str
     ) -> SecretScanningListAlertsForOrgOutput:
@@ -8312,7 +9919,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_list_org_custom_patterns")
+    @nw_action(
+        "secret_scanning_list_org_custom_patterns",
+        http_method="GET",
+        http_path="/orgs/{org}/secret-scanning/custom-patterns",
+    )
     async def secret_scanning_list_org_custom_patterns(
         self, params: SecretScanningListOrgCustomPatternsInput, *, trace_id: str
     ) -> SecretScanningListOrgCustomPatternsOutput:
@@ -8324,7 +9935,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_bulk_create_org_custom_patterns")
+    @nw_action(
+        "secret_scanning_bulk_create_org_custom_patterns",
+        http_method="POST",
+        http_path="/orgs/{org}/secret-scanning/custom-patterns",
+    )
     async def secret_scanning_bulk_create_org_custom_patterns(
         self, params: SecretScanningBulkCreateOrgCustomPatternsInput, *, trace_id: str
     ) -> SecretScanningBulkCreateOrgCustomPatternsOutput:
@@ -8336,7 +9951,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_bulk_delete_org_custom_patterns")
+    @nw_action(
+        "secret_scanning_bulk_delete_org_custom_patterns",
+        http_method="DELETE",
+        http_path="/orgs/{org}/secret-scanning/custom-patterns",
+    )
     async def secret_scanning_bulk_delete_org_custom_patterns(
         self, params: SecretScanningBulkDeleteOrgCustomPatternsInput, *, trace_id: str
     ) -> SecretScanningBulkDeleteOrgCustomPatternsOutput:
@@ -8348,7 +9967,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_update_org_custom_pattern")
+    @nw_action(
+        "secret_scanning_update_org_custom_pattern",
+        http_method="PATCH",
+        http_path="/orgs/{org}/secret-scanning/custom-patterns/{pattern_id}",
+    )
     async def secret_scanning_update_org_custom_pattern(
         self, params: SecretScanningUpdateOrgCustomPatternInput, *, trace_id: str
     ) -> SecretScanningUpdateOrgCustomPatternOutput:
@@ -8360,7 +9983,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_list_org_pattern_configs")
+    @nw_action(
+        "secret_scanning_list_org_pattern_configs",
+        http_method="GET",
+        http_path="/orgs/{org}/secret-scanning/pattern-configurations",
+    )
     async def secret_scanning_list_org_pattern_configs(
         self, params: SecretScanningListOrgPatternConfigsInput, *, trace_id: str
     ) -> SecretScanningListOrgPatternConfigsOutput:
@@ -8372,7 +9999,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_update_org_pattern_configs")
+    @nw_action(
+        "secret_scanning_update_org_pattern_configs",
+        http_method="PATCH",
+        http_path="/orgs/{org}/secret-scanning/pattern-configurations",
+    )
     async def secret_scanning_update_org_pattern_configs(
         self, params: SecretScanningUpdateOrgPatternConfigsInput, *, trace_id: str
     ) -> SecretScanningUpdateOrgPatternConfigsOutput:
@@ -8384,7 +10015,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("security_advisories_list_org_repository_advisories")
+    @nw_action(
+        "security_advisories_list_org_repository_advisories",
+        http_method="GET",
+        http_path="/orgs/{org}/security-advisories",
+    )
     async def security_advisories_list_org_repository_advisories(
         self, params: SecurityAdvisoriesListOrgRepositoryAdvisoriesInput, *, trace_id: str
     ) -> SecurityAdvisoriesListOrgRepositoryAdvisoriesOutput:
@@ -8396,7 +10031,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_security_manager_teams", deprecated=True)
+    @nw_action(
+        "orgs_list_security_manager_teams",
+        deprecated=True,
+        http_method="GET",
+        http_path="/orgs/{org}/security-managers",
+    )
     async def orgs_list_security_manager_teams(
         self, params: OrgsListSecurityManagerTeamsInput, *, trace_id: str
     ) -> OrgsListSecurityManagerTeamsOutput:
@@ -8408,7 +10048,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_add_security_manager_team", deprecated=True)
+    @nw_action(
+        "orgs_add_security_manager_team",
+        deprecated=True,
+        http_method="PUT",
+        http_path="/orgs/{org}/security-managers/teams/{team_slug}",
+    )
     async def orgs_add_security_manager_team(
         self, params: OrgsAddSecurityManagerTeamInput, *, trace_id: str
     ) -> OrgsAddSecurityManagerTeamOutput:
@@ -8420,7 +10065,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_remove_security_manager_team", deprecated=True)
+    @nw_action(
+        "orgs_remove_security_manager_team",
+        deprecated=True,
+        http_method="DELETE",
+        http_path="/orgs/{org}/security-managers/teams/{team_slug}",
+    )
     async def orgs_remove_security_manager_team(
         self, params: OrgsRemoveSecurityManagerTeamInput, *, trace_id: str
     ) -> OrgsRemoveSecurityManagerTeamOutput:
@@ -8432,7 +10082,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_get_immutable_releases_settings")
+    @nw_action(
+        "orgs_get_immutable_releases_settings",
+        http_method="GET",
+        http_path="/orgs/{org}/settings/immutable-releases",
+    )
     async def orgs_get_immutable_releases_settings(
         self, params: OrgsGetImmutableReleasesSettingsInput, *, trace_id: str
     ) -> OrgsGetImmutableReleasesSettingsOutput:
@@ -8444,7 +10098,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_set_immutable_releases_settings")
+    @nw_action(
+        "orgs_set_immutable_releases_settings",
+        http_method="PUT",
+        http_path="/orgs/{org}/settings/immutable-releases",
+    )
     async def orgs_set_immutable_releases_settings(
         self, params: OrgsSetImmutableReleasesSettingsInput, *, trace_id: str
     ) -> OrgsSetImmutableReleasesSettingsOutput:
@@ -8456,7 +10114,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_get_immutable_releases_settings_repositories")
+    @nw_action(
+        "orgs_get_immutable_releases_settings_repositories",
+        http_method="GET",
+        http_path="/orgs/{org}/settings/immutable-releases/repositories",
+    )
     async def orgs_get_immutable_releases_settings_repositories(
         self, params: OrgsGetImmutableReleasesSettingsRepositoriesInput, *, trace_id: str
     ) -> OrgsGetImmutableReleasesSettingsRepositoriesOutput:
@@ -8468,7 +10130,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_set_immutable_releases_settings_repositories")
+    @nw_action(
+        "orgs_set_immutable_releases_settings_repositories",
+        http_method="PUT",
+        http_path="/orgs/{org}/settings/immutable-releases/repositories",
+    )
     async def orgs_set_immutable_releases_settings_repositories(
         self, params: OrgsSetImmutableReleasesSettingsRepositoriesInput, *, trace_id: str
     ) -> OrgsSetImmutableReleasesSettingsRepositoriesOutput:
@@ -8480,7 +10146,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_enable_selected_repository_immutable_releases")
+    @nw_action(
+        "orgs_enable_selected_repository_immutable_releases",
+        http_method="PUT",
+        http_path="/orgs/{org}/settings/immutable-releases/repositories/{repository_id}",
+    )
     async def orgs_enable_selected_repository_immutable_releases(
         self, params: OrgsEnableSelectedRepositoryImmutableReleasesInput, *, trace_id: str
     ) -> OrgsEnableSelectedRepositoryImmutableReleasesOutput:
@@ -8492,7 +10162,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_disable_selected_repository_immutable_releases")
+    @nw_action(
+        "orgs_disable_selected_repository_immutable_releases",
+        http_method="DELETE",
+        http_path="/orgs/{org}/settings/immutable-releases/repositories/{repository_id}",
+    )
     async def orgs_disable_selected_repository_immutable_releases(
         self, params: OrgsDisableSelectedRepositoryImmutableReleasesInput, *, trace_id: str
     ) -> OrgsDisableSelectedRepositoryImmutableReleasesOutput:
@@ -8504,7 +10178,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("hosted_compute_list_network_configurations_for_org")
+    @nw_action(
+        "hosted_compute_list_network_configurations_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/settings/network-configurations",
+    )
     async def hosted_compute_list_network_configurations_for_org(
         self, params: HostedComputeListNetworkConfigurationsForOrgInput, *, trace_id: str
     ) -> HostedComputeListNetworkConfigurationsForOrgOutput:
@@ -8516,7 +10194,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("hosted_compute_create_network_configuration_for_org")
+    @nw_action(
+        "hosted_compute_create_network_configuration_for_org",
+        http_method="POST",
+        http_path="/orgs/{org}/settings/network-configurations",
+    )
     async def hosted_compute_create_network_configuration_for_org(
         self, params: HostedComputeCreateNetworkConfigurationForOrgInput, *, trace_id: str
     ) -> HostedComputeCreateNetworkConfigurationForOrgOutput:
@@ -8528,7 +10210,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("hosted_compute_get_network_configuration_for_org")
+    @nw_action(
+        "hosted_compute_get_network_configuration_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/settings/network-configurations/{network_configuration_id}",
+    )
     async def hosted_compute_get_network_configuration_for_org(
         self, params: HostedComputeGetNetworkConfigurationForOrgInput, *, trace_id: str
     ) -> HostedComputeGetNetworkConfigurationForOrgOutput:
@@ -8540,7 +10226,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("hosted_compute_update_network_configuration_for_org")
+    @nw_action(
+        "hosted_compute_update_network_configuration_for_org",
+        http_method="PATCH",
+        http_path="/orgs/{org}/settings/network-configurations/{network_configuration_id}",
+    )
     async def hosted_compute_update_network_configuration_for_org(
         self, params: HostedComputeUpdateNetworkConfigurationForOrgInput, *, trace_id: str
     ) -> HostedComputeUpdateNetworkConfigurationForOrgOutput:
@@ -8552,7 +10242,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("hosted_compute_delete_network_configuration_from_org")
+    @nw_action(
+        "hosted_compute_delete_network_configuration_from_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/settings/network-configurations/{network_configuration_id}",
+    )
     async def hosted_compute_delete_network_configuration_from_org(
         self, params: HostedComputeDeleteNetworkConfigurationFromOrgInput, *, trace_id: str
     ) -> HostedComputeDeleteNetworkConfigurationFromOrgOutput:
@@ -8564,7 +10258,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("hosted_compute_get_network_settings_for_org")
+    @nw_action(
+        "hosted_compute_get_network_settings_for_org",
+        http_method="GET",
+        http_path="/orgs/{org}/settings/network-settings/{network_settings_id}",
+    )
     async def hosted_compute_get_network_settings_for_org(
         self, params: HostedComputeGetNetworkSettingsForOrgInput, *, trace_id: str
     ) -> HostedComputeGetNetworkSettingsForOrgOutput:
@@ -8576,7 +10274,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_list")
+    @nw_action("teams_list", http_method="GET", http_path="/orgs/{org}/teams")
     async def teams_list(self, params: TeamsListInput, *, trace_id: str) -> TeamsListOutput:
         return await self.execute_rest(
             method="GET",
@@ -8586,7 +10284,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_create")
+    @nw_action("teams_create", http_method="POST", http_path="/orgs/{org}/teams")
     async def teams_create(self, params: TeamsCreateInput, *, trace_id: str) -> TeamsCreateOutput:
         return await self.execute_rest(
             method="POST",
@@ -8596,7 +10294,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_get_by_name")
+    @nw_action("teams_get_by_name", http_method="GET", http_path="/orgs/{org}/teams/{team_slug}")
     async def teams_get_by_name(
         self, params: TeamsGetByNameInput, *, trace_id: str
     ) -> TeamsGetByNameOutput:
@@ -8608,7 +10306,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_update_in_org")
+    @nw_action(
+        "teams_update_in_org", http_method="PATCH", http_path="/orgs/{org}/teams/{team_slug}"
+    )
     async def teams_update_in_org(
         self, params: TeamsUpdateInOrgInput, *, trace_id: str
     ) -> TeamsUpdateInOrgOutput:
@@ -8620,7 +10320,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_delete_in_org")
+    @nw_action(
+        "teams_delete_in_org", http_method="DELETE", http_path="/orgs/{org}/teams/{team_slug}"
+    )
     async def teams_delete_in_org(
         self, params: TeamsDeleteInOrgInput, *, trace_id: str
     ) -> TeamsDeleteInOrgOutput:
@@ -8632,7 +10334,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_list_pending_invitations_in_org")
+    @nw_action(
+        "teams_list_pending_invitations_in_org",
+        http_method="GET",
+        http_path="/orgs/{org}/teams/{team_slug}/invitations",
+    )
     async def teams_list_pending_invitations_in_org(
         self, params: TeamsListPendingInvitationsInOrgInput, *, trace_id: str
     ) -> TeamsListPendingInvitationsInOrgOutput:
@@ -8644,7 +10350,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_list_members_in_org")
+    @nw_action(
+        "teams_list_members_in_org",
+        http_method="GET",
+        http_path="/orgs/{org}/teams/{team_slug}/members",
+    )
     async def teams_list_members_in_org(
         self, params: TeamsListMembersInOrgInput, *, trace_id: str
     ) -> TeamsListMembersInOrgOutput:
@@ -8656,7 +10366,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_get_membership_for_user_in_org")
+    @nw_action(
+        "teams_get_membership_for_user_in_org",
+        http_method="GET",
+        http_path="/orgs/{org}/teams/{team_slug}/memberships/{username}",
+    )
     async def teams_get_membership_for_user_in_org(
         self, params: TeamsGetMembershipForUserInOrgInput, *, trace_id: str
     ) -> TeamsGetMembershipForUserInOrgOutput:
@@ -8668,7 +10382,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_add_or_update_membership_for_user_in_org")
+    @nw_action(
+        "teams_add_or_update_membership_for_user_in_org",
+        http_method="PUT",
+        http_path="/orgs/{org}/teams/{team_slug}/memberships/{username}",
+    )
     async def teams_add_or_update_membership_for_user_in_org(
         self, params: TeamsAddOrUpdateMembershipForUserInOrgInput, *, trace_id: str
     ) -> TeamsAddOrUpdateMembershipForUserInOrgOutput:
@@ -8680,7 +10398,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_remove_membership_for_user_in_org")
+    @nw_action(
+        "teams_remove_membership_for_user_in_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/teams/{team_slug}/memberships/{username}",
+    )
     async def teams_remove_membership_for_user_in_org(
         self, params: TeamsRemoveMembershipForUserInOrgInput, *, trace_id: str
     ) -> TeamsRemoveMembershipForUserInOrgOutput:
@@ -8692,7 +10414,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_list_repos_in_org")
+    @nw_action(
+        "teams_list_repos_in_org",
+        http_method="GET",
+        http_path="/orgs/{org}/teams/{team_slug}/repos",
+    )
     async def teams_list_repos_in_org(
         self, params: TeamsListReposInOrgInput, *, trace_id: str
     ) -> TeamsListReposInOrgOutput:
@@ -8704,7 +10430,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_check_permissions_for_repo_in_org")
+    @nw_action(
+        "teams_check_permissions_for_repo_in_org",
+        http_method="GET",
+        http_path="/orgs/{org}/teams/{team_slug}/repos/{owner}/{repo}",
+    )
     async def teams_check_permissions_for_repo_in_org(
         self, params: TeamsCheckPermissionsForRepoInOrgInput, *, trace_id: str
     ) -> TeamsCheckPermissionsForRepoInOrgOutput:
@@ -8716,7 +10446,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_add_or_update_repo_permissions_in_org")
+    @nw_action(
+        "teams_add_or_update_repo_permissions_in_org",
+        http_method="PUT",
+        http_path="/orgs/{org}/teams/{team_slug}/repos/{owner}/{repo}",
+    )
     async def teams_add_or_update_repo_permissions_in_org(
         self, params: TeamsAddOrUpdateRepoPermissionsInOrgInput, *, trace_id: str
     ) -> TeamsAddOrUpdateRepoPermissionsInOrgOutput:
@@ -8728,7 +10462,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_remove_repo_in_org")
+    @nw_action(
+        "teams_remove_repo_in_org",
+        http_method="DELETE",
+        http_path="/orgs/{org}/teams/{team_slug}/repos/{owner}/{repo}",
+    )
     async def teams_remove_repo_in_org(
         self, params: TeamsRemoveRepoInOrgInput, *, trace_id: str
     ) -> TeamsRemoveRepoInOrgOutput:
@@ -8740,7 +10478,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_list_child_in_org")
+    @nw_action(
+        "teams_list_child_in_org",
+        http_method="GET",
+        http_path="/orgs/{org}/teams/{team_slug}/teams",
+    )
     async def teams_list_child_in_org(
         self, params: TeamsListChildInOrgInput, *, trace_id: str
     ) -> TeamsListChildInOrgOutput:
@@ -8752,7 +10494,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_enable_or_disable_security_product_on_all_org_repos", deprecated=True)
+    @nw_action(
+        "orgs_enable_or_disable_security_product_on_all_org_repos",
+        deprecated=True,
+        http_method="POST",
+        http_path="/orgs/{org}/{security_product}/{enablement}",
+    )
     async def orgs_enable_or_disable_security_product_on_all_org_repos(
         self, params: OrgsEnableOrDisableSecurityProductOnAllOrgReposInput, *, trace_id: str
     ) -> OrgsEnableOrDisableSecurityProductOnAllOrgReposOutput:
@@ -8764,7 +10511,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("rate_limit_get")
+    @nw_action("rate_limit_get", http_method="GET", http_path="/rate_limit")
     async def rate_limit_get(
         self, params: RateLimitGetInput, *, trace_id: str
     ) -> RateLimitGetOutput:
@@ -8776,7 +10523,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get")
+    @nw_action("repos_get", http_method="GET", http_path="/repos/{owner}/{repo}")
     async def repos_get(self, params: ReposGetInput, *, trace_id: str) -> ReposGetOutput:
         return await self.execute_rest(
             method="GET",
@@ -8786,7 +10533,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_update")
+    @nw_action("repos_update", http_method="PATCH", http_path="/repos/{owner}/{repo}")
     async def repos_update(self, params: ReposUpdateInput, *, trace_id: str) -> ReposUpdateOutput:
         return await self.execute_rest(
             method="PATCH",
@@ -8796,7 +10543,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete")
+    @nw_action("repos_delete", http_method="DELETE", http_path="/repos/{owner}/{repo}")
     async def repos_delete(self, params: ReposDeleteInput, *, trace_id: str) -> ReposDeleteOutput:
         return await self.execute_rest(
             method="DELETE",
@@ -8806,7 +10553,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_artifacts_for_repo")
+    @nw_action(
+        "actions_list_artifacts_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/artifacts",
+    )
     async def actions_list_artifacts_for_repo(
         self, params: ActionsListArtifactsForRepoInput, *, trace_id: str
     ) -> ActionsListArtifactsForRepoOutput:
@@ -8818,7 +10569,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_artifact")
+    @nw_action(
+        "actions_get_artifact",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/artifacts/{artifact_id}",
+    )
     async def actions_get_artifact(
         self, params: ActionsGetArtifactInput, *, trace_id: str
     ) -> ActionsGetArtifactOutput:
@@ -8830,7 +10585,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_artifact")
+    @nw_action(
+        "actions_delete_artifact",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/actions/artifacts/{artifact_id}",
+    )
     async def actions_delete_artifact(
         self, params: ActionsDeleteArtifactInput, *, trace_id: str
     ) -> ActionsDeleteArtifactOutput:
@@ -8842,7 +10601,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_download_artifact")
+    @nw_action(
+        "actions_download_artifact",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/artifacts/{artifact_id}/{archive_format}",
+    )
     async def actions_download_artifact(
         self, params: ActionsDownloadArtifactInput, *, trace_id: str
     ) -> ActionsDownloadArtifactOutput:
@@ -8854,7 +10617,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_actions_cache_retention_limit_for_repository")
+    @nw_action(
+        "actions_get_actions_cache_retention_limit_for_repository",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/cache/retention-limit",
+    )
     async def actions_get_actions_cache_retention_limit_for_repository(
         self, params: ActionsGetActionsCacheRetentionLimitForRepositoryInput, *, trace_id: str
     ) -> ActionsGetActionsCacheRetentionLimitForRepositoryOutput:
@@ -8866,7 +10633,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_actions_cache_retention_limit_for_repository")
+    @nw_action(
+        "actions_set_actions_cache_retention_limit_for_repository",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/cache/retention-limit",
+    )
     async def actions_set_actions_cache_retention_limit_for_repository(
         self, params: ActionsSetActionsCacheRetentionLimitForRepositoryInput, *, trace_id: str
     ) -> ActionsSetActionsCacheRetentionLimitForRepositoryOutput:
@@ -8878,7 +10649,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_actions_cache_storage_limit_for_repository")
+    @nw_action(
+        "actions_get_actions_cache_storage_limit_for_repository",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/cache/storage-limit",
+    )
     async def actions_get_actions_cache_storage_limit_for_repository(
         self, params: ActionsGetActionsCacheStorageLimitForRepositoryInput, *, trace_id: str
     ) -> ActionsGetActionsCacheStorageLimitForRepositoryOutput:
@@ -8890,7 +10665,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_actions_cache_storage_limit_for_repository")
+    @nw_action(
+        "actions_set_actions_cache_storage_limit_for_repository",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/cache/storage-limit",
+    )
     async def actions_set_actions_cache_storage_limit_for_repository(
         self, params: ActionsSetActionsCacheStorageLimitForRepositoryInput, *, trace_id: str
     ) -> ActionsSetActionsCacheStorageLimitForRepositoryOutput:
@@ -8902,7 +10681,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_actions_cache_usage")
+    @nw_action(
+        "actions_get_actions_cache_usage",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/cache/usage",
+    )
     async def actions_get_actions_cache_usage(
         self, params: ActionsGetActionsCacheUsageInput, *, trace_id: str
     ) -> ActionsGetActionsCacheUsageOutput:
@@ -8914,7 +10697,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_actions_cache_list")
+    @nw_action(
+        "actions_get_actions_cache_list",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/caches",
+    )
     async def actions_get_actions_cache_list(
         self, params: ActionsGetActionsCacheListInput, *, trace_id: str
     ) -> ActionsGetActionsCacheListOutput:
@@ -8926,7 +10713,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_actions_cache_by_key")
+    @nw_action(
+        "actions_delete_actions_cache_by_key",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/actions/caches",
+    )
     async def actions_delete_actions_cache_by_key(
         self, params: ActionsDeleteActionsCacheByKeyInput, *, trace_id: str
     ) -> ActionsDeleteActionsCacheByKeyOutput:
@@ -8938,7 +10729,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_actions_cache_by_id")
+    @nw_action(
+        "actions_delete_actions_cache_by_id",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/actions/caches/{cache_id}",
+    )
     async def actions_delete_actions_cache_by_id(
         self, params: ActionsDeleteActionsCacheByIdInput, *, trace_id: str
     ) -> ActionsDeleteActionsCacheByIdOutput:
@@ -8950,7 +10745,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_concurrency_groups_for_repository")
+    @nw_action(
+        "actions_list_concurrency_groups_for_repository",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/concurrency_groups",
+    )
     async def actions_list_concurrency_groups_for_repository(
         self, params: ActionsListConcurrencyGroupsForRepositoryInput, *, trace_id: str
     ) -> ActionsListConcurrencyGroupsForRepositoryOutput:
@@ -8962,7 +10761,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_concurrency_group_for_repository")
+    @nw_action(
+        "actions_get_concurrency_group_for_repository",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/concurrency_groups/{concurrency_group_name}",
+    )
     async def actions_get_concurrency_group_for_repository(
         self, params: ActionsGetConcurrencyGroupForRepositoryInput, *, trace_id: str
     ) -> ActionsGetConcurrencyGroupForRepositoryOutput:
@@ -8974,7 +10777,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_job_for_workflow_run")
+    @nw_action(
+        "actions_get_job_for_workflow_run",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/jobs/{job_id}",
+    )
     async def actions_get_job_for_workflow_run(
         self, params: ActionsGetJobForWorkflowRunInput, *, trace_id: str
     ) -> ActionsGetJobForWorkflowRunOutput:
@@ -8986,7 +10793,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_download_job_logs_for_workflow_run")
+    @nw_action(
+        "actions_download_job_logs_for_workflow_run",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/jobs/{job_id}/logs",
+    )
     async def actions_download_job_logs_for_workflow_run(
         self, params: ActionsDownloadJobLogsForWorkflowRunInput, *, trace_id: str
     ) -> ActionsDownloadJobLogsForWorkflowRunOutput:
@@ -8998,7 +10809,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_re_run_job_for_workflow_run")
+    @nw_action(
+        "actions_re_run_job_for_workflow_run",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/jobs/{job_id}/rerun",
+    )
     async def actions_re_run_job_for_workflow_run(
         self, params: ActionsReRunJobForWorkflowRunInput, *, trace_id: str
     ) -> ActionsReRunJobForWorkflowRunOutput:
@@ -9010,7 +10825,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_download_step_logs_for_workflow_run_job")
+    @nw_action(
+        "actions_download_step_logs_for_workflow_run_job",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/jobs/{job_id}/steps/{step_number}/logs",
+    )
     async def actions_download_step_logs_for_workflow_run_job(
         self, params: ActionsDownloadStepLogsForWorkflowRunJobInput, *, trace_id: str
     ) -> ActionsDownloadStepLogsForWorkflowRunJobOutput:
@@ -9022,7 +10841,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_custom_oidc_sub_claim_for_repo")
+    @nw_action(
+        "actions_get_custom_oidc_sub_claim_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/oidc/customization/sub",
+    )
     async def actions_get_custom_oidc_sub_claim_for_repo(
         self, params: ActionsGetCustomOidcSubClaimForRepoInput, *, trace_id: str
     ) -> ActionsGetCustomOidcSubClaimForRepoOutput:
@@ -9034,7 +10857,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_custom_oidc_sub_claim_for_repo")
+    @nw_action(
+        "actions_set_custom_oidc_sub_claim_for_repo",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/oidc/customization/sub",
+    )
     async def actions_set_custom_oidc_sub_claim_for_repo(
         self, params: ActionsSetCustomOidcSubClaimForRepoInput, *, trace_id: str
     ) -> ActionsSetCustomOidcSubClaimForRepoOutput:
@@ -9046,7 +10873,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_repo_organization_secrets")
+    @nw_action(
+        "actions_list_repo_organization_secrets",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/organization-secrets",
+    )
     async def actions_list_repo_organization_secrets(
         self, params: ActionsListRepoOrganizationSecretsInput, *, trace_id: str
     ) -> ActionsListRepoOrganizationSecretsOutput:
@@ -9058,7 +10889,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_repo_organization_variables")
+    @nw_action(
+        "actions_list_repo_organization_variables",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/organization-variables",
+    )
     async def actions_list_repo_organization_variables(
         self, params: ActionsListRepoOrganizationVariablesInput, *, trace_id: str
     ) -> ActionsListRepoOrganizationVariablesOutput:
@@ -9070,7 +10905,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_github_actions_permissions_repository")
+    @nw_action(
+        "actions_get_github_actions_permissions_repository",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/permissions",
+    )
     async def actions_get_github_actions_permissions_repository(
         self, params: ActionsGetGithubActionsPermissionsRepositoryInput, *, trace_id: str
     ) -> ActionsGetGithubActionsPermissionsRepositoryOutput:
@@ -9082,7 +10921,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_github_actions_permissions_repository")
+    @nw_action(
+        "actions_set_github_actions_permissions_repository",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/permissions",
+    )
     async def actions_set_github_actions_permissions_repository(
         self, params: ActionsSetGithubActionsPermissionsRepositoryInput, *, trace_id: str
     ) -> ActionsSetGithubActionsPermissionsRepositoryOutput:
@@ -9094,7 +10937,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_workflow_access_to_repository")
+    @nw_action(
+        "actions_get_workflow_access_to_repository",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/permissions/access",
+    )
     async def actions_get_workflow_access_to_repository(
         self, params: ActionsGetWorkflowAccessToRepositoryInput, *, trace_id: str
     ) -> ActionsGetWorkflowAccessToRepositoryOutput:
@@ -9106,7 +10953,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_workflow_access_to_repository")
+    @nw_action(
+        "actions_set_workflow_access_to_repository",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/permissions/access",
+    )
     async def actions_set_workflow_access_to_repository(
         self, params: ActionsSetWorkflowAccessToRepositoryInput, *, trace_id: str
     ) -> ActionsSetWorkflowAccessToRepositoryOutput:
@@ -9118,7 +10969,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_artifact_and_log_retention_settings_1")
+    @nw_action(
+        "actions_get_artifact_and_log_retention_settings_1",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/permissions/artifact-and-log-retention",
+    )
     async def actions_get_artifact_and_log_retention_settings_1(
         self, params: ActionsGetArtifactAndLogRetentionSettings1Input, *, trace_id: str
     ) -> ActionsGetArtifactAndLogRetentionSettings1Output:
@@ -9130,7 +10985,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_artifact_and_log_retention_settings_1")
+    @nw_action(
+        "actions_set_artifact_and_log_retention_settings_1",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/permissions/artifact-and-log-retention",
+    )
     async def actions_set_artifact_and_log_retention_settings_1(
         self, params: ActionsSetArtifactAndLogRetentionSettings1Input, *, trace_id: str
     ) -> ActionsSetArtifactAndLogRetentionSettings1Output:
@@ -9142,7 +11001,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_fork_pr_contributor_approval_permissions_1")
+    @nw_action(
+        "actions_get_fork_pr_contributor_approval_permissions_1",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/permissions/fork-pr-contributor-approval",
+    )
     async def actions_get_fork_pr_contributor_approval_permissions_1(
         self, params: ActionsGetForkPrContributorApprovalPermissions1Input, *, trace_id: str
     ) -> ActionsGetForkPrContributorApprovalPermissions1Output:
@@ -9154,7 +11017,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_fork_pr_contributor_approval_permissions_1")
+    @nw_action(
+        "actions_set_fork_pr_contributor_approval_permissions_1",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/permissions/fork-pr-contributor-approval",
+    )
     async def actions_set_fork_pr_contributor_approval_permissions_1(
         self, params: ActionsSetForkPrContributorApprovalPermissions1Input, *, trace_id: str
     ) -> ActionsSetForkPrContributorApprovalPermissions1Output:
@@ -9166,7 +11033,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_private_repo_fork_pr_workflows_settings_1")
+    @nw_action(
+        "actions_get_private_repo_fork_pr_workflows_settings_1",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/permissions/fork-pr-workflows-private-repos",
+    )
     async def actions_get_private_repo_fork_pr_workflows_settings_1(
         self, params: ActionsGetPrivateRepoForkPrWorkflowsSettings1Input, *, trace_id: str
     ) -> ActionsGetPrivateRepoForkPrWorkflowsSettings1Output:
@@ -9178,7 +11049,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_private_repo_fork_pr_workflows_settings_1")
+    @nw_action(
+        "actions_set_private_repo_fork_pr_workflows_settings_1",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/permissions/fork-pr-workflows-private-repos",
+    )
     async def actions_set_private_repo_fork_pr_workflows_settings_1(
         self, params: ActionsSetPrivateRepoForkPrWorkflowsSettings1Input, *, trace_id: str
     ) -> ActionsSetPrivateRepoForkPrWorkflowsSettings1Output:
@@ -9190,7 +11065,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_allowed_actions_repository")
+    @nw_action(
+        "actions_get_allowed_actions_repository",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/permissions/selected-actions",
+    )
     async def actions_get_allowed_actions_repository(
         self, params: ActionsGetAllowedActionsRepositoryInput, *, trace_id: str
     ) -> ActionsGetAllowedActionsRepositoryOutput:
@@ -9202,7 +11081,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_allowed_actions_repository")
+    @nw_action(
+        "actions_set_allowed_actions_repository",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/permissions/selected-actions",
+    )
     async def actions_set_allowed_actions_repository(
         self, params: ActionsSetAllowedActionsRepositoryInput, *, trace_id: str
     ) -> ActionsSetAllowedActionsRepositoryOutput:
@@ -9214,7 +11097,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_github_actions_default_workflow_permissions_1")
+    @nw_action(
+        "actions_get_github_actions_default_workflow_permissions_1",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/permissions/workflow",
+    )
     async def actions_get_github_actions_default_workflow_permissions_1(
         self, params: ActionsGetGithubActionsDefaultWorkflowPermissions1Input, *, trace_id: str
     ) -> ActionsGetGithubActionsDefaultWorkflowPermissions1Output:
@@ -9226,7 +11113,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_github_actions_default_workflow_permissions_1")
+    @nw_action(
+        "actions_set_github_actions_default_workflow_permissions_1",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/permissions/workflow",
+    )
     async def actions_set_github_actions_default_workflow_permissions_1(
         self, params: ActionsSetGithubActionsDefaultWorkflowPermissions1Input, *, trace_id: str
     ) -> ActionsSetGithubActionsDefaultWorkflowPermissions1Output:
@@ -9238,7 +11129,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_repo_actions_policies")
+    @nw_action(
+        "actions_get_repo_actions_policies",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/policies",
+    )
     async def actions_get_repo_actions_policies(
         self, params: ActionsGetRepoActionsPoliciesInput, *, trace_id: str
     ) -> ActionsGetRepoActionsPoliciesOutput:
@@ -9250,7 +11145,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_repo_actions_policy")
+    @nw_action(
+        "actions_create_repo_actions_policy",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/policies",
+    )
     async def actions_create_repo_actions_policy(
         self, params: ActionsCreateRepoActionsPolicyInput, *, trace_id: str
     ) -> ActionsCreateRepoActionsPolicyOutput:
@@ -9262,7 +11161,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_repo_actions_policy")
+    @nw_action(
+        "actions_get_repo_actions_policy",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/policies/{policy_id}",
+    )
     async def actions_get_repo_actions_policy(
         self, params: ActionsGetRepoActionsPolicyInput, *, trace_id: str
     ) -> ActionsGetRepoActionsPolicyOutput:
@@ -9274,7 +11177,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_update_repo_actions_policy")
+    @nw_action(
+        "actions_update_repo_actions_policy",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/policies/{policy_id}",
+    )
     async def actions_update_repo_actions_policy(
         self, params: ActionsUpdateRepoActionsPolicyInput, *, trace_id: str
     ) -> ActionsUpdateRepoActionsPolicyOutput:
@@ -9286,7 +11193,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_repo_actions_policy")
+    @nw_action(
+        "actions_delete_repo_actions_policy",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/actions/policies/{policy_id}",
+    )
     async def actions_delete_repo_actions_policy(
         self, params: ActionsDeleteRepoActionsPolicyInput, *, trace_id: str
     ) -> ActionsDeleteRepoActionsPolicyOutput:
@@ -9298,7 +11209,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_self_hosted_runners_for_repo")
+    @nw_action(
+        "actions_list_self_hosted_runners_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runners",
+    )
     async def actions_list_self_hosted_runners_for_repo(
         self, params: ActionsListSelfHostedRunnersForRepoInput, *, trace_id: str
     ) -> ActionsListSelfHostedRunnersForRepoOutput:
@@ -9310,7 +11225,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_runner_version_deprecation_for_repo")
+    @nw_action(
+        "actions_get_runner_version_deprecation_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runners/deprecations/{version}",
+    )
     async def actions_get_runner_version_deprecation_for_repo(
         self, params: ActionsGetRunnerVersionDeprecationForRepoInput, *, trace_id: str
     ) -> ActionsGetRunnerVersionDeprecationForRepoOutput:
@@ -9322,7 +11241,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_runner_applications_for_repo")
+    @nw_action(
+        "actions_list_runner_applications_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runners/downloads",
+    )
     async def actions_list_runner_applications_for_repo(
         self, params: ActionsListRunnerApplicationsForRepoInput, *, trace_id: str
     ) -> ActionsListRunnerApplicationsForRepoOutput:
@@ -9334,7 +11257,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_generate_runner_jitconfig_for_repo")
+    @nw_action(
+        "actions_generate_runner_jitconfig_for_repo",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/runners/generate-jitconfig",
+    )
     async def actions_generate_runner_jitconfig_for_repo(
         self, params: ActionsGenerateRunnerJitconfigForRepoInput, *, trace_id: str
     ) -> ActionsGenerateRunnerJitconfigForRepoOutput:
@@ -9346,7 +11273,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_registration_token_for_repo")
+    @nw_action(
+        "actions_create_registration_token_for_repo",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/runners/registration-token",
+    )
     async def actions_create_registration_token_for_repo(
         self, params: ActionsCreateRegistrationTokenForRepoInput, *, trace_id: str
     ) -> ActionsCreateRegistrationTokenForRepoOutput:
@@ -9358,7 +11289,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_remove_token_for_repo")
+    @nw_action(
+        "actions_create_remove_token_for_repo",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/runners/remove-token",
+    )
     async def actions_create_remove_token_for_repo(
         self, params: ActionsCreateRemoveTokenForRepoInput, *, trace_id: str
     ) -> ActionsCreateRemoveTokenForRepoOutput:
@@ -9370,7 +11305,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_self_hosted_runner_for_repo")
+    @nw_action(
+        "actions_get_self_hosted_runner_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runners/{runner_id}",
+    )
     async def actions_get_self_hosted_runner_for_repo(
         self, params: ActionsGetSelfHostedRunnerForRepoInput, *, trace_id: str
     ) -> ActionsGetSelfHostedRunnerForRepoOutput:
@@ -9382,7 +11321,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_self_hosted_runner_from_repo")
+    @nw_action(
+        "actions_delete_self_hosted_runner_from_repo",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/actions/runners/{runner_id}",
+    )
     async def actions_delete_self_hosted_runner_from_repo(
         self, params: ActionsDeleteSelfHostedRunnerFromRepoInput, *, trace_id: str
     ) -> ActionsDeleteSelfHostedRunnerFromRepoOutput:
@@ -9394,7 +11337,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_labels_for_self_hosted_runner_for_repo")
+    @nw_action(
+        "actions_list_labels_for_self_hosted_runner_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runners/{runner_id}/labels",
+    )
     async def actions_list_labels_for_self_hosted_runner_for_repo(
         self, params: ActionsListLabelsForSelfHostedRunnerForRepoInput, *, trace_id: str
     ) -> ActionsListLabelsForSelfHostedRunnerForRepoOutput:
@@ -9406,7 +11353,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_add_custom_labels_to_self_hosted_runner_for_repo")
+    @nw_action(
+        "actions_add_custom_labels_to_self_hosted_runner_for_repo",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/runners/{runner_id}/labels",
+    )
     async def actions_add_custom_labels_to_self_hosted_runner_for_repo(
         self, params: ActionsAddCustomLabelsToSelfHostedRunnerForRepoInput, *, trace_id: str
     ) -> ActionsAddCustomLabelsToSelfHostedRunnerForRepoOutput:
@@ -9418,7 +11369,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_set_custom_labels_for_self_hosted_runner_for_repo")
+    @nw_action(
+        "actions_set_custom_labels_for_self_hosted_runner_for_repo",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/runners/{runner_id}/labels",
+    )
     async def actions_set_custom_labels_for_self_hosted_runner_for_repo(
         self, params: ActionsSetCustomLabelsForSelfHostedRunnerForRepoInput, *, trace_id: str
     ) -> ActionsSetCustomLabelsForSelfHostedRunnerForRepoOutput:
@@ -9430,7 +11385,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_remove_all_custom_labels_from_self_hosted_1")
+    @nw_action(
+        "actions_remove_all_custom_labels_from_self_hosted_1",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/actions/runners/{runner_id}/labels",
+    )
     async def actions_remove_all_custom_labels_from_self_hosted_1(
         self, params: ActionsRemoveAllCustomLabelsFromSelfHosted1Input, *, trace_id: str
     ) -> ActionsRemoveAllCustomLabelsFromSelfHosted1Output:
@@ -9442,7 +11401,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_remove_custom_label_from_self_hosted_runner_for_1")
+    @nw_action(
+        "actions_remove_custom_label_from_self_hosted_runner_for_1",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/actions/runners/{runner_id}/labels/{name}",
+    )
     async def actions_remove_custom_label_from_self_hosted_runner_for_1(
         self, params: ActionsRemoveCustomLabelFromSelfHostedRunnerFor1Input, *, trace_id: str
     ) -> ActionsRemoveCustomLabelFromSelfHostedRunnerFor1Output:
@@ -9454,7 +11417,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_workflow_runs_for_repo")
+    @nw_action(
+        "actions_list_workflow_runs_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runs",
+    )
     async def actions_list_workflow_runs_for_repo(
         self, params: ActionsListWorkflowRunsForRepoInput, *, trace_id: str
     ) -> ActionsListWorkflowRunsForRepoOutput:
@@ -9466,7 +11433,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_workflow_run")
+    @nw_action(
+        "actions_get_workflow_run",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}",
+    )
     async def actions_get_workflow_run(
         self, params: ActionsGetWorkflowRunInput, *, trace_id: str
     ) -> ActionsGetWorkflowRunOutput:
@@ -9478,7 +11449,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_workflow_run")
+    @nw_action(
+        "actions_delete_workflow_run",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}",
+    )
     async def actions_delete_workflow_run(
         self, params: ActionsDeleteWorkflowRunInput, *, trace_id: str
     ) -> ActionsDeleteWorkflowRunOutput:
@@ -9490,7 +11465,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_reviews_for_run")
+    @nw_action(
+        "actions_get_reviews_for_run",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/approvals",
+    )
     async def actions_get_reviews_for_run(
         self, params: ActionsGetReviewsForRunInput, *, trace_id: str
     ) -> ActionsGetReviewsForRunOutput:
@@ -9502,7 +11481,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_approve_workflow_run")
+    @nw_action(
+        "actions_approve_workflow_run",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/approve",
+    )
     async def actions_approve_workflow_run(
         self, params: ActionsApproveWorkflowRunInput, *, trace_id: str
     ) -> ActionsApproveWorkflowRunOutput:
@@ -9514,7 +11497,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_workflow_run_artifacts")
+    @nw_action(
+        "actions_list_workflow_run_artifacts",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts",
+    )
     async def actions_list_workflow_run_artifacts(
         self, params: ActionsListWorkflowRunArtifactsInput, *, trace_id: str
     ) -> ActionsListWorkflowRunArtifactsOutput:
@@ -9526,7 +11513,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_workflow_run_attempt")
+    @nw_action(
+        "actions_get_workflow_run_attempt",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/attempts/{attempt_number}",
+    )
     async def actions_get_workflow_run_attempt(
         self, params: ActionsGetWorkflowRunAttemptInput, *, trace_id: str
     ) -> ActionsGetWorkflowRunAttemptOutput:
@@ -9538,7 +11529,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_jobs_for_workflow_run_attempt")
+    @nw_action(
+        "actions_list_jobs_for_workflow_run_attempt",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/attempts/{attempt_number}/jobs",
+    )
     async def actions_list_jobs_for_workflow_run_attempt(
         self, params: ActionsListJobsForWorkflowRunAttemptInput, *, trace_id: str
     ) -> ActionsListJobsForWorkflowRunAttemptOutput:
@@ -9550,7 +11545,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_download_workflow_run_attempt_logs")
+    @nw_action(
+        "actions_download_workflow_run_attempt_logs",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/attempts/{attempt_number}/logs",
+    )
     async def actions_download_workflow_run_attempt_logs(
         self, params: ActionsDownloadWorkflowRunAttemptLogsInput, *, trace_id: str
     ) -> ActionsDownloadWorkflowRunAttemptLogsOutput:
@@ -9562,7 +11561,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_cancel_workflow_run")
+    @nw_action(
+        "actions_cancel_workflow_run",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/cancel",
+    )
     async def actions_cancel_workflow_run(
         self, params: ActionsCancelWorkflowRunInput, *, trace_id: str
     ) -> ActionsCancelWorkflowRunOutput:
@@ -9574,7 +11577,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_concurrency_groups_for_workflow_run")
+    @nw_action(
+        "actions_list_concurrency_groups_for_workflow_run",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/concurrency_groups",
+    )
     async def actions_list_concurrency_groups_for_workflow_run(
         self, params: ActionsListConcurrencyGroupsForWorkflowRunInput, *, trace_id: str
     ) -> ActionsListConcurrencyGroupsForWorkflowRunOutput:
@@ -9586,7 +11593,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_review_custom_gates_for_run")
+    @nw_action(
+        "actions_review_custom_gates_for_run",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/deployment_protection_rule",
+    )
     async def actions_review_custom_gates_for_run(
         self, params: ActionsReviewCustomGatesForRunInput, *, trace_id: str
     ) -> ActionsReviewCustomGatesForRunOutput:
@@ -9598,7 +11609,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_force_cancel_workflow_run")
+    @nw_action(
+        "actions_force_cancel_workflow_run",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/force-cancel",
+    )
     async def actions_force_cancel_workflow_run(
         self, params: ActionsForceCancelWorkflowRunInput, *, trace_id: str
     ) -> ActionsForceCancelWorkflowRunOutput:
@@ -9610,7 +11625,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_jobs_for_workflow_run")
+    @nw_action(
+        "actions_list_jobs_for_workflow_run",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/jobs",
+    )
     async def actions_list_jobs_for_workflow_run(
         self, params: ActionsListJobsForWorkflowRunInput, *, trace_id: str
     ) -> ActionsListJobsForWorkflowRunOutput:
@@ -9622,7 +11641,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_download_workflow_run_logs")
+    @nw_action(
+        "actions_download_workflow_run_logs",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/logs",
+    )
     async def actions_download_workflow_run_logs(
         self, params: ActionsDownloadWorkflowRunLogsInput, *, trace_id: str
     ) -> ActionsDownloadWorkflowRunLogsOutput:
@@ -9634,7 +11657,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_workflow_run_logs")
+    @nw_action(
+        "actions_delete_workflow_run_logs",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/logs",
+    )
     async def actions_delete_workflow_run_logs(
         self, params: ActionsDeleteWorkflowRunLogsInput, *, trace_id: str
     ) -> ActionsDeleteWorkflowRunLogsOutput:
@@ -9646,7 +11673,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_pending_deployments_for_run")
+    @nw_action(
+        "actions_get_pending_deployments_for_run",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments",
+    )
     async def actions_get_pending_deployments_for_run(
         self, params: ActionsGetPendingDeploymentsForRunInput, *, trace_id: str
     ) -> ActionsGetPendingDeploymentsForRunOutput:
@@ -9658,7 +11689,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_review_pending_deployments_for_run")
+    @nw_action(
+        "actions_review_pending_deployments_for_run",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments",
+    )
     async def actions_review_pending_deployments_for_run(
         self, params: ActionsReviewPendingDeploymentsForRunInput, *, trace_id: str
     ) -> ActionsReviewPendingDeploymentsForRunOutput:
@@ -9670,7 +11705,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_re_run_workflow")
+    @nw_action(
+        "actions_re_run_workflow",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/rerun",
+    )
     async def actions_re_run_workflow(
         self, params: ActionsReRunWorkflowInput, *, trace_id: str
     ) -> ActionsReRunWorkflowOutput:
@@ -9682,7 +11721,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_re_run_workflow_failed_jobs")
+    @nw_action(
+        "actions_re_run_workflow_failed_jobs",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/rerun-failed-jobs",
+    )
     async def actions_re_run_workflow_failed_jobs(
         self, params: ActionsReRunWorkflowFailedJobsInput, *, trace_id: str
     ) -> ActionsReRunWorkflowFailedJobsOutput:
@@ -9694,7 +11737,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_workflow_run_usage")
+    @nw_action(
+        "actions_get_workflow_run_usage",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/runs/{run_id}/timing",
+    )
     async def actions_get_workflow_run_usage(
         self, params: ActionsGetWorkflowRunUsageInput, *, trace_id: str
     ) -> ActionsGetWorkflowRunUsageOutput:
@@ -9706,7 +11753,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_repo_secrets")
+    @nw_action(
+        "actions_list_repo_secrets",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/secrets",
+    )
     async def actions_list_repo_secrets(
         self, params: ActionsListRepoSecretsInput, *, trace_id: str
     ) -> ActionsListRepoSecretsOutput:
@@ -9718,7 +11769,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_repo_public_key")
+    @nw_action(
+        "actions_get_repo_public_key",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/secrets/public-key",
+    )
     async def actions_get_repo_public_key(
         self, params: ActionsGetRepoPublicKeyInput, *, trace_id: str
     ) -> ActionsGetRepoPublicKeyOutput:
@@ -9730,7 +11785,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_repo_secret")
+    @nw_action(
+        "actions_get_repo_secret",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/secrets/{secret_name}",
+    )
     async def actions_get_repo_secret(
         self, params: ActionsGetRepoSecretInput, *, trace_id: str
     ) -> ActionsGetRepoSecretOutput:
@@ -9742,7 +11801,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_or_update_repo_secret")
+    @nw_action(
+        "actions_create_or_update_repo_secret",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/secrets/{secret_name}",
+    )
     async def actions_create_or_update_repo_secret(
         self, params: ActionsCreateOrUpdateRepoSecretInput, *, trace_id: str
     ) -> ActionsCreateOrUpdateRepoSecretOutput:
@@ -9754,7 +11817,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_repo_secret")
+    @nw_action(
+        "actions_delete_repo_secret",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/actions/secrets/{secret_name}",
+    )
     async def actions_delete_repo_secret(
         self, params: ActionsDeleteRepoSecretInput, *, trace_id: str
     ) -> ActionsDeleteRepoSecretOutput:
@@ -9766,7 +11833,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_repo_variables")
+    @nw_action(
+        "actions_list_repo_variables",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/variables",
+    )
     async def actions_list_repo_variables(
         self, params: ActionsListRepoVariablesInput, *, trace_id: str
     ) -> ActionsListRepoVariablesOutput:
@@ -9778,7 +11849,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_repo_variable")
+    @nw_action(
+        "actions_create_repo_variable",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/variables",
+    )
     async def actions_create_repo_variable(
         self, params: ActionsCreateRepoVariableInput, *, trace_id: str
     ) -> ActionsCreateRepoVariableOutput:
@@ -9790,7 +11865,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_repo_variable")
+    @nw_action(
+        "actions_get_repo_variable",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/variables/{name}",
+    )
     async def actions_get_repo_variable(
         self, params: ActionsGetRepoVariableInput, *, trace_id: str
     ) -> ActionsGetRepoVariableOutput:
@@ -9802,7 +11881,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_update_repo_variable")
+    @nw_action(
+        "actions_update_repo_variable",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/actions/variables/{name}",
+    )
     async def actions_update_repo_variable(
         self, params: ActionsUpdateRepoVariableInput, *, trace_id: str
     ) -> ActionsUpdateRepoVariableOutput:
@@ -9814,7 +11897,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_repo_variable")
+    @nw_action(
+        "actions_delete_repo_variable",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/actions/variables/{name}",
+    )
     async def actions_delete_repo_variable(
         self, params: ActionsDeleteRepoVariableInput, *, trace_id: str
     ) -> ActionsDeleteRepoVariableOutput:
@@ -9826,7 +11913,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_repo_workflows")
+    @nw_action(
+        "actions_list_repo_workflows",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/workflows",
+    )
     async def actions_list_repo_workflows(
         self, params: ActionsListRepoWorkflowsInput, *, trace_id: str
     ) -> ActionsListRepoWorkflowsOutput:
@@ -9838,7 +11929,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_workflow")
+    @nw_action(
+        "actions_get_workflow",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/workflows/{workflow_id}",
+    )
     async def actions_get_workflow(
         self, params: ActionsGetWorkflowInput, *, trace_id: str
     ) -> ActionsGetWorkflowOutput:
@@ -9850,7 +11945,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_disable_workflow")
+    @nw_action(
+        "actions_disable_workflow",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/workflows/{workflow_id}/disable",
+    )
     async def actions_disable_workflow(
         self, params: ActionsDisableWorkflowInput, *, trace_id: str
     ) -> ActionsDisableWorkflowOutput:
@@ -9862,7 +11961,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_workflow_dispatch")
+    @nw_action(
+        "actions_create_workflow_dispatch",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches",
+    )
     async def actions_create_workflow_dispatch(
         self, params: ActionsCreateWorkflowDispatchInput, *, trace_id: str
     ) -> ActionsCreateWorkflowDispatchOutput:
@@ -9874,7 +11977,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_enable_workflow")
+    @nw_action(
+        "actions_enable_workflow",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/actions/workflows/{workflow_id}/enable",
+    )
     async def actions_enable_workflow(
         self, params: ActionsEnableWorkflowInput, *, trace_id: str
     ) -> ActionsEnableWorkflowOutput:
@@ -9886,7 +11993,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_workflow_runs")
+    @nw_action(
+        "actions_list_workflow_runs",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs",
+    )
     async def actions_list_workflow_runs(
         self, params: ActionsListWorkflowRunsInput, *, trace_id: str
     ) -> ActionsListWorkflowRunsOutput:
@@ -9898,7 +12009,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_workflow_usage")
+    @nw_action(
+        "actions_get_workflow_usage",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/actions/workflows/{workflow_id}/timing",
+    )
     async def actions_get_workflow_usage(
         self, params: ActionsGetWorkflowUsageInput, *, trace_id: str
     ) -> ActionsGetWorkflowUsageOutput:
@@ -9910,7 +12025,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_activities")
+    @nw_action(
+        "repos_list_activities", http_method="GET", http_path="/repos/{owner}/{repo}/activity"
+    )
     async def repos_list_activities(
         self, params: ReposListActivitiesInput, *, trace_id: str
     ) -> ReposListActivitiesOutput:
@@ -9922,7 +12039,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_list_repo_organization_secrets")
+    @nw_action(
+        "agents_list_repo_organization_secrets",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/agents/organization-secrets",
+    )
     async def agents_list_repo_organization_secrets(
         self, params: AgentsListRepoOrganizationSecretsInput, *, trace_id: str
     ) -> AgentsListRepoOrganizationSecretsOutput:
@@ -9934,7 +12055,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_list_repo_organization_variables")
+    @nw_action(
+        "agents_list_repo_organization_variables",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/agents/organization-variables",
+    )
     async def agents_list_repo_organization_variables(
         self, params: AgentsListRepoOrganizationVariablesInput, *, trace_id: str
     ) -> AgentsListRepoOrganizationVariablesOutput:
@@ -9946,7 +12071,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_list_repo_secrets")
+    @nw_action(
+        "agents_list_repo_secrets",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/agents/secrets",
+    )
     async def agents_list_repo_secrets(
         self, params: AgentsListRepoSecretsInput, *, trace_id: str
     ) -> AgentsListRepoSecretsOutput:
@@ -9958,7 +12087,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_get_repo_public_key")
+    @nw_action(
+        "agents_get_repo_public_key",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/agents/secrets/public-key",
+    )
     async def agents_get_repo_public_key(
         self, params: AgentsGetRepoPublicKeyInput, *, trace_id: str
     ) -> AgentsGetRepoPublicKeyOutput:
@@ -9970,7 +12103,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_get_repo_secret")
+    @nw_action(
+        "agents_get_repo_secret",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/agents/secrets/{secret_name}",
+    )
     async def agents_get_repo_secret(
         self, params: AgentsGetRepoSecretInput, *, trace_id: str
     ) -> AgentsGetRepoSecretOutput:
@@ -9982,7 +12119,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_create_or_update_repo_secret")
+    @nw_action(
+        "agents_create_or_update_repo_secret",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/agents/secrets/{secret_name}",
+    )
     async def agents_create_or_update_repo_secret(
         self, params: AgentsCreateOrUpdateRepoSecretInput, *, trace_id: str
     ) -> AgentsCreateOrUpdateRepoSecretOutput:
@@ -9994,7 +12135,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_delete_repo_secret")
+    @nw_action(
+        "agents_delete_repo_secret",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/agents/secrets/{secret_name}",
+    )
     async def agents_delete_repo_secret(
         self, params: AgentsDeleteRepoSecretInput, *, trace_id: str
     ) -> AgentsDeleteRepoSecretOutput:
@@ -10006,7 +12151,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_list_repo_variables")
+    @nw_action(
+        "agents_list_repo_variables",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/agents/variables",
+    )
     async def agents_list_repo_variables(
         self, params: AgentsListRepoVariablesInput, *, trace_id: str
     ) -> AgentsListRepoVariablesOutput:
@@ -10018,7 +12167,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_create_repo_variable")
+    @nw_action(
+        "agents_create_repo_variable",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/agents/variables",
+    )
     async def agents_create_repo_variable(
         self, params: AgentsCreateRepoVariableInput, *, trace_id: str
     ) -> AgentsCreateRepoVariableOutput:
@@ -10030,7 +12183,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_get_repo_variable")
+    @nw_action(
+        "agents_get_repo_variable",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/agents/variables/{name}",
+    )
     async def agents_get_repo_variable(
         self, params: AgentsGetRepoVariableInput, *, trace_id: str
     ) -> AgentsGetRepoVariableOutput:
@@ -10042,7 +12199,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_update_repo_variable")
+    @nw_action(
+        "agents_update_repo_variable",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/agents/variables/{name}",
+    )
     async def agents_update_repo_variable(
         self, params: AgentsUpdateRepoVariableInput, *, trace_id: str
     ) -> AgentsUpdateRepoVariableOutput:
@@ -10054,7 +12215,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("agents_delete_repo_variable")
+    @nw_action(
+        "agents_delete_repo_variable",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/agents/variables/{name}",
+    )
     async def agents_delete_repo_variable(
         self, params: AgentsDeleteRepoVariableInput, *, trace_id: str
     ) -> AgentsDeleteRepoVariableOutput:
@@ -10066,7 +12231,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_assignees")
+    @nw_action(
+        "issues_list_assignees", http_method="GET", http_path="/repos/{owner}/{repo}/assignees"
+    )
     async def issues_list_assignees(
         self, params: IssuesListAssigneesInput, *, trace_id: str
     ) -> IssuesListAssigneesOutput:
@@ -10078,7 +12245,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_check_user_can_be_assigned")
+    @nw_action(
+        "issues_check_user_can_be_assigned",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/assignees/{assignee}",
+    )
     async def issues_check_user_can_be_assigned(
         self, params: IssuesCheckUserCanBeAssignedInput, *, trace_id: str
     ) -> IssuesCheckUserCanBeAssignedOutput:
@@ -10090,7 +12261,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_attestation")
+    @nw_action(
+        "repos_create_attestation",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/attestations",
+    )
     async def repos_create_attestation(
         self, params: ReposCreateAttestationInput, *, trace_id: str
     ) -> ReposCreateAttestationOutput:
@@ -10102,7 +12277,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_attestations")
+    @nw_action(
+        "repos_list_attestations",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/attestations/{subject_digest}",
+    )
     async def repos_list_attestations(
         self, params: ReposListAttestationsInput, *, trace_id: str
     ) -> ReposListAttestationsOutput:
@@ -10114,7 +12293,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_autolinks")
+    @nw_action(
+        "repos_list_autolinks", http_method="GET", http_path="/repos/{owner}/{repo}/autolinks"
+    )
     async def repos_list_autolinks(
         self, params: ReposListAutolinksInput, *, trace_id: str
     ) -> ReposListAutolinksOutput:
@@ -10126,7 +12307,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_autolink")
+    @nw_action(
+        "repos_create_autolink", http_method="POST", http_path="/repos/{owner}/{repo}/autolinks"
+    )
     async def repos_create_autolink(
         self, params: ReposCreateAutolinkInput, *, trace_id: str
     ) -> ReposCreateAutolinkOutput:
@@ -10138,7 +12321,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_autolink")
+    @nw_action(
+        "repos_get_autolink",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/autolinks/{autolink_id}",
+    )
     async def repos_get_autolink(
         self, params: ReposGetAutolinkInput, *, trace_id: str
     ) -> ReposGetAutolinkOutput:
@@ -10150,7 +12337,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_autolink")
+    @nw_action(
+        "repos_delete_autolink",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/autolinks/{autolink_id}",
+    )
     async def repos_delete_autolink(
         self, params: ReposDeleteAutolinkInput, *, trace_id: str
     ) -> ReposDeleteAutolinkOutput:
@@ -10162,7 +12353,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_check_automated_security_fixes")
+    @nw_action(
+        "repos_check_automated_security_fixes",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/automated-security-fixes",
+    )
     async def repos_check_automated_security_fixes(
         self, params: ReposCheckAutomatedSecurityFixesInput, *, trace_id: str
     ) -> ReposCheckAutomatedSecurityFixesOutput:
@@ -10174,7 +12369,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_enable_automated_security_fixes")
+    @nw_action(
+        "repos_enable_automated_security_fixes",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/automated-security-fixes",
+    )
     async def repos_enable_automated_security_fixes(
         self, params: ReposEnableAutomatedSecurityFixesInput, *, trace_id: str
     ) -> ReposEnableAutomatedSecurityFixesOutput:
@@ -10186,7 +12385,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_disable_automated_security_fixes")
+    @nw_action(
+        "repos_disable_automated_security_fixes",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/automated-security-fixes",
+    )
     async def repos_disable_automated_security_fixes(
         self, params: ReposDisableAutomatedSecurityFixesInput, *, trace_id: str
     ) -> ReposDisableAutomatedSecurityFixesOutput:
@@ -10198,7 +12401,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_branches")
+    @nw_action("repos_list_branches", http_method="GET", http_path="/repos/{owner}/{repo}/branches")
     async def repos_list_branches(
         self, params: ReposListBranchesInput, *, trace_id: str
     ) -> ReposListBranchesOutput:
@@ -10210,7 +12413,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_branch")
+    @nw_action(
+        "repos_get_branch", http_method="GET", http_path="/repos/{owner}/{repo}/branches/{branch}"
+    )
     async def repos_get_branch(
         self, params: ReposGetBranchInput, *, trace_id: str
     ) -> ReposGetBranchOutput:
@@ -10222,7 +12427,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_branch_protection")
+    @nw_action(
+        "repos_get_branch_protection",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection",
+    )
     async def repos_get_branch_protection(
         self, params: ReposGetBranchProtectionInput, *, trace_id: str
     ) -> ReposGetBranchProtectionOutput:
@@ -10234,7 +12443,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_update_branch_protection")
+    @nw_action(
+        "repos_update_branch_protection",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection",
+    )
     async def repos_update_branch_protection(
         self, params: ReposUpdateBranchProtectionInput, *, trace_id: str
     ) -> ReposUpdateBranchProtectionOutput:
@@ -10246,7 +12459,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_branch_protection")
+    @nw_action(
+        "repos_delete_branch_protection",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection",
+    )
     async def repos_delete_branch_protection(
         self, params: ReposDeleteBranchProtectionInput, *, trace_id: str
     ) -> ReposDeleteBranchProtectionOutput:
@@ -10258,7 +12475,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_admin_branch_protection")
+    @nw_action(
+        "repos_get_admin_branch_protection",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/enforce_admins",
+    )
     async def repos_get_admin_branch_protection(
         self, params: ReposGetAdminBranchProtectionInput, *, trace_id: str
     ) -> ReposGetAdminBranchProtectionOutput:
@@ -10270,7 +12491,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_set_admin_branch_protection")
+    @nw_action(
+        "repos_set_admin_branch_protection",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/enforce_admins",
+    )
     async def repos_set_admin_branch_protection(
         self, params: ReposSetAdminBranchProtectionInput, *, trace_id: str
     ) -> ReposSetAdminBranchProtectionOutput:
@@ -10282,7 +12507,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_admin_branch_protection")
+    @nw_action(
+        "repos_delete_admin_branch_protection",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/enforce_admins",
+    )
     async def repos_delete_admin_branch_protection(
         self, params: ReposDeleteAdminBranchProtectionInput, *, trace_id: str
     ) -> ReposDeleteAdminBranchProtectionOutput:
@@ -10294,7 +12523,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_pull_request_review_protection")
+    @nw_action(
+        "repos_get_pull_request_review_protection",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/required_pull_request_reviews",
+    )
     async def repos_get_pull_request_review_protection(
         self, params: ReposGetPullRequestReviewProtectionInput, *, trace_id: str
     ) -> ReposGetPullRequestReviewProtectionOutput:
@@ -10306,7 +12539,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_update_pull_request_review_protection")
+    @nw_action(
+        "repos_update_pull_request_review_protection",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/required_pull_request_reviews",
+    )
     async def repos_update_pull_request_review_protection(
         self, params: ReposUpdatePullRequestReviewProtectionInput, *, trace_id: str
     ) -> ReposUpdatePullRequestReviewProtectionOutput:
@@ -10318,7 +12555,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_pull_request_review_protection")
+    @nw_action(
+        "repos_delete_pull_request_review_protection",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/required_pull_request_reviews",
+    )
     async def repos_delete_pull_request_review_protection(
         self, params: ReposDeletePullRequestReviewProtectionInput, *, trace_id: str
     ) -> ReposDeletePullRequestReviewProtectionOutput:
@@ -10330,7 +12571,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_commit_signature_protection")
+    @nw_action(
+        "repos_get_commit_signature_protection",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/required_signatures",
+    )
     async def repos_get_commit_signature_protection(
         self, params: ReposGetCommitSignatureProtectionInput, *, trace_id: str
     ) -> ReposGetCommitSignatureProtectionOutput:
@@ -10342,7 +12587,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_commit_signature_protection")
+    @nw_action(
+        "repos_create_commit_signature_protection",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/required_signatures",
+    )
     async def repos_create_commit_signature_protection(
         self, params: ReposCreateCommitSignatureProtectionInput, *, trace_id: str
     ) -> ReposCreateCommitSignatureProtectionOutput:
@@ -10354,7 +12603,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_commit_signature_protection")
+    @nw_action(
+        "repos_delete_commit_signature_protection",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/required_signatures",
+    )
     async def repos_delete_commit_signature_protection(
         self, params: ReposDeleteCommitSignatureProtectionInput, *, trace_id: str
     ) -> ReposDeleteCommitSignatureProtectionOutput:
@@ -10366,7 +12619,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_status_checks_protection")
+    @nw_action(
+        "repos_get_status_checks_protection",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/required_status_checks",
+    )
     async def repos_get_status_checks_protection(
         self, params: ReposGetStatusChecksProtectionInput, *, trace_id: str
     ) -> ReposGetStatusChecksProtectionOutput:
@@ -10378,7 +12635,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_update_status_check_protection")
+    @nw_action(
+        "repos_update_status_check_protection",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/required_status_checks",
+    )
     async def repos_update_status_check_protection(
         self, params: ReposUpdateStatusCheckProtectionInput, *, trace_id: str
     ) -> ReposUpdateStatusCheckProtectionOutput:
@@ -10390,7 +12651,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_remove_status_check_protection")
+    @nw_action(
+        "repos_remove_status_check_protection",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/required_status_checks",
+    )
     async def repos_remove_status_check_protection(
         self, params: ReposRemoveStatusCheckProtectionInput, *, trace_id: str
     ) -> ReposRemoveStatusCheckProtectionOutput:
@@ -10402,7 +12667,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_all_status_check_contexts")
+    @nw_action(
+        "repos_get_all_status_check_contexts",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/required_status_checks/contexts",
+    )
     async def repos_get_all_status_check_contexts(
         self, params: ReposGetAllStatusCheckContextsInput, *, trace_id: str
     ) -> ReposGetAllStatusCheckContextsOutput:
@@ -10414,7 +12683,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_add_status_check_contexts")
+    @nw_action(
+        "repos_add_status_check_contexts",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/required_status_checks/contexts",
+    )
     async def repos_add_status_check_contexts(
         self, params: ReposAddStatusCheckContextsInput, *, trace_id: str
     ) -> ReposAddStatusCheckContextsOutput:
@@ -10426,7 +12699,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_set_status_check_contexts")
+    @nw_action(
+        "repos_set_status_check_contexts",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/required_status_checks/contexts",
+    )
     async def repos_set_status_check_contexts(
         self, params: ReposSetStatusCheckContextsInput, *, trace_id: str
     ) -> ReposSetStatusCheckContextsOutput:
@@ -10438,7 +12715,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_remove_status_check_contexts")
+    @nw_action(
+        "repos_remove_status_check_contexts",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/required_status_checks/contexts",
+    )
     async def repos_remove_status_check_contexts(
         self, params: ReposRemoveStatusCheckContextsInput, *, trace_id: str
     ) -> ReposRemoveStatusCheckContextsOutput:
@@ -10450,7 +12731,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_access_restrictions")
+    @nw_action(
+        "repos_get_access_restrictions",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/restrictions",
+    )
     async def repos_get_access_restrictions(
         self, params: ReposGetAccessRestrictionsInput, *, trace_id: str
     ) -> ReposGetAccessRestrictionsOutput:
@@ -10462,7 +12747,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_access_restrictions")
+    @nw_action(
+        "repos_delete_access_restrictions",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/restrictions",
+    )
     async def repos_delete_access_restrictions(
         self, params: ReposDeleteAccessRestrictionsInput, *, trace_id: str
     ) -> ReposDeleteAccessRestrictionsOutput:
@@ -10474,7 +12763,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_apps_with_access_to_protected_branch")
+    @nw_action(
+        "repos_get_apps_with_access_to_protected_branch",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/restrictions/apps",
+    )
     async def repos_get_apps_with_access_to_protected_branch(
         self, params: ReposGetAppsWithAccessToProtectedBranchInput, *, trace_id: str
     ) -> ReposGetAppsWithAccessToProtectedBranchOutput:
@@ -10486,7 +12779,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_add_app_access_restrictions")
+    @nw_action(
+        "repos_add_app_access_restrictions",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/restrictions/apps",
+    )
     async def repos_add_app_access_restrictions(
         self, params: ReposAddAppAccessRestrictionsInput, *, trace_id: str
     ) -> ReposAddAppAccessRestrictionsOutput:
@@ -10498,7 +12795,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_set_app_access_restrictions")
+    @nw_action(
+        "repos_set_app_access_restrictions",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/restrictions/apps",
+    )
     async def repos_set_app_access_restrictions(
         self, params: ReposSetAppAccessRestrictionsInput, *, trace_id: str
     ) -> ReposSetAppAccessRestrictionsOutput:
@@ -10510,7 +12811,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_remove_app_access_restrictions")
+    @nw_action(
+        "repos_remove_app_access_restrictions",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/restrictions/apps",
+    )
     async def repos_remove_app_access_restrictions(
         self, params: ReposRemoveAppAccessRestrictionsInput, *, trace_id: str
     ) -> ReposRemoveAppAccessRestrictionsOutput:
@@ -10522,7 +12827,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_teams_with_access_to_protected_branch")
+    @nw_action(
+        "repos_get_teams_with_access_to_protected_branch",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/restrictions/teams",
+    )
     async def repos_get_teams_with_access_to_protected_branch(
         self, params: ReposGetTeamsWithAccessToProtectedBranchInput, *, trace_id: str
     ) -> ReposGetTeamsWithAccessToProtectedBranchOutput:
@@ -10534,7 +12843,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_add_team_access_restrictions")
+    @nw_action(
+        "repos_add_team_access_restrictions",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/restrictions/teams",
+    )
     async def repos_add_team_access_restrictions(
         self, params: ReposAddTeamAccessRestrictionsInput, *, trace_id: str
     ) -> ReposAddTeamAccessRestrictionsOutput:
@@ -10546,7 +12859,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_set_team_access_restrictions")
+    @nw_action(
+        "repos_set_team_access_restrictions",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/restrictions/teams",
+    )
     async def repos_set_team_access_restrictions(
         self, params: ReposSetTeamAccessRestrictionsInput, *, trace_id: str
     ) -> ReposSetTeamAccessRestrictionsOutput:
@@ -10558,7 +12875,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_remove_team_access_restrictions")
+    @nw_action(
+        "repos_remove_team_access_restrictions",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/restrictions/teams",
+    )
     async def repos_remove_team_access_restrictions(
         self, params: ReposRemoveTeamAccessRestrictionsInput, *, trace_id: str
     ) -> ReposRemoveTeamAccessRestrictionsOutput:
@@ -10570,7 +12891,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_users_with_access_to_protected_branch")
+    @nw_action(
+        "repos_get_users_with_access_to_protected_branch",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/restrictions/users",
+    )
     async def repos_get_users_with_access_to_protected_branch(
         self, params: ReposGetUsersWithAccessToProtectedBranchInput, *, trace_id: str
     ) -> ReposGetUsersWithAccessToProtectedBranchOutput:
@@ -10582,7 +12907,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_add_user_access_restrictions")
+    @nw_action(
+        "repos_add_user_access_restrictions",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/restrictions/users",
+    )
     async def repos_add_user_access_restrictions(
         self, params: ReposAddUserAccessRestrictionsInput, *, trace_id: str
     ) -> ReposAddUserAccessRestrictionsOutput:
@@ -10594,7 +12923,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_set_user_access_restrictions")
+    @nw_action(
+        "repos_set_user_access_restrictions",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/restrictions/users",
+    )
     async def repos_set_user_access_restrictions(
         self, params: ReposSetUserAccessRestrictionsInput, *, trace_id: str
     ) -> ReposSetUserAccessRestrictionsOutput:
@@ -10606,7 +12939,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_remove_user_access_restrictions")
+    @nw_action(
+        "repos_remove_user_access_restrictions",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/protection/restrictions/users",
+    )
     async def repos_remove_user_access_restrictions(
         self, params: ReposRemoveUserAccessRestrictionsInput, *, trace_id: str
     ) -> ReposRemoveUserAccessRestrictionsOutput:
@@ -10618,7 +12955,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_rename_branch")
+    @nw_action(
+        "repos_rename_branch",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/branches/{branch}/rename",
+    )
     async def repos_rename_branch(
         self, params: ReposRenameBranchInput, *, trace_id: str
     ) -> ReposRenameBranchOutput:
@@ -10630,7 +12971,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("checks_create")
+    @nw_action("checks_create", http_method="POST", http_path="/repos/{owner}/{repo}/check-runs")
     async def checks_create(
         self, params: ChecksCreateInput, *, trace_id: str
     ) -> ChecksCreateOutput:
@@ -10642,7 +12983,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("checks_get")
+    @nw_action(
+        "checks_get", http_method="GET", http_path="/repos/{owner}/{repo}/check-runs/{check_run_id}"
+    )
     async def checks_get(self, params: ChecksGetInput, *, trace_id: str) -> ChecksGetOutput:
         return await self.execute_rest(
             method="GET",
@@ -10652,7 +12995,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("checks_update")
+    @nw_action(
+        "checks_update",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/check-runs/{check_run_id}",
+    )
     async def checks_update(
         self, params: ChecksUpdateInput, *, trace_id: str
     ) -> ChecksUpdateOutput:
@@ -10664,7 +13011,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("checks_list_annotations")
+    @nw_action(
+        "checks_list_annotations",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/check-runs/{check_run_id}/annotations",
+    )
     async def checks_list_annotations(
         self, params: ChecksListAnnotationsInput, *, trace_id: str
     ) -> ChecksListAnnotationsOutput:
@@ -10676,7 +13027,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("checks_rerequest_run")
+    @nw_action(
+        "checks_rerequest_run",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/check-runs/{check_run_id}/rerequest",
+    )
     async def checks_rerequest_run(
         self, params: ChecksRerequestRunInput, *, trace_id: str
     ) -> ChecksRerequestRunOutput:
@@ -10688,7 +13043,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("checks_create_suite")
+    @nw_action(
+        "checks_create_suite", http_method="POST", http_path="/repos/{owner}/{repo}/check-suites"
+    )
     async def checks_create_suite(
         self, params: ChecksCreateSuiteInput, *, trace_id: str
     ) -> ChecksCreateSuiteOutput:
@@ -10700,7 +13057,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("checks_set_suites_preferences")
+    @nw_action(
+        "checks_set_suites_preferences",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/check-suites/preferences",
+    )
     async def checks_set_suites_preferences(
         self, params: ChecksSetSuitesPreferencesInput, *, trace_id: str
     ) -> ChecksSetSuitesPreferencesOutput:
@@ -10712,7 +13073,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("checks_get_suite")
+    @nw_action(
+        "checks_get_suite",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/check-suites/{check_suite_id}",
+    )
     async def checks_get_suite(
         self, params: ChecksGetSuiteInput, *, trace_id: str
     ) -> ChecksGetSuiteOutput:
@@ -10724,7 +13089,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("checks_list_for_suite")
+    @nw_action(
+        "checks_list_for_suite",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/check-suites/{check_suite_id}/check-runs",
+    )
     async def checks_list_for_suite(
         self, params: ChecksListForSuiteInput, *, trace_id: str
     ) -> ChecksListForSuiteOutput:
@@ -10736,7 +13105,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("checks_rerequest_suite")
+    @nw_action(
+        "checks_rerequest_suite",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/check-suites/{check_suite_id}/rerequest",
+    )
     async def checks_rerequest_suite(
         self, params: ChecksRerequestSuiteInput, *, trace_id: str
     ) -> ChecksRerequestSuiteOutput:
@@ -10748,7 +13121,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_quality_list_findings_for_repo")
+    @nw_action(
+        "code_quality_list_findings_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-quality/findings",
+    )
     async def code_quality_list_findings_for_repo(
         self, params: CodeQualityListFindingsForRepoInput, *, trace_id: str
     ) -> CodeQualityListFindingsForRepoOutput:
@@ -10760,7 +13137,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_quality_get_finding")
+    @nw_action(
+        "code_quality_get_finding",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-quality/findings/{finding_number}",
+    )
     async def code_quality_get_finding(
         self, params: CodeQualityGetFindingInput, *, trace_id: str
     ) -> CodeQualityGetFindingOutput:
@@ -10772,7 +13153,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_quality_get_setup")
+    @nw_action(
+        "code_quality_get_setup",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-quality/setup",
+    )
     async def code_quality_get_setup(
         self, params: CodeQualityGetSetupInput, *, trace_id: str
     ) -> CodeQualityGetSetupOutput:
@@ -10784,7 +13169,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_quality_update_setup")
+    @nw_action(
+        "code_quality_update_setup",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/code-quality/setup",
+    )
     async def code_quality_update_setup(
         self, params: CodeQualityUpdateSetupInput, *, trace_id: str
     ) -> CodeQualityUpdateSetupOutput:
@@ -10796,7 +13185,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_get_ai_scan_enablement")
+    @nw_action(
+        "code_scanning_get_ai_scan_enablement",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-scanning/ai-scan",
+    )
     async def code_scanning_get_ai_scan_enablement(
         self, params: CodeScanningGetAiScanEnablementInput, *, trace_id: str
     ) -> CodeScanningGetAiScanEnablementOutput:
@@ -10808,7 +13201,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_update_ai_scan_enablement")
+    @nw_action(
+        "code_scanning_update_ai_scan_enablement",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/code-scanning/ai-scan",
+    )
     async def code_scanning_update_ai_scan_enablement(
         self, params: CodeScanningUpdateAiScanEnablementInput, *, trace_id: str
     ) -> CodeScanningUpdateAiScanEnablementOutput:
@@ -10820,7 +13217,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_list_alerts_for_repo")
+    @nw_action(
+        "code_scanning_list_alerts_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-scanning/alerts",
+    )
     async def code_scanning_list_alerts_for_repo(
         self, params: CodeScanningListAlertsForRepoInput, *, trace_id: str
     ) -> CodeScanningListAlertsForRepoOutput:
@@ -10832,7 +13233,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_get_alert")
+    @nw_action(
+        "code_scanning_get_alert",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-scanning/alerts/{alert_number}",
+    )
     async def code_scanning_get_alert(
         self, params: CodeScanningGetAlertInput, *, trace_id: str
     ) -> CodeScanningGetAlertOutput:
@@ -10844,7 +13249,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_update_alert")
+    @nw_action(
+        "code_scanning_update_alert",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/code-scanning/alerts/{alert_number}",
+    )
     async def code_scanning_update_alert(
         self, params: CodeScanningUpdateAlertInput, *, trace_id: str
     ) -> CodeScanningUpdateAlertOutput:
@@ -10856,7 +13265,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_get_autofix")
+    @nw_action(
+        "code_scanning_get_autofix",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-scanning/alerts/{alert_number}/autofix",
+    )
     async def code_scanning_get_autofix(
         self, params: CodeScanningGetAutofixInput, *, trace_id: str
     ) -> CodeScanningGetAutofixOutput:
@@ -10868,7 +13281,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_create_autofix")
+    @nw_action(
+        "code_scanning_create_autofix",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/code-scanning/alerts/{alert_number}/autofix",
+    )
     async def code_scanning_create_autofix(
         self, params: CodeScanningCreateAutofixInput, *, trace_id: str
     ) -> CodeScanningCreateAutofixOutput:
@@ -10880,7 +13297,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_commit_autofix")
+    @nw_action(
+        "code_scanning_commit_autofix",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/code-scanning/alerts/{alert_number}/autofix/commits",
+    )
     async def code_scanning_commit_autofix(
         self, params: CodeScanningCommitAutofixInput, *, trace_id: str
     ) -> CodeScanningCommitAutofixOutput:
@@ -10892,7 +13313,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_list_alert_instances")
+    @nw_action(
+        "code_scanning_list_alert_instances",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-scanning/alerts/{alert_number}/instances",
+    )
     async def code_scanning_list_alert_instances(
         self, params: CodeScanningListAlertInstancesInput, *, trace_id: str
     ) -> CodeScanningListAlertInstancesOutput:
@@ -10904,7 +13329,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_list_recent_analyses")
+    @nw_action(
+        "code_scanning_list_recent_analyses",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-scanning/analyses",
+    )
     async def code_scanning_list_recent_analyses(
         self, params: CodeScanningListRecentAnalysesInput, *, trace_id: str
     ) -> CodeScanningListRecentAnalysesOutput:
@@ -10916,7 +13345,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_get_analysis")
+    @nw_action(
+        "code_scanning_get_analysis",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-scanning/analyses/{analysis_id}",
+    )
     async def code_scanning_get_analysis(
         self, params: CodeScanningGetAnalysisInput, *, trace_id: str
     ) -> CodeScanningGetAnalysisOutput:
@@ -10928,7 +13361,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_delete_analysis")
+    @nw_action(
+        "code_scanning_delete_analysis",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/code-scanning/analyses/{analysis_id}",
+    )
     async def code_scanning_delete_analysis(
         self, params: CodeScanningDeleteAnalysisInput, *, trace_id: str
     ) -> CodeScanningDeleteAnalysisOutput:
@@ -10940,7 +13377,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_list_codeql_databases")
+    @nw_action(
+        "code_scanning_list_codeql_databases",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-scanning/codeql/databases",
+    )
     async def code_scanning_list_codeql_databases(
         self, params: CodeScanningListCodeqlDatabasesInput, *, trace_id: str
     ) -> CodeScanningListCodeqlDatabasesOutput:
@@ -10952,7 +13393,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_get_codeql_database")
+    @nw_action(
+        "code_scanning_get_codeql_database",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-scanning/codeql/databases/{language}",
+    )
     async def code_scanning_get_codeql_database(
         self, params: CodeScanningGetCodeqlDatabaseInput, *, trace_id: str
     ) -> CodeScanningGetCodeqlDatabaseOutput:
@@ -10964,7 +13409,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_delete_codeql_database")
+    @nw_action(
+        "code_scanning_delete_codeql_database",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/code-scanning/codeql/databases/{language}",
+    )
     async def code_scanning_delete_codeql_database(
         self, params: CodeScanningDeleteCodeqlDatabaseInput, *, trace_id: str
     ) -> CodeScanningDeleteCodeqlDatabaseOutput:
@@ -10976,7 +13425,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_create_variant_analysis")
+    @nw_action(
+        "code_scanning_create_variant_analysis",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/code-scanning/codeql/variant-analyses",
+    )
     async def code_scanning_create_variant_analysis(
         self, params: CodeScanningCreateVariantAnalysisInput, *, trace_id: str
     ) -> CodeScanningCreateVariantAnalysisOutput:
@@ -10988,7 +13441,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_get_variant_analysis")
+    @nw_action(
+        "code_scanning_get_variant_analysis",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-scanning/codeql/variant-analyses/{codeql_variant_analysis_id}",
+    )
     async def code_scanning_get_variant_analysis(
         self, params: CodeScanningGetVariantAnalysisInput, *, trace_id: str
     ) -> CodeScanningGetVariantAnalysisOutput:
@@ -11000,7 +13457,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_get_variant_analysis_repo_task")
+    @nw_action(
+        "code_scanning_get_variant_analysis_repo_task",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-scanning/codeql/variant-analyses/{codeql_variant_analysis_id}/repos/{repo_owner}/{repo_name}",
+    )
     async def code_scanning_get_variant_analysis_repo_task(
         self, params: CodeScanningGetVariantAnalysisRepoTaskInput, *, trace_id: str
     ) -> CodeScanningGetVariantAnalysisRepoTaskOutput:
@@ -11012,7 +13473,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_get_default_setup")
+    @nw_action(
+        "code_scanning_get_default_setup",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-scanning/default-setup",
+    )
     async def code_scanning_get_default_setup(
         self, params: CodeScanningGetDefaultSetupInput, *, trace_id: str
     ) -> CodeScanningGetDefaultSetupOutput:
@@ -11024,7 +13489,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_update_default_setup")
+    @nw_action(
+        "code_scanning_update_default_setup",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/code-scanning/default-setup",
+    )
     async def code_scanning_update_default_setup(
         self, params: CodeScanningUpdateDefaultSetupInput, *, trace_id: str
     ) -> CodeScanningUpdateDefaultSetupOutput:
@@ -11036,7 +13505,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_upload_sarif")
+    @nw_action(
+        "code_scanning_upload_sarif",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/code-scanning/sarifs",
+    )
     async def code_scanning_upload_sarif(
         self, params: CodeScanningUploadSarifInput, *, trace_id: str
     ) -> CodeScanningUploadSarifOutput:
@@ -11048,7 +13521,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_scanning_get_sarif")
+    @nw_action(
+        "code_scanning_get_sarif",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-scanning/sarifs/{sarif_id}",
+    )
     async def code_scanning_get_sarif(
         self, params: CodeScanningGetSarifInput, *, trace_id: str
     ) -> CodeScanningGetSarifOutput:
@@ -11060,7 +13537,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("code_security_get_configuration_for_repository")
+    @nw_action(
+        "code_security_get_configuration_for_repository",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/code-security-configuration",
+    )
     async def code_security_get_configuration_for_repository(
         self, params: CodeSecurityGetConfigurationForRepositoryInput, *, trace_id: str
     ) -> CodeSecurityGetConfigurationForRepositoryOutput:
@@ -11072,7 +13553,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_codeowners_errors")
+    @nw_action(
+        "repos_codeowners_errors",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/codeowners/errors",
+    )
     async def repos_codeowners_errors(
         self, params: ReposCodeownersErrorsInput, *, trace_id: str
     ) -> ReposCodeownersErrorsOutput:
@@ -11084,7 +13569,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_list_in_repository_for_authenticated_user")
+    @nw_action(
+        "codespaces_list_in_repository_for_authenticated_user",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/codespaces",
+    )
     async def codespaces_list_in_repository_for_authenticated_user(
         self, params: CodespacesListInRepositoryForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesListInRepositoryForAuthenticatedUserOutput:
@@ -11096,7 +13585,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_create_with_repo_for_authenticated_user")
+    @nw_action(
+        "codespaces_create_with_repo_for_authenticated_user",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/codespaces",
+    )
     async def codespaces_create_with_repo_for_authenticated_user(
         self, params: CodespacesCreateWithRepoForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesCreateWithRepoForAuthenticatedUserOutput:
@@ -11108,7 +13601,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_list_devcontainers_in_repository_for")
+    @nw_action(
+        "codespaces_list_devcontainers_in_repository_for",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/codespaces/devcontainers",
+    )
     async def codespaces_list_devcontainers_in_repository_for(
         self, params: CodespacesListDevcontainersInRepositoryForInput, *, trace_id: str
     ) -> CodespacesListDevcontainersInRepositoryForOutput:
@@ -11120,7 +13617,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_repo_machines_for_authenticated_user")
+    @nw_action(
+        "codespaces_repo_machines_for_authenticated_user",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/codespaces/machines",
+    )
     async def codespaces_repo_machines_for_authenticated_user(
         self, params: CodespacesRepoMachinesForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesRepoMachinesForAuthenticatedUserOutput:
@@ -11132,7 +13633,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_pre_flight_with_repo_for_authenticated_user")
+    @nw_action(
+        "codespaces_pre_flight_with_repo_for_authenticated_user",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/codespaces/new",
+    )
     async def codespaces_pre_flight_with_repo_for_authenticated_user(
         self, params: CodespacesPreFlightWithRepoForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesPreFlightWithRepoForAuthenticatedUserOutput:
@@ -11144,7 +13649,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_check_permissions_for_devcontainer")
+    @nw_action(
+        "codespaces_check_permissions_for_devcontainer",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/codespaces/permissions_check",
+    )
     async def codespaces_check_permissions_for_devcontainer(
         self, params: CodespacesCheckPermissionsForDevcontainerInput, *, trace_id: str
     ) -> CodespacesCheckPermissionsForDevcontainerOutput:
@@ -11156,7 +13665,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_list_repo_secrets")
+    @nw_action(
+        "codespaces_list_repo_secrets",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/codespaces/secrets",
+    )
     async def codespaces_list_repo_secrets(
         self, params: CodespacesListRepoSecretsInput, *, trace_id: str
     ) -> CodespacesListRepoSecretsOutput:
@@ -11168,7 +13681,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_get_repo_public_key")
+    @nw_action(
+        "codespaces_get_repo_public_key",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/codespaces/secrets/public-key",
+    )
     async def codespaces_get_repo_public_key(
         self, params: CodespacesGetRepoPublicKeyInput, *, trace_id: str
     ) -> CodespacesGetRepoPublicKeyOutput:
@@ -11180,7 +13697,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_get_repo_secret")
+    @nw_action(
+        "codespaces_get_repo_secret",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/codespaces/secrets/{secret_name}",
+    )
     async def codespaces_get_repo_secret(
         self, params: CodespacesGetRepoSecretInput, *, trace_id: str
     ) -> CodespacesGetRepoSecretOutput:
@@ -11192,7 +13713,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_create_or_update_repo_secret")
+    @nw_action(
+        "codespaces_create_or_update_repo_secret",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/codespaces/secrets/{secret_name}",
+    )
     async def codespaces_create_or_update_repo_secret(
         self, params: CodespacesCreateOrUpdateRepoSecretInput, *, trace_id: str
     ) -> CodespacesCreateOrUpdateRepoSecretOutput:
@@ -11204,7 +13729,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_delete_repo_secret")
+    @nw_action(
+        "codespaces_delete_repo_secret",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/codespaces/secrets/{secret_name}",
+    )
     async def codespaces_delete_repo_secret(
         self, params: CodespacesDeleteRepoSecretInput, *, trace_id: str
     ) -> CodespacesDeleteRepoSecretOutput:
@@ -11216,7 +13745,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_collaborators")
+    @nw_action(
+        "repos_list_collaborators",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/collaborators",
+    )
     async def repos_list_collaborators(
         self, params: ReposListCollaboratorsInput, *, trace_id: str
     ) -> ReposListCollaboratorsOutput:
@@ -11228,7 +13761,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_check_collaborator")
+    @nw_action(
+        "repos_check_collaborator",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/collaborators/{username}",
+    )
     async def repos_check_collaborator(
         self, params: ReposCheckCollaboratorInput, *, trace_id: str
     ) -> ReposCheckCollaboratorOutput:
@@ -11240,7 +13777,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_add_collaborator")
+    @nw_action(
+        "repos_add_collaborator",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/collaborators/{username}",
+    )
     async def repos_add_collaborator(
         self, params: ReposAddCollaboratorInput, *, trace_id: str
     ) -> ReposAddCollaboratorOutput:
@@ -11252,7 +13793,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_remove_collaborator")
+    @nw_action(
+        "repos_remove_collaborator",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/collaborators/{username}",
+    )
     async def repos_remove_collaborator(
         self, params: ReposRemoveCollaboratorInput, *, trace_id: str
     ) -> ReposRemoveCollaboratorOutput:
@@ -11264,7 +13809,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_collaborator_permission_level")
+    @nw_action(
+        "repos_get_collaborator_permission_level",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/collaborators/{username}/permission",
+    )
     async def repos_get_collaborator_permission_level(
         self, params: ReposGetCollaboratorPermissionLevelInput, *, trace_id: str
     ) -> ReposGetCollaboratorPermissionLevelOutput:
@@ -11276,7 +13825,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_commit_comments_for_repo")
+    @nw_action(
+        "repos_list_commit_comments_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/comments",
+    )
     async def repos_list_commit_comments_for_repo(
         self, params: ReposListCommitCommentsForRepoInput, *, trace_id: str
     ) -> ReposListCommitCommentsForRepoOutput:
@@ -11288,7 +13841,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_commit_comment")
+    @nw_action(
+        "repos_get_commit_comment",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/comments/{comment_id}",
+    )
     async def repos_get_commit_comment(
         self, params: ReposGetCommitCommentInput, *, trace_id: str
     ) -> ReposGetCommitCommentOutput:
@@ -11300,7 +13857,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_update_commit_comment")
+    @nw_action(
+        "repos_update_commit_comment",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/comments/{comment_id}",
+    )
     async def repos_update_commit_comment(
         self, params: ReposUpdateCommitCommentInput, *, trace_id: str
     ) -> ReposUpdateCommitCommentOutput:
@@ -11312,7 +13873,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_commit_comment")
+    @nw_action(
+        "repos_delete_commit_comment",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/comments/{comment_id}",
+    )
     async def repos_delete_commit_comment(
         self, params: ReposDeleteCommitCommentInput, *, trace_id: str
     ) -> ReposDeleteCommitCommentOutput:
@@ -11324,7 +13889,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("reactions_list_for_commit_comment")
+    @nw_action(
+        "reactions_list_for_commit_comment",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/comments/{comment_id}/reactions",
+    )
     async def reactions_list_for_commit_comment(
         self, params: ReactionsListForCommitCommentInput, *, trace_id: str
     ) -> ReactionsListForCommitCommentOutput:
@@ -11336,7 +13905,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("reactions_create_for_commit_comment")
+    @nw_action(
+        "reactions_create_for_commit_comment",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/comments/{comment_id}/reactions",
+    )
     async def reactions_create_for_commit_comment(
         self, params: ReactionsCreateForCommitCommentInput, *, trace_id: str
     ) -> ReactionsCreateForCommitCommentOutput:
@@ -11348,7 +13921,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("reactions_delete_for_commit_comment")
+    @nw_action(
+        "reactions_delete_for_commit_comment",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/comments/{comment_id}/reactions/{reaction_id}",
+    )
     async def reactions_delete_for_commit_comment(
         self, params: ReactionsDeleteForCommitCommentInput, *, trace_id: str
     ) -> ReactionsDeleteForCommitCommentOutput:
@@ -11360,7 +13937,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_commits")
+    @nw_action("repos_list_commits", http_method="GET", http_path="/repos/{owner}/{repo}/commits")
     async def repos_list_commits(
         self, params: ReposListCommitsInput, *, trace_id: str
     ) -> ReposListCommitsOutput:
@@ -11372,7 +13949,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_branches_for_head_commit")
+    @nw_action(
+        "repos_list_branches_for_head_commit",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/commits/{commit_sha}/branches-where-head",
+    )
     async def repos_list_branches_for_head_commit(
         self, params: ReposListBranchesForHeadCommitInput, *, trace_id: str
     ) -> ReposListBranchesForHeadCommitOutput:
@@ -11384,7 +13965,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_comments_for_commit")
+    @nw_action(
+        "repos_list_comments_for_commit",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/commits/{commit_sha}/comments",
+    )
     async def repos_list_comments_for_commit(
         self, params: ReposListCommentsForCommitInput, *, trace_id: str
     ) -> ReposListCommentsForCommitOutput:
@@ -11396,7 +13981,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_commit_comment")
+    @nw_action(
+        "repos_create_commit_comment",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/commits/{commit_sha}/comments",
+    )
     async def repos_create_commit_comment(
         self, params: ReposCreateCommitCommentInput, *, trace_id: str
     ) -> ReposCreateCommitCommentOutput:
@@ -11408,7 +13997,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_pull_requests_associated_with_commit")
+    @nw_action(
+        "repos_list_pull_requests_associated_with_commit",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/commits/{commit_sha}/pulls",
+    )
     async def repos_list_pull_requests_associated_with_commit(
         self, params: ReposListPullRequestsAssociatedWithCommitInput, *, trace_id: str
     ) -> ReposListPullRequestsAssociatedWithCommitOutput:
@@ -11420,7 +14013,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_commit")
+    @nw_action(
+        "repos_get_commit", http_method="GET", http_path="/repos/{owner}/{repo}/commits/{ref}"
+    )
     async def repos_get_commit(
         self, params: ReposGetCommitInput, *, trace_id: str
     ) -> ReposGetCommitOutput:
@@ -11432,7 +14027,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("checks_list_for_ref")
+    @nw_action(
+        "checks_list_for_ref",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/commits/{ref}/check-runs",
+    )
     async def checks_list_for_ref(
         self, params: ChecksListForRefInput, *, trace_id: str
     ) -> ChecksListForRefOutput:
@@ -11444,7 +14043,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("checks_list_suites_for_ref")
+    @nw_action(
+        "checks_list_suites_for_ref",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/commits/{ref}/check-suites",
+    )
     async def checks_list_suites_for_ref(
         self, params: ChecksListSuitesForRefInput, *, trace_id: str
     ) -> ChecksListSuitesForRefOutput:
@@ -11456,7 +14059,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_combined_status_for_ref")
+    @nw_action(
+        "repos_get_combined_status_for_ref",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/commits/{ref}/status",
+    )
     async def repos_get_combined_status_for_ref(
         self, params: ReposGetCombinedStatusForRefInput, *, trace_id: str
     ) -> ReposGetCombinedStatusForRefOutput:
@@ -11468,7 +14075,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_commit_statuses_for_ref")
+    @nw_action(
+        "repos_list_commit_statuses_for_ref",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/commits/{ref}/statuses",
+    )
     async def repos_list_commit_statuses_for_ref(
         self, params: ReposListCommitStatusesForRefInput, *, trace_id: str
     ) -> ReposListCommitStatusesForRefOutput:
@@ -11480,7 +14091,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_community_profile_metrics")
+    @nw_action(
+        "repos_get_community_profile_metrics",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/community/profile",
+    )
     async def repos_get_community_profile_metrics(
         self, params: ReposGetCommunityProfileMetricsInput, *, trace_id: str
     ) -> ReposGetCommunityProfileMetricsOutput:
@@ -11492,7 +14107,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_compare_commits")
+    @nw_action(
+        "repos_compare_commits",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/compare/{basehead}",
+    )
     async def repos_compare_commits(
         self, params: ReposCompareCommitsInput, *, trace_id: str
     ) -> ReposCompareCommitsOutput:
@@ -11504,7 +14123,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_content")
+    @nw_action(
+        "repos_get_content", http_method="GET", http_path="/repos/{owner}/{repo}/contents/{path}"
+    )
     async def repos_get_content(
         self, params: ReposGetContentInput, *, trace_id: str
     ) -> ReposGetContentOutput:
@@ -11516,7 +14137,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_or_update_file_contents")
+    @nw_action(
+        "repos_create_or_update_file_contents",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/contents/{path}",
+    )
     async def repos_create_or_update_file_contents(
         self, params: ReposCreateOrUpdateFileContentsInput, *, trace_id: str
     ) -> ReposCreateOrUpdateFileContentsOutput:
@@ -11528,7 +14153,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_file")
+    @nw_action(
+        "repos_delete_file", http_method="DELETE", http_path="/repos/{owner}/{repo}/contents/{path}"
+    )
     async def repos_delete_file(
         self, params: ReposDeleteFileInput, *, trace_id: str
     ) -> ReposDeleteFileOutput:
@@ -11540,7 +14167,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_contributors")
+    @nw_action(
+        "repos_list_contributors", http_method="GET", http_path="/repos/{owner}/{repo}/contributors"
+    )
     async def repos_list_contributors(
         self, params: ReposListContributorsInput, *, trace_id: str
     ) -> ReposListContributorsOutput:
@@ -11552,7 +14181,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_get_copilot_cloud_agent_configuration")
+    @nw_action(
+        "copilot_get_copilot_cloud_agent_configuration",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/copilot/cloud-agent/configuration",
+    )
     async def copilot_get_copilot_cloud_agent_configuration(
         self, params: CopilotGetCopilotCloudAgentConfigurationInput, *, trace_id: str
     ) -> CopilotGetCopilotCloudAgentConfigurationOutput:
@@ -11564,7 +14197,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_list_alerts_for_repo")
+    @nw_action(
+        "dependabot_list_alerts_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/dependabot/alerts",
+    )
     async def dependabot_list_alerts_for_repo(
         self, params: DependabotListAlertsForRepoInput, *, trace_id: str
     ) -> DependabotListAlertsForRepoOutput:
@@ -11576,7 +14213,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_get_alert")
+    @nw_action(
+        "dependabot_get_alert",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/dependabot/alerts/{alert_number}",
+    )
     async def dependabot_get_alert(
         self, params: DependabotGetAlertInput, *, trace_id: str
     ) -> DependabotGetAlertOutput:
@@ -11588,7 +14229,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_update_alert")
+    @nw_action(
+        "dependabot_update_alert",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/dependabot/alerts/{alert_number}",
+    )
     async def dependabot_update_alert(
         self, params: DependabotUpdateAlertInput, *, trace_id: str
     ) -> DependabotUpdateAlertOutput:
@@ -11600,7 +14245,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_list_repo_secrets")
+    @nw_action(
+        "dependabot_list_repo_secrets",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/dependabot/secrets",
+    )
     async def dependabot_list_repo_secrets(
         self, params: DependabotListRepoSecretsInput, *, trace_id: str
     ) -> DependabotListRepoSecretsOutput:
@@ -11612,7 +14261,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_get_repo_public_key")
+    @nw_action(
+        "dependabot_get_repo_public_key",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/dependabot/secrets/public-key",
+    )
     async def dependabot_get_repo_public_key(
         self, params: DependabotGetRepoPublicKeyInput, *, trace_id: str
     ) -> DependabotGetRepoPublicKeyOutput:
@@ -11624,7 +14277,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_get_repo_secret")
+    @nw_action(
+        "dependabot_get_repo_secret",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/dependabot/secrets/{secret_name}",
+    )
     async def dependabot_get_repo_secret(
         self, params: DependabotGetRepoSecretInput, *, trace_id: str
     ) -> DependabotGetRepoSecretOutput:
@@ -11636,7 +14293,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_create_or_update_repo_secret")
+    @nw_action(
+        "dependabot_create_or_update_repo_secret",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/dependabot/secrets/{secret_name}",
+    )
     async def dependabot_create_or_update_repo_secret(
         self, params: DependabotCreateOrUpdateRepoSecretInput, *, trace_id: str
     ) -> DependabotCreateOrUpdateRepoSecretOutput:
@@ -11648,7 +14309,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependabot_delete_repo_secret")
+    @nw_action(
+        "dependabot_delete_repo_secret",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/dependabot/secrets/{secret_name}",
+    )
     async def dependabot_delete_repo_secret(
         self, params: DependabotDeleteRepoSecretInput, *, trace_id: str
     ) -> DependabotDeleteRepoSecretOutput:
@@ -11660,7 +14325,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependency_graph_diff_range")
+    @nw_action(
+        "dependency_graph_diff_range",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/dependency-graph/compare/{basehead}",
+    )
     async def dependency_graph_diff_range(
         self, params: DependencyGraphDiffRangeInput, *, trace_id: str
     ) -> DependencyGraphDiffRangeOutput:
@@ -11672,7 +14341,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependency_graph_export_sbom", deprecated=True)
+    @nw_action(
+        "dependency_graph_export_sbom",
+        deprecated=True,
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/dependency-graph/sbom",
+    )
     async def dependency_graph_export_sbom(
         self, params: DependencyGraphExportSbomInput, *, trace_id: str
     ) -> DependencyGraphExportSbomOutput:
@@ -11684,7 +14358,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependency_graph_fetch_sbom_report")
+    @nw_action(
+        "dependency_graph_fetch_sbom_report",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/dependency-graph/sbom/fetch-report/{sbom_uuid}",
+    )
     async def dependency_graph_fetch_sbom_report(
         self, params: DependencyGraphFetchSbomReportInput, *, trace_id: str
     ) -> DependencyGraphFetchSbomReportOutput:
@@ -11696,7 +14374,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependency_graph_generate_sbom_report")
+    @nw_action(
+        "dependency_graph_generate_sbom_report",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/dependency-graph/sbom/generate-report",
+    )
     async def dependency_graph_generate_sbom_report(
         self, params: DependencyGraphGenerateSbomReportInput, *, trace_id: str
     ) -> DependencyGraphGenerateSbomReportOutput:
@@ -11708,7 +14390,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("dependency_graph_create_repository_snapshot")
+    @nw_action(
+        "dependency_graph_create_repository_snapshot",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/dependency-graph/snapshots",
+    )
     async def dependency_graph_create_repository_snapshot(
         self, params: DependencyGraphCreateRepositorySnapshotInput, *, trace_id: str
     ) -> DependencyGraphCreateRepositorySnapshotOutput:
@@ -11720,7 +14406,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_deployments")
+    @nw_action(
+        "repos_list_deployments", http_method="GET", http_path="/repos/{owner}/{repo}/deployments"
+    )
     async def repos_list_deployments(
         self, params: ReposListDeploymentsInput, *, trace_id: str
     ) -> ReposListDeploymentsOutput:
@@ -11732,7 +14420,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_deployment")
+    @nw_action(
+        "repos_create_deployment", http_method="POST", http_path="/repos/{owner}/{repo}/deployments"
+    )
     async def repos_create_deployment(
         self, params: ReposCreateDeploymentInput, *, trace_id: str
     ) -> ReposCreateDeploymentOutput:
@@ -11744,7 +14434,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_deployment")
+    @nw_action(
+        "repos_get_deployment",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/deployments/{deployment_id}",
+    )
     async def repos_get_deployment(
         self, params: ReposGetDeploymentInput, *, trace_id: str
     ) -> ReposGetDeploymentOutput:
@@ -11756,7 +14450,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_deployment")
+    @nw_action(
+        "repos_delete_deployment",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/deployments/{deployment_id}",
+    )
     async def repos_delete_deployment(
         self, params: ReposDeleteDeploymentInput, *, trace_id: str
     ) -> ReposDeleteDeploymentOutput:
@@ -11768,7 +14466,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_dispatch_event")
+    @nw_action(
+        "repos_create_dispatch_event",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/dispatches",
+    )
     async def repos_create_dispatch_event(
         self, params: ReposCreateDispatchEventInput, *, trace_id: str
     ) -> ReposCreateDispatchEventOutput:
@@ -11780,7 +14482,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_all_environments")
+    @nw_action(
+        "repos_get_all_environments",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/environments",
+    )
     async def repos_get_all_environments(
         self, params: ReposGetAllEnvironmentsInput, *, trace_id: str
     ) -> ReposGetAllEnvironmentsOutput:
@@ -11792,7 +14498,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_environment")
+    @nw_action(
+        "repos_get_environment",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}",
+    )
     async def repos_get_environment(
         self, params: ReposGetEnvironmentInput, *, trace_id: str
     ) -> ReposGetEnvironmentOutput:
@@ -11804,7 +14514,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_or_update_environment")
+    @nw_action(
+        "repos_create_or_update_environment",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}",
+    )
     async def repos_create_or_update_environment(
         self, params: ReposCreateOrUpdateEnvironmentInput, *, trace_id: str
     ) -> ReposCreateOrUpdateEnvironmentOutput:
@@ -11816,7 +14530,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_an_environment")
+    @nw_action(
+        "repos_delete_an_environment",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}",
+    )
     async def repos_delete_an_environment(
         self, params: ReposDeleteAnEnvironmentInput, *, trace_id: str
     ) -> ReposDeleteAnEnvironmentOutput:
@@ -11828,7 +14546,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_deployment_branch_policies")
+    @nw_action(
+        "repos_list_deployment_branch_policies",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies",
+    )
     async def repos_list_deployment_branch_policies(
         self, params: ReposListDeploymentBranchPoliciesInput, *, trace_id: str
     ) -> ReposListDeploymentBranchPoliciesOutput:
@@ -11840,7 +14562,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_deployment_branch_policy")
+    @nw_action(
+        "repos_create_deployment_branch_policy",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies",
+    )
     async def repos_create_deployment_branch_policy(
         self, params: ReposCreateDeploymentBranchPolicyInput, *, trace_id: str
     ) -> ReposCreateDeploymentBranchPolicyOutput:
@@ -11852,7 +14578,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_deployment_branch_policy")
+    @nw_action(
+        "repos_get_deployment_branch_policy",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies/{branch_policy_id}",
+    )
     async def repos_get_deployment_branch_policy(
         self, params: ReposGetDeploymentBranchPolicyInput, *, trace_id: str
     ) -> ReposGetDeploymentBranchPolicyOutput:
@@ -11864,7 +14594,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_update_deployment_branch_policy")
+    @nw_action(
+        "repos_update_deployment_branch_policy",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies/{branch_policy_id}",
+    )
     async def repos_update_deployment_branch_policy(
         self, params: ReposUpdateDeploymentBranchPolicyInput, *, trace_id: str
     ) -> ReposUpdateDeploymentBranchPolicyOutput:
@@ -11876,7 +14610,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_deployment_branch_policy")
+    @nw_action(
+        "repos_delete_deployment_branch_policy",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies/{branch_policy_id}",
+    )
     async def repos_delete_deployment_branch_policy(
         self, params: ReposDeleteDeploymentBranchPolicyInput, *, trace_id: str
     ) -> ReposDeleteDeploymentBranchPolicyOutput:
@@ -11888,7 +14626,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_all_deployment_protection_rules")
+    @nw_action(
+        "repos_get_all_deployment_protection_rules",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/deployment_protection_rules",
+    )
     async def repos_get_all_deployment_protection_rules(
         self, params: ReposGetAllDeploymentProtectionRulesInput, *, trace_id: str
     ) -> ReposGetAllDeploymentProtectionRulesOutput:
@@ -11900,7 +14642,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_deployment_protection_rule")
+    @nw_action(
+        "repos_create_deployment_protection_rule",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/deployment_protection_rules",
+    )
     async def repos_create_deployment_protection_rule(
         self, params: ReposCreateDeploymentProtectionRuleInput, *, trace_id: str
     ) -> ReposCreateDeploymentProtectionRuleOutput:
@@ -11912,7 +14658,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_custom_deployment_rule_integrations")
+    @nw_action(
+        "repos_list_custom_deployment_rule_integrations",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/deployment_protection_rules/apps",
+    )
     async def repos_list_custom_deployment_rule_integrations(
         self, params: ReposListCustomDeploymentRuleIntegrationsInput, *, trace_id: str
     ) -> ReposListCustomDeploymentRuleIntegrationsOutput:
@@ -11924,7 +14674,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_custom_deployment_protection_rule")
+    @nw_action(
+        "repos_get_custom_deployment_protection_rule",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/deployment_protection_rules/{protection_rule_id}",
+    )
     async def repos_get_custom_deployment_protection_rule(
         self, params: ReposGetCustomDeploymentProtectionRuleInput, *, trace_id: str
     ) -> ReposGetCustomDeploymentProtectionRuleOutput:
@@ -11936,7 +14690,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_disable_deployment_protection_rule")
+    @nw_action(
+        "repos_disable_deployment_protection_rule",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/deployment_protection_rules/{protection_rule_id}",
+    )
     async def repos_disable_deployment_protection_rule(
         self, params: ReposDisableDeploymentProtectionRuleInput, *, trace_id: str
     ) -> ReposDisableDeploymentProtectionRuleOutput:
@@ -11948,7 +14706,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_environment_secrets")
+    @nw_action(
+        "actions_list_environment_secrets",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/secrets",
+    )
     async def actions_list_environment_secrets(
         self, params: ActionsListEnvironmentSecretsInput, *, trace_id: str
     ) -> ActionsListEnvironmentSecretsOutput:
@@ -11960,7 +14722,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_environment_public_key")
+    @nw_action(
+        "actions_get_environment_public_key",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/secrets/public-key",
+    )
     async def actions_get_environment_public_key(
         self, params: ActionsGetEnvironmentPublicKeyInput, *, trace_id: str
     ) -> ActionsGetEnvironmentPublicKeyOutput:
@@ -11972,7 +14738,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_environment_secret")
+    @nw_action(
+        "actions_get_environment_secret",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/secrets/{secret_name}",
+    )
     async def actions_get_environment_secret(
         self, params: ActionsGetEnvironmentSecretInput, *, trace_id: str
     ) -> ActionsGetEnvironmentSecretOutput:
@@ -11984,7 +14754,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_or_update_environment_secret")
+    @nw_action(
+        "actions_create_or_update_environment_secret",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/secrets/{secret_name}",
+    )
     async def actions_create_or_update_environment_secret(
         self, params: ActionsCreateOrUpdateEnvironmentSecretInput, *, trace_id: str
     ) -> ActionsCreateOrUpdateEnvironmentSecretOutput:
@@ -11996,7 +14770,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_environment_secret")
+    @nw_action(
+        "actions_delete_environment_secret",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/secrets/{secret_name}",
+    )
     async def actions_delete_environment_secret(
         self, params: ActionsDeleteEnvironmentSecretInput, *, trace_id: str
     ) -> ActionsDeleteEnvironmentSecretOutput:
@@ -12008,7 +14786,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_list_environment_variables")
+    @nw_action(
+        "actions_list_environment_variables",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/variables",
+    )
     async def actions_list_environment_variables(
         self, params: ActionsListEnvironmentVariablesInput, *, trace_id: str
     ) -> ActionsListEnvironmentVariablesOutput:
@@ -12020,7 +14802,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_create_environment_variable")
+    @nw_action(
+        "actions_create_environment_variable",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/variables",
+    )
     async def actions_create_environment_variable(
         self, params: ActionsCreateEnvironmentVariableInput, *, trace_id: str
     ) -> ActionsCreateEnvironmentVariableOutput:
@@ -12032,7 +14818,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_get_environment_variable")
+    @nw_action(
+        "actions_get_environment_variable",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/variables/{name}",
+    )
     async def actions_get_environment_variable(
         self, params: ActionsGetEnvironmentVariableInput, *, trace_id: str
     ) -> ActionsGetEnvironmentVariableOutput:
@@ -12044,7 +14834,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_update_environment_variable")
+    @nw_action(
+        "actions_update_environment_variable",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/variables/{name}",
+    )
     async def actions_update_environment_variable(
         self, params: ActionsUpdateEnvironmentVariableInput, *, trace_id: str
     ) -> ActionsUpdateEnvironmentVariableOutput:
@@ -12056,7 +14850,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("actions_delete_environment_variable")
+    @nw_action(
+        "actions_delete_environment_variable",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/environments/{environment_name}/variables/{name}",
+    )
     async def actions_delete_environment_variable(
         self, params: ActionsDeleteEnvironmentVariableInput, *, trace_id: str
     ) -> ActionsDeleteEnvironmentVariableOutput:
@@ -12068,7 +14866,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_repo_events")
+    @nw_action(
+        "activity_list_repo_events", http_method="GET", http_path="/repos/{owner}/{repo}/events"
+    )
     async def activity_list_repo_events(
         self, params: ActivityListRepoEventsInput, *, trace_id: str
     ) -> ActivityListRepoEventsOutput:
@@ -12080,7 +14880,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_forks")
+    @nw_action("repos_list_forks", http_method="GET", http_path="/repos/{owner}/{repo}/forks")
     async def repos_list_forks(
         self, params: ReposListForksInput, *, trace_id: str
     ) -> ReposListForksOutput:
@@ -12092,7 +14892,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_fork")
+    @nw_action("repos_create_fork", http_method="POST", http_path="/repos/{owner}/{repo}/forks")
     async def repos_create_fork(
         self, params: ReposCreateForkInput, *, trace_id: str
     ) -> ReposCreateForkOutput:
@@ -12104,7 +14904,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("git_create_blob")
+    @nw_action("git_create_blob", http_method="POST", http_path="/repos/{owner}/{repo}/git/blobs")
     async def git_create_blob(
         self, params: GitCreateBlobInput, *, trace_id: str
     ) -> GitCreateBlobOutput:
@@ -12116,7 +14916,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("git_get_blob")
+    @nw_action(
+        "git_get_blob", http_method="GET", http_path="/repos/{owner}/{repo}/git/blobs/{file_sha}"
+    )
     async def git_get_blob(self, params: GitGetBlobInput, *, trace_id: str) -> GitGetBlobOutput:
         return await self.execute_rest(
             method="GET",
@@ -12126,7 +14928,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("git_create_commit")
+    @nw_action(
+        "git_create_commit", http_method="POST", http_path="/repos/{owner}/{repo}/git/commits"
+    )
     async def git_create_commit(
         self, params: GitCreateCommitInput, *, trace_id: str
     ) -> GitCreateCommitOutput:
@@ -12138,7 +14942,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("git_get_commit")
+    @nw_action(
+        "git_get_commit",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/git/commits/{commit_sha}",
+    )
     async def git_get_commit(
         self, params: GitGetCommitInput, *, trace_id: str
     ) -> GitGetCommitOutput:
@@ -12150,7 +14958,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("git_list_matching_refs")
+    @nw_action(
+        "git_list_matching_refs",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/git/matching-refs/{ref}",
+    )
     async def git_list_matching_refs(
         self, params: GitListMatchingRefsInput, *, trace_id: str
     ) -> GitListMatchingRefsOutput:
@@ -12162,7 +14974,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("git_get_ref")
+    @nw_action("git_get_ref", http_method="GET", http_path="/repos/{owner}/{repo}/git/ref/{ref}")
     async def git_get_ref(self, params: GitGetRefInput, *, trace_id: str) -> GitGetRefOutput:
         return await self.execute_rest(
             method="GET",
@@ -12172,7 +14984,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("git_create_ref")
+    @nw_action("git_create_ref", http_method="POST", http_path="/repos/{owner}/{repo}/git/refs")
     async def git_create_ref(
         self, params: GitCreateRefInput, *, trace_id: str
     ) -> GitCreateRefOutput:
@@ -12184,7 +14996,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("git_update_ref")
+    @nw_action(
+        "git_update_ref", http_method="PATCH", http_path="/repos/{owner}/{repo}/git/refs/{ref}"
+    )
     async def git_update_ref(
         self, params: GitUpdateRefInput, *, trace_id: str
     ) -> GitUpdateRefOutput:
@@ -12196,7 +15010,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("git_delete_ref")
+    @nw_action(
+        "git_delete_ref", http_method="DELETE", http_path="/repos/{owner}/{repo}/git/refs/{ref}"
+    )
     async def git_delete_ref(
         self, params: GitDeleteRefInput, *, trace_id: str
     ) -> GitDeleteRefOutput:
@@ -12208,7 +15024,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("git_create_tag")
+    @nw_action("git_create_tag", http_method="POST", http_path="/repos/{owner}/{repo}/git/tags")
     async def git_create_tag(
         self, params: GitCreateTagInput, *, trace_id: str
     ) -> GitCreateTagOutput:
@@ -12220,7 +15036,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("git_get_tag")
+    @nw_action(
+        "git_get_tag", http_method="GET", http_path="/repos/{owner}/{repo}/git/tags/{tag_sha}"
+    )
     async def git_get_tag(self, params: GitGetTagInput, *, trace_id: str) -> GitGetTagOutput:
         return await self.execute_rest(
             method="GET",
@@ -12230,7 +15048,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("git_create_tree")
+    @nw_action("git_create_tree", http_method="POST", http_path="/repos/{owner}/{repo}/git/trees")
     async def git_create_tree(
         self, params: GitCreateTreeInput, *, trace_id: str
     ) -> GitCreateTreeOutput:
@@ -12242,7 +15060,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("git_get_tree")
+    @nw_action(
+        "git_get_tree", http_method="GET", http_path="/repos/{owner}/{repo}/git/trees/{tree_sha}"
+    )
     async def git_get_tree(self, params: GitGetTreeInput, *, trace_id: str) -> GitGetTreeOutput:
         return await self.execute_rest(
             method="GET",
@@ -12252,7 +15072,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_hash_algorithm")
+    @nw_action(
+        "repos_get_hash_algorithm",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/hash-algorithm",
+    )
     async def repos_get_hash_algorithm(
         self, params: ReposGetHashAlgorithmInput, *, trace_id: str
     ) -> ReposGetHashAlgorithmOutput:
@@ -12264,7 +15088,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_webhooks")
+    @nw_action("repos_list_webhooks", http_method="GET", http_path="/repos/{owner}/{repo}/hooks")
     async def repos_list_webhooks(
         self, params: ReposListWebhooksInput, *, trace_id: str
     ) -> ReposListWebhooksOutput:
@@ -12276,7 +15100,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_webhook")
+    @nw_action("repos_create_webhook", http_method="POST", http_path="/repos/{owner}/{repo}/hooks")
     async def repos_create_webhook(
         self, params: ReposCreateWebhookInput, *, trace_id: str
     ) -> ReposCreateWebhookOutput:
@@ -12288,7 +15112,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_webhook")
+    @nw_action(
+        "repos_get_webhook", http_method="GET", http_path="/repos/{owner}/{repo}/hooks/{hook_id}"
+    )
     async def repos_get_webhook(
         self, params: ReposGetWebhookInput, *, trace_id: str
     ) -> ReposGetWebhookOutput:
@@ -12300,7 +15126,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_update_webhook")
+    @nw_action(
+        "repos_update_webhook",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/hooks/{hook_id}",
+    )
     async def repos_update_webhook(
         self, params: ReposUpdateWebhookInput, *, trace_id: str
     ) -> ReposUpdateWebhookOutput:
@@ -12312,7 +15142,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_webhook")
+    @nw_action(
+        "repos_delete_webhook",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/hooks/{hook_id}",
+    )
     async def repos_delete_webhook(
         self, params: ReposDeleteWebhookInput, *, trace_id: str
     ) -> ReposDeleteWebhookOutput:
@@ -12324,7 +15158,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_webhook_config_for_repo")
+    @nw_action(
+        "repos_get_webhook_config_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/hooks/{hook_id}/config",
+    )
     async def repos_get_webhook_config_for_repo(
         self, params: ReposGetWebhookConfigForRepoInput, *, trace_id: str
     ) -> ReposGetWebhookConfigForRepoOutput:
@@ -12336,7 +15174,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_update_webhook_config_for_repo")
+    @nw_action(
+        "repos_update_webhook_config_for_repo",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/hooks/{hook_id}/config",
+    )
     async def repos_update_webhook_config_for_repo(
         self, params: ReposUpdateWebhookConfigForRepoInput, *, trace_id: str
     ) -> ReposUpdateWebhookConfigForRepoOutput:
@@ -12348,7 +15190,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_webhook_deliveries")
+    @nw_action(
+        "repos_list_webhook_deliveries",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/hooks/{hook_id}/deliveries",
+    )
     async def repos_list_webhook_deliveries(
         self, params: ReposListWebhookDeliveriesInput, *, trace_id: str
     ) -> ReposListWebhookDeliveriesOutput:
@@ -12360,7 +15206,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_webhook_delivery")
+    @nw_action(
+        "repos_get_webhook_delivery",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/hooks/{hook_id}/deliveries/{delivery_id}",
+    )
     async def repos_get_webhook_delivery(
         self, params: ReposGetWebhookDeliveryInput, *, trace_id: str
     ) -> ReposGetWebhookDeliveryOutput:
@@ -12372,7 +15222,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_redeliver_webhook_delivery")
+    @nw_action(
+        "repos_redeliver_webhook_delivery",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/hooks/{hook_id}/deliveries/{delivery_id}/attempts",
+    )
     async def repos_redeliver_webhook_delivery(
         self, params: ReposRedeliverWebhookDeliveryInput, *, trace_id: str
     ) -> ReposRedeliverWebhookDeliveryOutput:
@@ -12384,7 +15238,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_ping_webhook")
+    @nw_action(
+        "repos_ping_webhook",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/hooks/{hook_id}/pings",
+    )
     async def repos_ping_webhook(
         self, params: ReposPingWebhookInput, *, trace_id: str
     ) -> ReposPingWebhookOutput:
@@ -12396,7 +15254,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_test_push_webhook")
+    @nw_action(
+        "repos_test_push_webhook",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/hooks/{hook_id}/tests",
+    )
     async def repos_test_push_webhook(
         self, params: ReposTestPushWebhookInput, *, trace_id: str
     ) -> ReposTestPushWebhookOutput:
@@ -12408,7 +15270,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_check_immutable_releases")
+    @nw_action(
+        "repos_check_immutable_releases",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/immutable-releases",
+    )
     async def repos_check_immutable_releases(
         self, params: ReposCheckImmutableReleasesInput, *, trace_id: str
     ) -> ReposCheckImmutableReleasesOutput:
@@ -12420,7 +15286,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_enable_immutable_releases")
+    @nw_action(
+        "repos_enable_immutable_releases",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/immutable-releases",
+    )
     async def repos_enable_immutable_releases(
         self, params: ReposEnableImmutableReleasesInput, *, trace_id: str
     ) -> ReposEnableImmutableReleasesOutput:
@@ -12432,7 +15302,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_disable_immutable_releases")
+    @nw_action(
+        "repos_disable_immutable_releases",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/immutable-releases",
+    )
     async def repos_disable_immutable_releases(
         self, params: ReposDisableImmutableReleasesInput, *, trace_id: str
     ) -> ReposDisableImmutableReleasesOutput:
@@ -12444,7 +15318,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_get_import_status", deprecated=True)
+    @nw_action(
+        "migrations_get_import_status",
+        deprecated=True,
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/import",
+    )
     async def migrations_get_import_status(
         self, params: MigrationsGetImportStatusInput, *, trace_id: str
     ) -> MigrationsGetImportStatusOutput:
@@ -12456,7 +15335,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_start_import", deprecated=True)
+    @nw_action(
+        "migrations_start_import",
+        deprecated=True,
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/import",
+    )
     async def migrations_start_import(
         self, params: MigrationsStartImportInput, *, trace_id: str
     ) -> MigrationsStartImportOutput:
@@ -12468,7 +15352,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_update_import", deprecated=True)
+    @nw_action(
+        "migrations_update_import",
+        deprecated=True,
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/import",
+    )
     async def migrations_update_import(
         self, params: MigrationsUpdateImportInput, *, trace_id: str
     ) -> MigrationsUpdateImportOutput:
@@ -12480,7 +15369,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_cancel_import", deprecated=True)
+    @nw_action(
+        "migrations_cancel_import",
+        deprecated=True,
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/import",
+    )
     async def migrations_cancel_import(
         self, params: MigrationsCancelImportInput, *, trace_id: str
     ) -> MigrationsCancelImportOutput:
@@ -12492,7 +15386,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_get_commit_authors", deprecated=True)
+    @nw_action(
+        "migrations_get_commit_authors",
+        deprecated=True,
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/import/authors",
+    )
     async def migrations_get_commit_authors(
         self, params: MigrationsGetCommitAuthorsInput, *, trace_id: str
     ) -> MigrationsGetCommitAuthorsOutput:
@@ -12504,7 +15403,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_map_commit_author", deprecated=True)
+    @nw_action(
+        "migrations_map_commit_author",
+        deprecated=True,
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/import/authors/{author_id}",
+    )
     async def migrations_map_commit_author(
         self, params: MigrationsMapCommitAuthorInput, *, trace_id: str
     ) -> MigrationsMapCommitAuthorOutput:
@@ -12516,7 +15420,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_get_large_files", deprecated=True)
+    @nw_action(
+        "migrations_get_large_files",
+        deprecated=True,
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/import/large_files",
+    )
     async def migrations_get_large_files(
         self, params: MigrationsGetLargeFilesInput, *, trace_id: str
     ) -> MigrationsGetLargeFilesOutput:
@@ -12528,7 +15437,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_set_lfs_preference", deprecated=True)
+    @nw_action(
+        "migrations_set_lfs_preference",
+        deprecated=True,
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/import/lfs",
+    )
     async def migrations_set_lfs_preference(
         self, params: MigrationsSetLfsPreferenceInput, *, trace_id: str
     ) -> MigrationsSetLfsPreferenceOutput:
@@ -12540,7 +15454,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_get_repo_installation")
+    @nw_action(
+        "apps_get_repo_installation",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/installation",
+    )
     async def apps_get_repo_installation(
         self, params: AppsGetRepoInstallationInput, *, trace_id: str
     ) -> AppsGetRepoInstallationOutput:
@@ -12552,7 +15470,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_get_restrictions_for_repo")
+    @nw_action(
+        "interactions_get_restrictions_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/interaction-limits",
+    )
     async def interactions_get_restrictions_for_repo(
         self, params: InteractionsGetRestrictionsForRepoInput, *, trace_id: str
     ) -> InteractionsGetRestrictionsForRepoOutput:
@@ -12564,7 +15486,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_set_restrictions_for_repo")
+    @nw_action(
+        "interactions_set_restrictions_for_repo",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/interaction-limits",
+    )
     async def interactions_set_restrictions_for_repo(
         self, params: InteractionsSetRestrictionsForRepoInput, *, trace_id: str
     ) -> InteractionsSetRestrictionsForRepoOutput:
@@ -12576,7 +15502,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_remove_restrictions_for_repo")
+    @nw_action(
+        "interactions_remove_restrictions_for_repo",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/interaction-limits",
+    )
     async def interactions_remove_restrictions_for_repo(
         self, params: InteractionsRemoveRestrictionsForRepoInput, *, trace_id: str
     ) -> InteractionsRemoveRestrictionsForRepoOutput:
@@ -12588,7 +15518,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_get_pull_request_bypass_list_for_repo")
+    @nw_action(
+        "interactions_get_pull_request_bypass_list_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/interaction-limits/pulls/bypass-list",
+    )
     async def interactions_get_pull_request_bypass_list_for_repo(
         self, params: InteractionsGetPullRequestBypassListForRepoInput, *, trace_id: str
     ) -> InteractionsGetPullRequestBypassListForRepoOutput:
@@ -12600,7 +15534,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_set_pull_request_bypass_list_for_repo")
+    @nw_action(
+        "interactions_set_pull_request_bypass_list_for_repo",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/interaction-limits/pulls/bypass-list",
+    )
     async def interactions_set_pull_request_bypass_list_for_repo(
         self, params: InteractionsSetPullRequestBypassListForRepoInput, *, trace_id: str
     ) -> InteractionsSetPullRequestBypassListForRepoOutput:
@@ -12612,7 +15550,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_remove_pull_request_bypass_list_for_repo")
+    @nw_action(
+        "interactions_remove_pull_request_bypass_list_for_repo",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/interaction-limits/pulls/bypass-list",
+    )
     async def interactions_remove_pull_request_bypass_list_for_repo(
         self, params: InteractionsRemovePullRequestBypassListForRepoInput, *, trace_id: str
     ) -> InteractionsRemovePullRequestBypassListForRepoOutput:
@@ -12624,7 +15566,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_get_pull_request_creation_cap_for_repo")
+    @nw_action(
+        "interactions_get_pull_request_creation_cap_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/interaction-limits/pulls/creation-cap",
+    )
     async def interactions_get_pull_request_creation_cap_for_repo(
         self, params: InteractionsGetPullRequestCreationCapForRepoInput, *, trace_id: str
     ) -> InteractionsGetPullRequestCreationCapForRepoOutput:
@@ -12636,7 +15582,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_update_pull_request_creation_cap_for_repo")
+    @nw_action(
+        "interactions_update_pull_request_creation_cap_for_repo",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/interaction-limits/pulls/creation-cap",
+    )
     async def interactions_update_pull_request_creation_cap_for_repo(
         self, params: InteractionsUpdatePullRequestCreationCapForRepoInput, *, trace_id: str
     ) -> InteractionsUpdatePullRequestCreationCapForRepoOutput:
@@ -12648,7 +15598,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_invitations")
+    @nw_action(
+        "repos_list_invitations", http_method="GET", http_path="/repos/{owner}/{repo}/invitations"
+    )
     async def repos_list_invitations(
         self, params: ReposListInvitationsInput, *, trace_id: str
     ) -> ReposListInvitationsOutput:
@@ -12660,7 +15612,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_update_invitation")
+    @nw_action(
+        "repos_update_invitation",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/invitations/{invitation_id}",
+    )
     async def repos_update_invitation(
         self, params: ReposUpdateInvitationInput, *, trace_id: str
     ) -> ReposUpdateInvitationOutput:
@@ -12672,7 +15628,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_invitation")
+    @nw_action(
+        "repos_delete_invitation",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/invitations/{invitation_id}",
+    )
     async def repos_delete_invitation(
         self, params: ReposDeleteInvitationInput, *, trace_id: str
     ) -> ReposDeleteInvitationOutput:
@@ -12684,7 +15644,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_issue_types")
+    @nw_action(
+        "repos_list_issue_types", http_method="GET", http_path="/repos/{owner}/{repo}/issue-types"
+    )
     async def repos_list_issue_types(
         self, params: ReposListIssueTypesInput, *, trace_id: str
     ) -> ReposListIssueTypesOutput:
@@ -12696,7 +15658,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_for_repo")
+    @nw_action("issues_list_for_repo", http_method="GET", http_path="/repos/{owner}/{repo}/issues")
     async def issues_list_for_repo(
         self, params: IssuesListForRepoInput, *, trace_id: str
     ) -> IssuesListForRepoOutput:
@@ -12708,7 +15670,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_create")
+    @nw_action("issues_create", http_method="POST", http_path="/repos/{owner}/{repo}/issues")
     async def issues_create(
         self, params: IssuesCreateInput, *, trace_id: str
     ) -> IssuesCreateOutput:
@@ -12720,7 +15682,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_comments_for_repo")
+    @nw_action(
+        "issues_list_comments_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/comments",
+    )
     async def issues_list_comments_for_repo(
         self, params: IssuesListCommentsForRepoInput, *, trace_id: str
     ) -> IssuesListCommentsForRepoOutput:
@@ -12732,7 +15698,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_get_comment")
+    @nw_action(
+        "issues_get_comment",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/comments/{comment_id}",
+    )
     async def issues_get_comment(
         self, params: IssuesGetCommentInput, *, trace_id: str
     ) -> IssuesGetCommentOutput:
@@ -12744,7 +15714,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_update_comment")
+    @nw_action(
+        "issues_update_comment",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/issues/comments/{comment_id}",
+    )
     async def issues_update_comment(
         self, params: IssuesUpdateCommentInput, *, trace_id: str
     ) -> IssuesUpdateCommentOutput:
@@ -12756,7 +15730,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_delete_comment")
+    @nw_action(
+        "issues_delete_comment",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/issues/comments/{comment_id}",
+    )
     async def issues_delete_comment(
         self, params: IssuesDeleteCommentInput, *, trace_id: str
     ) -> IssuesDeleteCommentOutput:
@@ -12768,7 +15746,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_pin_comment")
+    @nw_action(
+        "issues_pin_comment",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/issues/comments/{comment_id}/pin",
+    )
     async def issues_pin_comment(
         self, params: IssuesPinCommentInput, *, trace_id: str
     ) -> IssuesPinCommentOutput:
@@ -12780,7 +15762,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_unpin_comment")
+    @nw_action(
+        "issues_unpin_comment",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/issues/comments/{comment_id}/pin",
+    )
     async def issues_unpin_comment(
         self, params: IssuesUnpinCommentInput, *, trace_id: str
     ) -> IssuesUnpinCommentOutput:
@@ -12792,7 +15778,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("reactions_list_for_issue_comment")
+    @nw_action(
+        "reactions_list_for_issue_comment",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/comments/{comment_id}/reactions",
+    )
     async def reactions_list_for_issue_comment(
         self, params: ReactionsListForIssueCommentInput, *, trace_id: str
     ) -> ReactionsListForIssueCommentOutput:
@@ -12804,7 +15794,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("reactions_create_for_issue_comment")
+    @nw_action(
+        "reactions_create_for_issue_comment",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/issues/comments/{comment_id}/reactions",
+    )
     async def reactions_create_for_issue_comment(
         self, params: ReactionsCreateForIssueCommentInput, *, trace_id: str
     ) -> ReactionsCreateForIssueCommentOutput:
@@ -12816,7 +15810,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("reactions_delete_for_issue_comment")
+    @nw_action(
+        "reactions_delete_for_issue_comment",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/issues/comments/{comment_id}/reactions/{reaction_id}",
+    )
     async def reactions_delete_for_issue_comment(
         self, params: ReactionsDeleteForIssueCommentInput, *, trace_id: str
     ) -> ReactionsDeleteForIssueCommentOutput:
@@ -12828,7 +15826,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_events_for_repo")
+    @nw_action(
+        "issues_list_events_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/events",
+    )
     async def issues_list_events_for_repo(
         self, params: IssuesListEventsForRepoInput, *, trace_id: str
     ) -> IssuesListEventsForRepoOutput:
@@ -12840,7 +15842,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_get_event")
+    @nw_action(
+        "issues_get_event",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/events/{event_id}",
+    )
     async def issues_get_event(
         self, params: IssuesGetEventInput, *, trace_id: str
     ) -> IssuesGetEventOutput:
@@ -12852,7 +15858,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_get")
+    @nw_action(
+        "issues_get", http_method="GET", http_path="/repos/{owner}/{repo}/issues/{issue_number}"
+    )
     async def issues_get(self, params: IssuesGetInput, *, trace_id: str) -> IssuesGetOutput:
         return await self.execute_rest(
             method="GET",
@@ -12862,7 +15870,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_update")
+    @nw_action(
+        "issues_update",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}",
+    )
     async def issues_update(
         self, params: IssuesUpdateInput, *, trace_id: str
     ) -> IssuesUpdateOutput:
@@ -12874,7 +15886,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_add_assignees")
+    @nw_action(
+        "issues_add_assignees",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/assignees",
+    )
     async def issues_add_assignees(
         self, params: IssuesAddAssigneesInput, *, trace_id: str
     ) -> IssuesAddAssigneesOutput:
@@ -12886,7 +15902,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_remove_assignees")
+    @nw_action(
+        "issues_remove_assignees",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/assignees",
+    )
     async def issues_remove_assignees(
         self, params: IssuesRemoveAssigneesInput, *, trace_id: str
     ) -> IssuesRemoveAssigneesOutput:
@@ -12898,7 +15918,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_check_user_can_be_assigned_to_issue")
+    @nw_action(
+        "issues_check_user_can_be_assigned_to_issue",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/assignees/{assignee}",
+    )
     async def issues_check_user_can_be_assigned_to_issue(
         self, params: IssuesCheckUserCanBeAssignedToIssueInput, *, trace_id: str
     ) -> IssuesCheckUserCanBeAssignedToIssueOutput:
@@ -12910,7 +15934,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_comments")
+    @nw_action(
+        "issues_list_comments",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/comments",
+    )
     async def issues_list_comments(
         self, params: IssuesListCommentsInput, *, trace_id: str
     ) -> IssuesListCommentsOutput:
@@ -12922,7 +15950,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_create_comment")
+    @nw_action(
+        "issues_create_comment",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/comments",
+    )
     async def issues_create_comment(
         self, params: IssuesCreateCommentInput, *, trace_id: str
     ) -> IssuesCreateCommentOutput:
@@ -12934,7 +15966,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_dependencies_blocked_by")
+    @nw_action(
+        "issues_list_dependencies_blocked_by",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/dependencies/blocked_by",
+    )
     async def issues_list_dependencies_blocked_by(
         self, params: IssuesListDependenciesBlockedByInput, *, trace_id: str
     ) -> IssuesListDependenciesBlockedByOutput:
@@ -12946,7 +15982,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_add_blocked_by_dependency")
+    @nw_action(
+        "issues_add_blocked_by_dependency",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/dependencies/blocked_by",
+    )
     async def issues_add_blocked_by_dependency(
         self, params: IssuesAddBlockedByDependencyInput, *, trace_id: str
     ) -> IssuesAddBlockedByDependencyOutput:
@@ -12958,7 +15998,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_remove_dependency_blocked_by")
+    @nw_action(
+        "issues_remove_dependency_blocked_by",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/dependencies/blocked_by/{issue_id}",
+    )
     async def issues_remove_dependency_blocked_by(
         self, params: IssuesRemoveDependencyBlockedByInput, *, trace_id: str
     ) -> IssuesRemoveDependencyBlockedByOutput:
@@ -12970,7 +16014,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_dependencies_blocking")
+    @nw_action(
+        "issues_list_dependencies_blocking",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/dependencies/blocking",
+    )
     async def issues_list_dependencies_blocking(
         self, params: IssuesListDependenciesBlockingInput, *, trace_id: str
     ) -> IssuesListDependenciesBlockingOutput:
@@ -12982,7 +16030,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_events")
+    @nw_action(
+        "issues_list_events",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/events",
+    )
     async def issues_list_events(
         self, params: IssuesListEventsInput, *, trace_id: str
     ) -> IssuesListEventsOutput:
@@ -12994,7 +16046,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_issue_field_values_for_issue")
+    @nw_action(
+        "issues_list_issue_field_values_for_issue",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/issue-field-values",
+    )
     async def issues_list_issue_field_values_for_issue(
         self, params: IssuesListIssueFieldValuesForIssueInput, *, trace_id: str
     ) -> IssuesListIssueFieldValuesForIssueOutput:
@@ -13006,7 +16062,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_add_issue_field_values")
+    @nw_action(
+        "issues_add_issue_field_values",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/issue-field-values",
+    )
     async def issues_add_issue_field_values(
         self, params: IssuesAddIssueFieldValuesInput, *, trace_id: str
     ) -> IssuesAddIssueFieldValuesOutput:
@@ -13018,7 +16078,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_set_issue_field_values")
+    @nw_action(
+        "issues_set_issue_field_values",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/issue-field-values",
+    )
     async def issues_set_issue_field_values(
         self, params: IssuesSetIssueFieldValuesInput, *, trace_id: str
     ) -> IssuesSetIssueFieldValuesOutput:
@@ -13030,7 +16094,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_delete_issue_field_value")
+    @nw_action(
+        "issues_delete_issue_field_value",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/issue-field-values/{issue_field_id}",
+    )
     async def issues_delete_issue_field_value(
         self, params: IssuesDeleteIssueFieldValueInput, *, trace_id: str
     ) -> IssuesDeleteIssueFieldValueOutput:
@@ -13042,7 +16110,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_labels_on_issue")
+    @nw_action(
+        "issues_list_labels_on_issue",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/labels",
+    )
     async def issues_list_labels_on_issue(
         self, params: IssuesListLabelsOnIssueInput, *, trace_id: str
     ) -> IssuesListLabelsOnIssueOutput:
@@ -13054,7 +16126,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_add_labels")
+    @nw_action(
+        "issues_add_labels",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/labels",
+    )
     async def issues_add_labels(
         self, params: IssuesAddLabelsInput, *, trace_id: str
     ) -> IssuesAddLabelsOutput:
@@ -13066,7 +16142,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_set_labels")
+    @nw_action(
+        "issues_set_labels",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/labels",
+    )
     async def issues_set_labels(
         self, params: IssuesSetLabelsInput, *, trace_id: str
     ) -> IssuesSetLabelsOutput:
@@ -13078,7 +16158,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_remove_all_labels")
+    @nw_action(
+        "issues_remove_all_labels",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/labels",
+    )
     async def issues_remove_all_labels(
         self, params: IssuesRemoveAllLabelsInput, *, trace_id: str
     ) -> IssuesRemoveAllLabelsOutput:
@@ -13090,7 +16174,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_remove_label")
+    @nw_action(
+        "issues_remove_label",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/labels/{name}",
+    )
     async def issues_remove_label(
         self, params: IssuesRemoveLabelInput, *, trace_id: str
     ) -> IssuesRemoveLabelOutput:
@@ -13102,7 +16190,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_lock")
+    @nw_action(
+        "issues_lock",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/lock",
+    )
     async def issues_lock(self, params: IssuesLockInput, *, trace_id: str) -> IssuesLockOutput:
         return await self.execute_rest(
             method="PUT",
@@ -13112,7 +16204,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_unlock")
+    @nw_action(
+        "issues_unlock",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/lock",
+    )
     async def issues_unlock(
         self, params: IssuesUnlockInput, *, trace_id: str
     ) -> IssuesUnlockOutput:
@@ -13124,7 +16220,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_get_parent")
+    @nw_action(
+        "issues_get_parent",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/parent",
+    )
     async def issues_get_parent(
         self, params: IssuesGetParentInput, *, trace_id: str
     ) -> IssuesGetParentOutput:
@@ -13136,7 +16236,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("reactions_list_for_issue")
+    @nw_action(
+        "reactions_list_for_issue",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/reactions",
+    )
     async def reactions_list_for_issue(
         self, params: ReactionsListForIssueInput, *, trace_id: str
     ) -> ReactionsListForIssueOutput:
@@ -13148,7 +16252,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("reactions_create_for_issue")
+    @nw_action(
+        "reactions_create_for_issue",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/reactions",
+    )
     async def reactions_create_for_issue(
         self, params: ReactionsCreateForIssueInput, *, trace_id: str
     ) -> ReactionsCreateForIssueOutput:
@@ -13160,7 +16268,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("reactions_delete_for_issue")
+    @nw_action(
+        "reactions_delete_for_issue",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/reactions/{reaction_id}",
+    )
     async def reactions_delete_for_issue(
         self, params: ReactionsDeleteForIssueInput, *, trace_id: str
     ) -> ReactionsDeleteForIssueOutput:
@@ -13172,7 +16284,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_relates_to")
+    @nw_action(
+        "issues_list_relates_to",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/relates_to",
+    )
     async def issues_list_relates_to(
         self, params: IssuesListRelatesToInput, *, trace_id: str
     ) -> IssuesListRelatesToOutput:
@@ -13184,7 +16300,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_add_relates_to")
+    @nw_action(
+        "issues_add_relates_to",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/relates_to",
+    )
     async def issues_add_relates_to(
         self, params: IssuesAddRelatesToInput, *, trace_id: str
     ) -> IssuesAddRelatesToOutput:
@@ -13196,7 +16316,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_remove_relates_to")
+    @nw_action(
+        "issues_remove_relates_to",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/relates_to/{issue_id}",
+    )
     async def issues_remove_relates_to(
         self, params: IssuesRemoveRelatesToInput, *, trace_id: str
     ) -> IssuesRemoveRelatesToOutput:
@@ -13208,7 +16332,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_remove_sub_issue")
+    @nw_action(
+        "issues_remove_sub_issue",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/sub_issue",
+    )
     async def issues_remove_sub_issue(
         self, params: IssuesRemoveSubIssueInput, *, trace_id: str
     ) -> IssuesRemoveSubIssueOutput:
@@ -13220,7 +16348,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_sub_issues")
+    @nw_action(
+        "issues_list_sub_issues",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/sub_issues",
+    )
     async def issues_list_sub_issues(
         self, params: IssuesListSubIssuesInput, *, trace_id: str
     ) -> IssuesListSubIssuesOutput:
@@ -13232,7 +16364,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_add_sub_issue")
+    @nw_action(
+        "issues_add_sub_issue",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/sub_issues",
+    )
     async def issues_add_sub_issue(
         self, params: IssuesAddSubIssueInput, *, trace_id: str
     ) -> IssuesAddSubIssueOutput:
@@ -13244,7 +16380,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_reprioritize_sub_issue")
+    @nw_action(
+        "issues_reprioritize_sub_issue",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/sub_issues/priority",
+    )
     async def issues_reprioritize_sub_issue(
         self, params: IssuesReprioritizeSubIssueInput, *, trace_id: str
     ) -> IssuesReprioritizeSubIssueOutput:
@@ -13256,7 +16396,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_suggestions")
+    @nw_action(
+        "issues_list_suggestions",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/suggestions",
+    )
     async def issues_list_suggestions(
         self, params: IssuesListSuggestionsInput, *, trace_id: str
     ) -> IssuesListSuggestionsOutput:
@@ -13268,7 +16412,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_approve_suggestion")
+    @nw_action(
+        "issues_approve_suggestion",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/suggestions/{suggestion_id}/approve",
+    )
     async def issues_approve_suggestion(
         self, params: IssuesApproveSuggestionInput, *, trace_id: str
     ) -> IssuesApproveSuggestionOutput:
@@ -13280,7 +16428,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_dismiss_suggestion")
+    @nw_action(
+        "issues_dismiss_suggestion",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/suggestions/{suggestion_id}/dismiss",
+    )
     async def issues_dismiss_suggestion(
         self, params: IssuesDismissSuggestionInput, *, trace_id: str
     ) -> IssuesDismissSuggestionOutput:
@@ -13292,7 +16444,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_events_for_timeline")
+    @nw_action(
+        "issues_list_events_for_timeline",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/issues/{issue_number}/timeline",
+    )
     async def issues_list_events_for_timeline(
         self, params: IssuesListEventsForTimelineInput, *, trace_id: str
     ) -> IssuesListEventsForTimelineOutput:
@@ -13304,7 +16460,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_deploy_keys")
+    @nw_action("repos_list_deploy_keys", http_method="GET", http_path="/repos/{owner}/{repo}/keys")
     async def repos_list_deploy_keys(
         self, params: ReposListDeployKeysInput, *, trace_id: str
     ) -> ReposListDeployKeysOutput:
@@ -13316,7 +16472,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_deploy_key")
+    @nw_action(
+        "repos_create_deploy_key", http_method="POST", http_path="/repos/{owner}/{repo}/keys"
+    )
     async def repos_create_deploy_key(
         self, params: ReposCreateDeployKeyInput, *, trace_id: str
     ) -> ReposCreateDeployKeyOutput:
@@ -13328,7 +16486,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_deploy_key")
+    @nw_action(
+        "repos_get_deploy_key", http_method="GET", http_path="/repos/{owner}/{repo}/keys/{key_id}"
+    )
     async def repos_get_deploy_key(
         self, params: ReposGetDeployKeyInput, *, trace_id: str
     ) -> ReposGetDeployKeyOutput:
@@ -13340,7 +16500,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_deploy_key")
+    @nw_action(
+        "repos_delete_deploy_key",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/keys/{key_id}",
+    )
     async def repos_delete_deploy_key(
         self, params: ReposDeleteDeployKeyInput, *, trace_id: str
     ) -> ReposDeleteDeployKeyOutput:
@@ -13352,7 +16516,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_labels_for_repo")
+    @nw_action(
+        "issues_list_labels_for_repo", http_method="GET", http_path="/repos/{owner}/{repo}/labels"
+    )
     async def issues_list_labels_for_repo(
         self, params: IssuesListLabelsForRepoInput, *, trace_id: str
     ) -> IssuesListLabelsForRepoOutput:
@@ -13364,7 +16530,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_create_label")
+    @nw_action("issues_create_label", http_method="POST", http_path="/repos/{owner}/{repo}/labels")
     async def issues_create_label(
         self, params: IssuesCreateLabelInput, *, trace_id: str
     ) -> IssuesCreateLabelOutput:
@@ -13376,7 +16542,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_get_label")
+    @nw_action(
+        "issues_get_label", http_method="GET", http_path="/repos/{owner}/{repo}/labels/{name}"
+    )
     async def issues_get_label(
         self, params: IssuesGetLabelInput, *, trace_id: str
     ) -> IssuesGetLabelOutput:
@@ -13388,7 +16556,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_update_label")
+    @nw_action(
+        "issues_update_label", http_method="PATCH", http_path="/repos/{owner}/{repo}/labels/{name}"
+    )
     async def issues_update_label(
         self, params: IssuesUpdateLabelInput, *, trace_id: str
     ) -> IssuesUpdateLabelOutput:
@@ -13400,7 +16570,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_delete_label")
+    @nw_action(
+        "issues_delete_label", http_method="DELETE", http_path="/repos/{owner}/{repo}/labels/{name}"
+    )
     async def issues_delete_label(
         self, params: IssuesDeleteLabelInput, *, trace_id: str
     ) -> IssuesDeleteLabelOutput:
@@ -13412,7 +16584,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_languages")
+    @nw_action(
+        "repos_list_languages", http_method="GET", http_path="/repos/{owner}/{repo}/languages"
+    )
     async def repos_list_languages(
         self, params: ReposListLanguagesInput, *, trace_id: str
     ) -> ReposListLanguagesOutput:
@@ -13424,7 +16598,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("licenses_get_for_repo")
+    @nw_action(
+        "licenses_get_for_repo", http_method="GET", http_path="/repos/{owner}/{repo}/license"
+    )
     async def licenses_get_for_repo(
         self, params: LicensesGetForRepoInput, *, trace_id: str
     ) -> LicensesGetForRepoOutput:
@@ -13436,7 +16612,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_merge_upstream")
+    @nw_action(
+        "repos_merge_upstream", http_method="POST", http_path="/repos/{owner}/{repo}/merge-upstream"
+    )
     async def repos_merge_upstream(
         self, params: ReposMergeUpstreamInput, *, trace_id: str
     ) -> ReposMergeUpstreamOutput:
@@ -13448,7 +16626,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_merge")
+    @nw_action("repos_merge", http_method="POST", http_path="/repos/{owner}/{repo}/merges")
     async def repos_merge(self, params: ReposMergeInput, *, trace_id: str) -> ReposMergeOutput:
         return await self.execute_rest(
             method="POST",
@@ -13458,7 +16636,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_milestones")
+    @nw_action(
+        "issues_list_milestones", http_method="GET", http_path="/repos/{owner}/{repo}/milestones"
+    )
     async def issues_list_milestones(
         self, params: IssuesListMilestonesInput, *, trace_id: str
     ) -> IssuesListMilestonesOutput:
@@ -13470,7 +16650,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_create_milestone")
+    @nw_action(
+        "issues_create_milestone", http_method="POST", http_path="/repos/{owner}/{repo}/milestones"
+    )
     async def issues_create_milestone(
         self, params: IssuesCreateMilestoneInput, *, trace_id: str
     ) -> IssuesCreateMilestoneOutput:
@@ -13482,7 +16664,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_get_milestone")
+    @nw_action(
+        "issues_get_milestone",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/milestones/{milestone_number}",
+    )
     async def issues_get_milestone(
         self, params: IssuesGetMilestoneInput, *, trace_id: str
     ) -> IssuesGetMilestoneOutput:
@@ -13494,7 +16680,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_update_milestone")
+    @nw_action(
+        "issues_update_milestone",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/milestones/{milestone_number}",
+    )
     async def issues_update_milestone(
         self, params: IssuesUpdateMilestoneInput, *, trace_id: str
     ) -> IssuesUpdateMilestoneOutput:
@@ -13506,7 +16696,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_delete_milestone")
+    @nw_action(
+        "issues_delete_milestone",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/milestones/{milestone_number}",
+    )
     async def issues_delete_milestone(
         self, params: IssuesDeleteMilestoneInput, *, trace_id: str
     ) -> IssuesDeleteMilestoneOutput:
@@ -13518,7 +16712,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_labels_for_milestone")
+    @nw_action(
+        "issues_list_labels_for_milestone",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/milestones/{milestone_number}/labels",
+    )
     async def issues_list_labels_for_milestone(
         self, params: IssuesListLabelsForMilestoneInput, *, trace_id: str
     ) -> IssuesListLabelsForMilestoneOutput:
@@ -13530,7 +16728,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_repo_notifications_for_authenticated_user")
+    @nw_action(
+        "activity_list_repo_notifications_for_authenticated_user",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/notifications",
+    )
     async def activity_list_repo_notifications_for_authenticated_user(
         self, params: ActivityListRepoNotificationsForAuthenticatedUserInput, *, trace_id: str
     ) -> ActivityListRepoNotificationsForAuthenticatedUserOutput:
@@ -13542,7 +16744,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_mark_repo_notifications_as_read")
+    @nw_action(
+        "activity_mark_repo_notifications_as_read",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/notifications",
+    )
     async def activity_mark_repo_notifications_as_read(
         self, params: ActivityMarkRepoNotificationsAsReadInput, *, trace_id: str
     ) -> ActivityMarkRepoNotificationsAsReadOutput:
@@ -13554,7 +16760,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_pages")
+    @nw_action("repos_get_pages", http_method="GET", http_path="/repos/{owner}/{repo}/pages")
     async def repos_get_pages(
         self, params: ReposGetPagesInput, *, trace_id: str
     ) -> ReposGetPagesOutput:
@@ -13566,7 +16772,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_pages_site")
+    @nw_action(
+        "repos_create_pages_site", http_method="POST", http_path="/repos/{owner}/{repo}/pages"
+    )
     async def repos_create_pages_site(
         self, params: ReposCreatePagesSiteInput, *, trace_id: str
     ) -> ReposCreatePagesSiteOutput:
@@ -13578,7 +16786,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_update_information_about_pages_site")
+    @nw_action(
+        "repos_update_information_about_pages_site",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/pages",
+    )
     async def repos_update_information_about_pages_site(
         self, params: ReposUpdateInformationAboutPagesSiteInput, *, trace_id: str
     ) -> ReposUpdateInformationAboutPagesSiteOutput:
@@ -13590,7 +16802,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_pages_site")
+    @nw_action(
+        "repos_delete_pages_site", http_method="DELETE", http_path="/repos/{owner}/{repo}/pages"
+    )
     async def repos_delete_pages_site(
         self, params: ReposDeletePagesSiteInput, *, trace_id: str
     ) -> ReposDeletePagesSiteOutput:
@@ -13602,7 +16816,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_pages_builds")
+    @nw_action(
+        "repos_list_pages_builds", http_method="GET", http_path="/repos/{owner}/{repo}/pages/builds"
+    )
     async def repos_list_pages_builds(
         self, params: ReposListPagesBuildsInput, *, trace_id: str
     ) -> ReposListPagesBuildsOutput:
@@ -13614,7 +16830,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_request_pages_build")
+    @nw_action(
+        "repos_request_pages_build",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/pages/builds",
+    )
     async def repos_request_pages_build(
         self, params: ReposRequestPagesBuildInput, *, trace_id: str
     ) -> ReposRequestPagesBuildOutput:
@@ -13626,7 +16846,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_latest_pages_build")
+    @nw_action(
+        "repos_get_latest_pages_build",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pages/builds/latest",
+    )
     async def repos_get_latest_pages_build(
         self, params: ReposGetLatestPagesBuildInput, *, trace_id: str
     ) -> ReposGetLatestPagesBuildOutput:
@@ -13638,7 +16862,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_pages_build")
+    @nw_action(
+        "repos_get_pages_build",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pages/builds/{build_id}",
+    )
     async def repos_get_pages_build(
         self, params: ReposGetPagesBuildInput, *, trace_id: str
     ) -> ReposGetPagesBuildOutput:
@@ -13650,7 +16878,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_pages_deployment")
+    @nw_action(
+        "repos_create_pages_deployment",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/pages/deployments",
+    )
     async def repos_create_pages_deployment(
         self, params: ReposCreatePagesDeploymentInput, *, trace_id: str
     ) -> ReposCreatePagesDeploymentOutput:
@@ -13662,7 +16894,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_pages_deployment")
+    @nw_action(
+        "repos_get_pages_deployment",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pages/deployments/{pages_deployment_id}",
+    )
     async def repos_get_pages_deployment(
         self, params: ReposGetPagesDeploymentInput, *, trace_id: str
     ) -> ReposGetPagesDeploymentOutput:
@@ -13674,7 +16910,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_cancel_pages_deployment")
+    @nw_action(
+        "repos_cancel_pages_deployment",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/pages/deployments/{pages_deployment_id}/cancel",
+    )
     async def repos_cancel_pages_deployment(
         self, params: ReposCancelPagesDeploymentInput, *, trace_id: str
     ) -> ReposCancelPagesDeploymentOutput:
@@ -13686,7 +16926,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_pages_health_check")
+    @nw_action(
+        "repos_get_pages_health_check",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pages/health",
+    )
     async def repos_get_pages_health_check(
         self, params: ReposGetPagesHealthCheckInput, *, trace_id: str
     ) -> ReposGetPagesHealthCheckOutput:
@@ -13698,7 +16942,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_check_private_vulnerability_reporting")
+    @nw_action(
+        "repos_check_private_vulnerability_reporting",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/private-vulnerability-reporting",
+    )
     async def repos_check_private_vulnerability_reporting(
         self, params: ReposCheckPrivateVulnerabilityReportingInput, *, trace_id: str
     ) -> ReposCheckPrivateVulnerabilityReportingOutput:
@@ -13710,7 +16958,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_enable_private_vulnerability_reporting")
+    @nw_action(
+        "repos_enable_private_vulnerability_reporting",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/private-vulnerability-reporting",
+    )
     async def repos_enable_private_vulnerability_reporting(
         self, params: ReposEnablePrivateVulnerabilityReportingInput, *, trace_id: str
     ) -> ReposEnablePrivateVulnerabilityReportingOutput:
@@ -13722,7 +16974,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_disable_private_vulnerability_reporting")
+    @nw_action(
+        "repos_disable_private_vulnerability_reporting",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/private-vulnerability-reporting",
+    )
     async def repos_disable_private_vulnerability_reporting(
         self, params: ReposDisablePrivateVulnerabilityReportingInput, *, trace_id: str
     ) -> ReposDisablePrivateVulnerabilityReportingOutput:
@@ -13734,7 +16990,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_custom_properties_for_repos_get_repository_values")
+    @nw_action(
+        "repos_custom_properties_for_repos_get_repository_values",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/properties/values",
+    )
     async def repos_custom_properties_for_repos_get_repository_values(
         self, params: ReposCustomPropertiesForReposGetRepositoryValuesInput, *, trace_id: str
     ) -> ReposCustomPropertiesForReposGetRepositoryValuesOutput:
@@ -13746,7 +17006,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_custom_properties_for_repos_create_or_update")
+    @nw_action(
+        "repos_custom_properties_for_repos_create_or_update",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/properties/values",
+    )
     async def repos_custom_properties_for_repos_create_or_update(
         self, params: ReposCustomPropertiesForReposCreateOrUpdateInput, *, trace_id: str
     ) -> ReposCustomPropertiesForReposCreateOrUpdateOutput:
@@ -13758,7 +17022,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_list")
+    @nw_action("pulls_list", http_method="GET", http_path="/repos/{owner}/{repo}/pulls")
     async def pulls_list(self, params: PullsListInput, *, trace_id: str) -> PullsListOutput:
         return await self.execute_rest(
             method="GET",
@@ -13768,7 +17032,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_create")
+    @nw_action("pulls_create", http_method="POST", http_path="/repos/{owner}/{repo}/pulls")
     async def pulls_create(self, params: PullsCreateInput, *, trace_id: str) -> PullsCreateOutput:
         return await self.execute_rest(
             method="POST",
@@ -13778,7 +17042,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_list_review_comments_for_repo")
+    @nw_action(
+        "pulls_list_review_comments_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pulls/comments",
+    )
     async def pulls_list_review_comments_for_repo(
         self, params: PullsListReviewCommentsForRepoInput, *, trace_id: str
     ) -> PullsListReviewCommentsForRepoOutput:
@@ -13790,7 +17058,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_get_review_comment")
+    @nw_action(
+        "pulls_get_review_comment",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pulls/comments/{comment_id}",
+    )
     async def pulls_get_review_comment(
         self, params: PullsGetReviewCommentInput, *, trace_id: str
     ) -> PullsGetReviewCommentOutput:
@@ -13802,7 +17074,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_update_review_comment")
+    @nw_action(
+        "pulls_update_review_comment",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/pulls/comments/{comment_id}",
+    )
     async def pulls_update_review_comment(
         self, params: PullsUpdateReviewCommentInput, *, trace_id: str
     ) -> PullsUpdateReviewCommentOutput:
@@ -13814,7 +17090,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_delete_review_comment")
+    @nw_action(
+        "pulls_delete_review_comment",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/pulls/comments/{comment_id}",
+    )
     async def pulls_delete_review_comment(
         self, params: PullsDeleteReviewCommentInput, *, trace_id: str
     ) -> PullsDeleteReviewCommentOutput:
@@ -13826,7 +17106,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("reactions_list_for_pull_request_review_comment")
+    @nw_action(
+        "reactions_list_for_pull_request_review_comment",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pulls/comments/{comment_id}/reactions",
+    )
     async def reactions_list_for_pull_request_review_comment(
         self, params: ReactionsListForPullRequestReviewCommentInput, *, trace_id: str
     ) -> ReactionsListForPullRequestReviewCommentOutput:
@@ -13838,7 +17122,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("reactions_create_for_pull_request_review_comment")
+    @nw_action(
+        "reactions_create_for_pull_request_review_comment",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/pulls/comments/{comment_id}/reactions",
+    )
     async def reactions_create_for_pull_request_review_comment(
         self, params: ReactionsCreateForPullRequestReviewCommentInput, *, trace_id: str
     ) -> ReactionsCreateForPullRequestReviewCommentOutput:
@@ -13850,7 +17138,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("reactions_delete_for_pull_request_comment")
+    @nw_action(
+        "reactions_delete_for_pull_request_comment",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/pulls/comments/{comment_id}/reactions/{reaction_id}",
+    )
     async def reactions_delete_for_pull_request_comment(
         self, params: ReactionsDeleteForPullRequestCommentInput, *, trace_id: str
     ) -> ReactionsDeleteForPullRequestCommentOutput:
@@ -13862,7 +17154,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_get")
+    @nw_action(
+        "pulls_get", http_method="GET", http_path="/repos/{owner}/{repo}/pulls/{pull_number}"
+    )
     async def pulls_get(self, params: PullsGetInput, *, trace_id: str) -> PullsGetOutput:
         return await self.execute_rest(
             method="GET",
@@ -13872,7 +17166,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_update")
+    @nw_action(
+        "pulls_update", http_method="PATCH", http_path="/repos/{owner}/{repo}/pulls/{pull_number}"
+    )
     async def pulls_update(self, params: PullsUpdateInput, *, trace_id: str) -> PullsUpdateOutput:
         return await self.execute_rest(
             method="PATCH",
@@ -13882,7 +17178,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_create_with_pr_for_authenticated_user")
+    @nw_action(
+        "codespaces_create_with_pr_for_authenticated_user",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/codespaces",
+    )
     async def codespaces_create_with_pr_for_authenticated_user(
         self, params: CodespacesCreateWithPrForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesCreateWithPrForAuthenticatedUserOutput:
@@ -13894,7 +17194,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_list_review_comments")
+    @nw_action(
+        "pulls_list_review_comments",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/comments",
+    )
     async def pulls_list_review_comments(
         self, params: PullsListReviewCommentsInput, *, trace_id: str
     ) -> PullsListReviewCommentsOutput:
@@ -13906,7 +17210,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_create_review_comment")
+    @nw_action(
+        "pulls_create_review_comment",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/comments",
+    )
     async def pulls_create_review_comment(
         self, params: PullsCreateReviewCommentInput, *, trace_id: str
     ) -> PullsCreateReviewCommentOutput:
@@ -13918,7 +17226,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_create_reply_for_review_comment")
+    @nw_action(
+        "pulls_create_reply_for_review_comment",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies",
+    )
     async def pulls_create_reply_for_review_comment(
         self, params: PullsCreateReplyForReviewCommentInput, *, trace_id: str
     ) -> PullsCreateReplyForReviewCommentOutput:
@@ -13930,7 +17242,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_list_commits")
+    @nw_action(
+        "pulls_list_commits",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/commits",
+    )
     async def pulls_list_commits(
         self, params: PullsListCommitsInput, *, trace_id: str
     ) -> PullsListCommitsOutput:
@@ -13942,7 +17258,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_list_files")
+    @nw_action(
+        "pulls_list_files",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/files",
+    )
     async def pulls_list_files(
         self, params: PullsListFilesInput, *, trace_id: str
     ) -> PullsListFilesOutput:
@@ -13954,7 +17274,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_check_if_merged")
+    @nw_action(
+        "pulls_check_if_merged",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/merge",
+    )
     async def pulls_check_if_merged(
         self, params: PullsCheckIfMergedInput, *, trace_id: str
     ) -> PullsCheckIfMergedOutput:
@@ -13966,7 +17290,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_merge")
+    @nw_action(
+        "pulls_merge",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/merge",
+    )
     async def pulls_merge(self, params: PullsMergeInput, *, trace_id: str) -> PullsMergeOutput:
         return await self.execute_rest(
             method="PUT",
@@ -13976,7 +17304,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_merge_async")
+    @nw_action(
+        "pulls_merge_async",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/merge-async",
+    )
     async def pulls_merge_async(
         self, params: PullsMergeAsyncInput, *, trace_id: str
     ) -> PullsMergeAsyncOutput:
@@ -13988,7 +17320,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_get_merge_async_result")
+    @nw_action(
+        "pulls_get_merge_async_result",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/merge-async/{uuid}",
+    )
     async def pulls_get_merge_async_result(
         self, params: PullsGetMergeAsyncResultInput, *, trace_id: str
     ) -> PullsGetMergeAsyncResultOutput:
@@ -14000,7 +17336,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_list_requested_reviewers")
+    @nw_action(
+        "pulls_list_requested_reviewers",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers",
+    )
     async def pulls_list_requested_reviewers(
         self, params: PullsListRequestedReviewersInput, *, trace_id: str
     ) -> PullsListRequestedReviewersOutput:
@@ -14012,7 +17352,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_request_reviewers")
+    @nw_action(
+        "pulls_request_reviewers",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers",
+    )
     async def pulls_request_reviewers(
         self, params: PullsRequestReviewersInput, *, trace_id: str
     ) -> PullsRequestReviewersOutput:
@@ -14024,7 +17368,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_remove_requested_reviewers")
+    @nw_action(
+        "pulls_remove_requested_reviewers",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers",
+    )
     async def pulls_remove_requested_reviewers(
         self, params: PullsRemoveRequestedReviewersInput, *, trace_id: str
     ) -> PullsRemoveRequestedReviewersOutput:
@@ -14036,7 +17384,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_rerequest_reviewers")
+    @nw_action(
+        "pulls_rerequest_reviewers",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers/rerequest",
+    )
     async def pulls_rerequest_reviewers(
         self, params: PullsRerequestReviewersInput, *, trace_id: str
     ) -> PullsRerequestReviewersOutput:
@@ -14048,7 +17400,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_list_reviews")
+    @nw_action(
+        "pulls_list_reviews",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/reviews",
+    )
     async def pulls_list_reviews(
         self, params: PullsListReviewsInput, *, trace_id: str
     ) -> PullsListReviewsOutput:
@@ -14060,7 +17416,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_create_review")
+    @nw_action(
+        "pulls_create_review",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/reviews",
+    )
     async def pulls_create_review(
         self, params: PullsCreateReviewInput, *, trace_id: str
     ) -> PullsCreateReviewOutput:
@@ -14072,7 +17432,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_get_review")
+    @nw_action(
+        "pulls_get_review",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}",
+    )
     async def pulls_get_review(
         self, params: PullsGetReviewInput, *, trace_id: str
     ) -> PullsGetReviewOutput:
@@ -14084,7 +17448,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_update_review")
+    @nw_action(
+        "pulls_update_review",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}",
+    )
     async def pulls_update_review(
         self, params: PullsUpdateReviewInput, *, trace_id: str
     ) -> PullsUpdateReviewOutput:
@@ -14096,7 +17464,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_delete_pending_review")
+    @nw_action(
+        "pulls_delete_pending_review",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}",
+    )
     async def pulls_delete_pending_review(
         self, params: PullsDeletePendingReviewInput, *, trace_id: str
     ) -> PullsDeletePendingReviewOutput:
@@ -14108,7 +17480,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_list_comments_for_review")
+    @nw_action(
+        "pulls_list_comments_for_review",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/comments",
+    )
     async def pulls_list_comments_for_review(
         self, params: PullsListCommentsForReviewInput, *, trace_id: str
     ) -> PullsListCommentsForReviewOutput:
@@ -14120,7 +17496,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_dismiss_review")
+    @nw_action(
+        "pulls_dismiss_review",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/dismissals",
+    )
     async def pulls_dismiss_review(
         self, params: PullsDismissReviewInput, *, trace_id: str
     ) -> PullsDismissReviewOutput:
@@ -14132,7 +17512,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_submit_review")
+    @nw_action(
+        "pulls_submit_review",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/events",
+    )
     async def pulls_submit_review(
         self, params: PullsSubmitReviewInput, *, trace_id: str
     ) -> PullsSubmitReviewOutput:
@@ -14144,7 +17528,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pulls_update_branch")
+    @nw_action(
+        "pulls_update_branch",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/pulls/{pull_number}/update-branch",
+    )
     async def pulls_update_branch(
         self, params: PullsUpdateBranchInput, *, trace_id: str
     ) -> PullsUpdateBranchOutput:
@@ -14156,7 +17544,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_readme")
+    @nw_action("repos_get_readme", http_method="GET", http_path="/repos/{owner}/{repo}/readme")
     async def repos_get_readme(
         self, params: ReposGetReadmeInput, *, trace_id: str
     ) -> ReposGetReadmeOutput:
@@ -14168,7 +17556,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_readme_in_directory")
+    @nw_action(
+        "repos_get_readme_in_directory",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/readme/{dir}",
+    )
     async def repos_get_readme_in_directory(
         self, params: ReposGetReadmeInDirectoryInput, *, trace_id: str
     ) -> ReposGetReadmeInDirectoryOutput:
@@ -14180,7 +17572,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_releases")
+    @nw_action("repos_list_releases", http_method="GET", http_path="/repos/{owner}/{repo}/releases")
     async def repos_list_releases(
         self, params: ReposListReleasesInput, *, trace_id: str
     ) -> ReposListReleasesOutput:
@@ -14192,7 +17584,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_release")
+    @nw_action(
+        "repos_create_release", http_method="POST", http_path="/repos/{owner}/{repo}/releases"
+    )
     async def repos_create_release(
         self, params: ReposCreateReleaseInput, *, trace_id: str
     ) -> ReposCreateReleaseOutput:
@@ -14204,7 +17598,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_release_asset")
+    @nw_action(
+        "repos_get_release_asset",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/releases/assets/{asset_id}",
+    )
     async def repos_get_release_asset(
         self, params: ReposGetReleaseAssetInput, *, trace_id: str
     ) -> ReposGetReleaseAssetOutput:
@@ -14216,7 +17614,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_update_release_asset")
+    @nw_action(
+        "repos_update_release_asset",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/releases/assets/{asset_id}",
+    )
     async def repos_update_release_asset(
         self, params: ReposUpdateReleaseAssetInput, *, trace_id: str
     ) -> ReposUpdateReleaseAssetOutput:
@@ -14228,7 +17630,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_release_asset")
+    @nw_action(
+        "repos_delete_release_asset",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/releases/assets/{asset_id}",
+    )
     async def repos_delete_release_asset(
         self, params: ReposDeleteReleaseAssetInput, *, trace_id: str
     ) -> ReposDeleteReleaseAssetOutput:
@@ -14240,7 +17646,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_generate_release_notes")
+    @nw_action(
+        "repos_generate_release_notes",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/releases/generate-notes",
+    )
     async def repos_generate_release_notes(
         self, params: ReposGenerateReleaseNotesInput, *, trace_id: str
     ) -> ReposGenerateReleaseNotesOutput:
@@ -14252,7 +17662,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_latest_release")
+    @nw_action(
+        "repos_get_latest_release",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/releases/latest",
+    )
     async def repos_get_latest_release(
         self, params: ReposGetLatestReleaseInput, *, trace_id: str
     ) -> ReposGetLatestReleaseOutput:
@@ -14264,7 +17678,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_release_by_tag")
+    @nw_action(
+        "repos_get_release_by_tag",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/releases/tags/{tag}",
+    )
     async def repos_get_release_by_tag(
         self, params: ReposGetReleaseByTagInput, *, trace_id: str
     ) -> ReposGetReleaseByTagOutput:
@@ -14276,7 +17694,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_release")
+    @nw_action(
+        "repos_get_release",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/releases/{release_id}",
+    )
     async def repos_get_release(
         self, params: ReposGetReleaseInput, *, trace_id: str
     ) -> ReposGetReleaseOutput:
@@ -14288,7 +17710,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_update_release")
+    @nw_action(
+        "repos_update_release",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/releases/{release_id}",
+    )
     async def repos_update_release(
         self, params: ReposUpdateReleaseInput, *, trace_id: str
     ) -> ReposUpdateReleaseOutput:
@@ -14300,7 +17726,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_release")
+    @nw_action(
+        "repos_delete_release",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/releases/{release_id}",
+    )
     async def repos_delete_release(
         self, params: ReposDeleteReleaseInput, *, trace_id: str
     ) -> ReposDeleteReleaseOutput:
@@ -14312,7 +17742,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_release_assets")
+    @nw_action(
+        "repos_list_release_assets",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/releases/{release_id}/assets",
+    )
     async def repos_list_release_assets(
         self, params: ReposListReleaseAssetsInput, *, trace_id: str
     ) -> ReposListReleaseAssetsOutput:
@@ -14324,7 +17758,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_upload_release_asset")
+    @nw_action(
+        "repos_upload_release_asset",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/releases/{release_id}/assets",
+    )
     async def repos_upload_release_asset(
         self, params: ReposUploadReleaseAssetInput, *, trace_id: str
     ) -> ReposUploadReleaseAssetOutput:
@@ -14337,7 +17775,11 @@ class GithubConnector(RestConnector):
             server_url="https://uploads.github.com",
         )
 
-    @nw_action("reactions_list_for_release")
+    @nw_action(
+        "reactions_list_for_release",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/releases/{release_id}/reactions",
+    )
     async def reactions_list_for_release(
         self, params: ReactionsListForReleaseInput, *, trace_id: str
     ) -> ReactionsListForReleaseOutput:
@@ -14349,7 +17791,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("reactions_create_for_release")
+    @nw_action(
+        "reactions_create_for_release",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/releases/{release_id}/reactions",
+    )
     async def reactions_create_for_release(
         self, params: ReactionsCreateForReleaseInput, *, trace_id: str
     ) -> ReactionsCreateForReleaseOutput:
@@ -14361,7 +17807,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("reactions_delete_for_release")
+    @nw_action(
+        "reactions_delete_for_release",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/releases/{release_id}/reactions/{reaction_id}",
+    )
     async def reactions_delete_for_release(
         self, params: ReactionsDeleteForReleaseInput, *, trace_id: str
     ) -> ReactionsDeleteForReleaseOutput:
@@ -14373,7 +17823,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_branch_rules")
+    @nw_action(
+        "repos_get_branch_rules",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/rules/branches/{branch}",
+    )
     async def repos_get_branch_rules(
         self, params: ReposGetBranchRulesInput, *, trace_id: str
     ) -> ReposGetBranchRulesOutput:
@@ -14385,7 +17839,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_repo_rulesets")
+    @nw_action(
+        "repos_get_repo_rulesets", http_method="GET", http_path="/repos/{owner}/{repo}/rulesets"
+    )
     async def repos_get_repo_rulesets(
         self, params: ReposGetRepoRulesetsInput, *, trace_id: str
     ) -> ReposGetRepoRulesetsOutput:
@@ -14397,7 +17853,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_repo_ruleset")
+    @nw_action(
+        "repos_create_repo_ruleset", http_method="POST", http_path="/repos/{owner}/{repo}/rulesets"
+    )
     async def repos_create_repo_ruleset(
         self, params: ReposCreateRepoRulesetInput, *, trace_id: str
     ) -> ReposCreateRepoRulesetOutput:
@@ -14409,7 +17867,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_repo_rule_suites")
+    @nw_action(
+        "repos_get_repo_rule_suites",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/rulesets/rule-suites",
+    )
     async def repos_get_repo_rule_suites(
         self, params: ReposGetRepoRuleSuitesInput, *, trace_id: str
     ) -> ReposGetRepoRuleSuitesOutput:
@@ -14421,7 +17883,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_repo_rule_suite")
+    @nw_action(
+        "repos_get_repo_rule_suite",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/rulesets/rule-suites/{rule_suite_id}",
+    )
     async def repos_get_repo_rule_suite(
         self, params: ReposGetRepoRuleSuiteInput, *, trace_id: str
     ) -> ReposGetRepoRuleSuiteOutput:
@@ -14433,7 +17899,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_repo_ruleset")
+    @nw_action(
+        "repos_get_repo_ruleset",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/rulesets/{ruleset_id}",
+    )
     async def repos_get_repo_ruleset(
         self, params: ReposGetRepoRulesetInput, *, trace_id: str
     ) -> ReposGetRepoRulesetOutput:
@@ -14445,7 +17915,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_update_repo_ruleset")
+    @nw_action(
+        "repos_update_repo_ruleset",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/rulesets/{ruleset_id}",
+    )
     async def repos_update_repo_ruleset(
         self, params: ReposUpdateRepoRulesetInput, *, trace_id: str
     ) -> ReposUpdateRepoRulesetOutput:
@@ -14457,7 +17931,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_delete_repo_ruleset")
+    @nw_action(
+        "repos_delete_repo_ruleset",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/rulesets/{ruleset_id}",
+    )
     async def repos_delete_repo_ruleset(
         self, params: ReposDeleteRepoRulesetInput, *, trace_id: str
     ) -> ReposDeleteRepoRulesetOutput:
@@ -14469,7 +17947,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_repo_ruleset_history")
+    @nw_action(
+        "repos_get_repo_ruleset_history",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/rulesets/{ruleset_id}/history",
+    )
     async def repos_get_repo_ruleset_history(
         self, params: ReposGetRepoRulesetHistoryInput, *, trace_id: str
     ) -> ReposGetRepoRulesetHistoryOutput:
@@ -14481,7 +17963,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_repo_ruleset_version")
+    @nw_action(
+        "repos_get_repo_ruleset_version",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/rulesets/{ruleset_id}/history/{version_id}",
+    )
     async def repos_get_repo_ruleset_version(
         self, params: ReposGetRepoRulesetVersionInput, *, trace_id: str
     ) -> ReposGetRepoRulesetVersionOutput:
@@ -14493,7 +17979,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_list_alerts_for_repo")
+    @nw_action(
+        "secret_scanning_list_alerts_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/secret-scanning/alerts",
+    )
     async def secret_scanning_list_alerts_for_repo(
         self, params: SecretScanningListAlertsForRepoInput, *, trace_id: str
     ) -> SecretScanningListAlertsForRepoOutput:
@@ -14505,7 +17995,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_get_alert")
+    @nw_action(
+        "secret_scanning_get_alert",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/secret-scanning/alerts/{alert_number}",
+    )
     async def secret_scanning_get_alert(
         self, params: SecretScanningGetAlertInput, *, trace_id: str
     ) -> SecretScanningGetAlertOutput:
@@ -14517,7 +18011,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_update_alert")
+    @nw_action(
+        "secret_scanning_update_alert",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/secret-scanning/alerts/{alert_number}",
+    )
     async def secret_scanning_update_alert(
         self, params: SecretScanningUpdateAlertInput, *, trace_id: str
     ) -> SecretScanningUpdateAlertOutput:
@@ -14529,7 +18027,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_list_locations_for_alert")
+    @nw_action(
+        "secret_scanning_list_locations_for_alert",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/secret-scanning/alerts/{alert_number}/locations",
+    )
     async def secret_scanning_list_locations_for_alert(
         self, params: SecretScanningListLocationsForAlertInput, *, trace_id: str
     ) -> SecretScanningListLocationsForAlertOutput:
@@ -14541,7 +18043,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_list_repo_custom_patterns")
+    @nw_action(
+        "secret_scanning_list_repo_custom_patterns",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/secret-scanning/custom-patterns",
+    )
     async def secret_scanning_list_repo_custom_patterns(
         self, params: SecretScanningListRepoCustomPatternsInput, *, trace_id: str
     ) -> SecretScanningListRepoCustomPatternsOutput:
@@ -14553,7 +18059,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_bulk_create_repo_custom_patterns")
+    @nw_action(
+        "secret_scanning_bulk_create_repo_custom_patterns",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/secret-scanning/custom-patterns",
+    )
     async def secret_scanning_bulk_create_repo_custom_patterns(
         self, params: SecretScanningBulkCreateRepoCustomPatternsInput, *, trace_id: str
     ) -> SecretScanningBulkCreateRepoCustomPatternsOutput:
@@ -14565,7 +18075,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_bulk_delete_repo_custom_patterns")
+    @nw_action(
+        "secret_scanning_bulk_delete_repo_custom_patterns",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/secret-scanning/custom-patterns",
+    )
     async def secret_scanning_bulk_delete_repo_custom_patterns(
         self, params: SecretScanningBulkDeleteRepoCustomPatternsInput, *, trace_id: str
     ) -> SecretScanningBulkDeleteRepoCustomPatternsOutput:
@@ -14577,7 +18091,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_update_repo_custom_pattern")
+    @nw_action(
+        "secret_scanning_update_repo_custom_pattern",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/secret-scanning/custom-patterns/{pattern_id}",
+    )
     async def secret_scanning_update_repo_custom_pattern(
         self, params: SecretScanningUpdateRepoCustomPatternInput, *, trace_id: str
     ) -> SecretScanningUpdateRepoCustomPatternOutput:
@@ -14589,7 +18107,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_create_push_protection_bypass")
+    @nw_action(
+        "secret_scanning_create_push_protection_bypass",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/secret-scanning/push-protection-bypasses",
+    )
     async def secret_scanning_create_push_protection_bypass(
         self, params: SecretScanningCreatePushProtectionBypassInput, *, trace_id: str
     ) -> SecretScanningCreatePushProtectionBypassOutput:
@@ -14601,7 +18123,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("secret_scanning_get_scan_history")
+    @nw_action(
+        "secret_scanning_get_scan_history",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/secret-scanning/scan-history",
+    )
     async def secret_scanning_get_scan_history(
         self, params: SecretScanningGetScanHistoryInput, *, trace_id: str
     ) -> SecretScanningGetScanHistoryOutput:
@@ -14613,7 +18139,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("security_advisories_list_repository_advisories")
+    @nw_action(
+        "security_advisories_list_repository_advisories",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/security-advisories",
+    )
     async def security_advisories_list_repository_advisories(
         self, params: SecurityAdvisoriesListRepositoryAdvisoriesInput, *, trace_id: str
     ) -> SecurityAdvisoriesListRepositoryAdvisoriesOutput:
@@ -14625,7 +18155,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("security_advisories_create_repository_advisory")
+    @nw_action(
+        "security_advisories_create_repository_advisory",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/security-advisories",
+    )
     async def security_advisories_create_repository_advisory(
         self, params: SecurityAdvisoriesCreateRepositoryAdvisoryInput, *, trace_id: str
     ) -> SecurityAdvisoriesCreateRepositoryAdvisoryOutput:
@@ -14637,7 +18171,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("security_advisories_create_private_vulnerability_report")
+    @nw_action(
+        "security_advisories_create_private_vulnerability_report",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/security-advisories/reports",
+    )
     async def security_advisories_create_private_vulnerability_report(
         self, params: SecurityAdvisoriesCreatePrivateVulnerabilityReportInput, *, trace_id: str
     ) -> SecurityAdvisoriesCreatePrivateVulnerabilityReportOutput:
@@ -14649,7 +18187,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("security_advisories_get_repository_advisory")
+    @nw_action(
+        "security_advisories_get_repository_advisory",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/security-advisories/{ghsa_id}",
+    )
     async def security_advisories_get_repository_advisory(
         self, params: SecurityAdvisoriesGetRepositoryAdvisoryInput, *, trace_id: str
     ) -> SecurityAdvisoriesGetRepositoryAdvisoryOutput:
@@ -14661,7 +18203,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("security_advisories_update_repository_advisory")
+    @nw_action(
+        "security_advisories_update_repository_advisory",
+        http_method="PATCH",
+        http_path="/repos/{owner}/{repo}/security-advisories/{ghsa_id}",
+    )
     async def security_advisories_update_repository_advisory(
         self, params: SecurityAdvisoriesUpdateRepositoryAdvisoryInput, *, trace_id: str
     ) -> SecurityAdvisoriesUpdateRepositoryAdvisoryOutput:
@@ -14673,7 +18219,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("security_advisories_create_repository_advisory_cve")
+    @nw_action(
+        "security_advisories_create_repository_advisory_cve",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/security-advisories/{ghsa_id}/cve",
+    )
     async def security_advisories_create_repository_advisory_cve(
         self, params: SecurityAdvisoriesCreateRepositoryAdvisoryCveInput, *, trace_id: str
     ) -> SecurityAdvisoriesCreateRepositoryAdvisoryCveOutput:
@@ -14685,7 +18235,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("security_advisories_create_fork")
+    @nw_action(
+        "security_advisories_create_fork",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/security-advisories/{ghsa_id}/forks",
+    )
     async def security_advisories_create_fork(
         self, params: SecurityAdvisoriesCreateForkInput, *, trace_id: str
     ) -> SecurityAdvisoriesCreateForkOutput:
@@ -14697,7 +18251,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pull_request_stacks_list")
+    @nw_action(
+        "pull_request_stacks_list", http_method="GET", http_path="/repos/{owner}/{repo}/stacks"
+    )
     async def pull_request_stacks_list(
         self, params: PullRequestStacksListInput, *, trace_id: str
     ) -> PullRequestStacksListOutput:
@@ -14709,7 +18265,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pull_request_stacks_create")
+    @nw_action(
+        "pull_request_stacks_create", http_method="POST", http_path="/repos/{owner}/{repo}/stacks"
+    )
     async def pull_request_stacks_create(
         self, params: PullRequestStacksCreateInput, *, trace_id: str
     ) -> PullRequestStacksCreateOutput:
@@ -14721,7 +18279,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pull_request_stacks_get")
+    @nw_action(
+        "pull_request_stacks_get",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/stacks/{stack_number}",
+    )
     async def pull_request_stacks_get(
         self, params: PullRequestStacksGetInput, *, trace_id: str
     ) -> PullRequestStacksGetOutput:
@@ -14733,7 +18295,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pull_request_stacks_add")
+    @nw_action(
+        "pull_request_stacks_add",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/stacks/{stack_number}/add",
+    )
     async def pull_request_stacks_add(
         self, params: PullRequestStacksAddInput, *, trace_id: str
     ) -> PullRequestStacksAddOutput:
@@ -14745,7 +18311,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("pull_request_stacks_unstack")
+    @nw_action(
+        "pull_request_stacks_unstack",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/stacks/{stack_number}/unstack",
+    )
     async def pull_request_stacks_unstack(
         self, params: PullRequestStacksUnstackInput, *, trace_id: str
     ) -> PullRequestStacksUnstackOutput:
@@ -14757,7 +18327,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_stargazers_for_repo")
+    @nw_action(
+        "activity_list_stargazers_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/stargazers",
+    )
     async def activity_list_stargazers_for_repo(
         self, params: ActivityListStargazersForRepoInput, *, trace_id: str
     ) -> ActivityListStargazersForRepoOutput:
@@ -14769,7 +18343,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_get_stargazer_count_for_repo")
+    @nw_action(
+        "activity_get_stargazer_count_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/stargazers/count",
+    )
     async def activity_get_stargazer_count_for_repo(
         self, params: ActivityGetStargazerCountForRepoInput, *, trace_id: str
     ) -> ActivityGetStargazerCountForRepoOutput:
@@ -14781,7 +18359,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_get_stargazer_history_for_repo")
+    @nw_action(
+        "activity_get_stargazer_history_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/stargazers/history",
+    )
     async def activity_get_stargazer_history_for_repo(
         self, params: ActivityGetStargazerHistoryForRepoInput, *, trace_id: str
     ) -> ActivityGetStargazerHistoryForRepoOutput:
@@ -14793,7 +18375,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_code_frequency_stats")
+    @nw_action(
+        "repos_get_code_frequency_stats",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/stats/code_frequency",
+    )
     async def repos_get_code_frequency_stats(
         self, params: ReposGetCodeFrequencyStatsInput, *, trace_id: str
     ) -> ReposGetCodeFrequencyStatsOutput:
@@ -14805,7 +18391,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_commit_activity_stats")
+    @nw_action(
+        "repos_get_commit_activity_stats",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/stats/commit_activity",
+    )
     async def repos_get_commit_activity_stats(
         self, params: ReposGetCommitActivityStatsInput, *, trace_id: str
     ) -> ReposGetCommitActivityStatsOutput:
@@ -14817,7 +18407,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_contributors_stats")
+    @nw_action(
+        "repos_get_contributors_stats",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/stats/contributors",
+    )
     async def repos_get_contributors_stats(
         self, params: ReposGetContributorsStatsInput, *, trace_id: str
     ) -> ReposGetContributorsStatsOutput:
@@ -14829,7 +18423,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_participation_stats")
+    @nw_action(
+        "repos_get_participation_stats",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/stats/participation",
+    )
     async def repos_get_participation_stats(
         self, params: ReposGetParticipationStatsInput, *, trace_id: str
     ) -> ReposGetParticipationStatsOutput:
@@ -14841,7 +18439,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_punch_card_stats")
+    @nw_action(
+        "repos_get_punch_card_stats",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/stats/punch_card",
+    )
     async def repos_get_punch_card_stats(
         self, params: ReposGetPunchCardStatsInput, *, trace_id: str
     ) -> ReposGetPunchCardStatsOutput:
@@ -14853,7 +18455,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_commit_status")
+    @nw_action(
+        "repos_create_commit_status",
+        http_method="POST",
+        http_path="/repos/{owner}/{repo}/statuses/{sha}",
+    )
     async def repos_create_commit_status(
         self, params: ReposCreateCommitStatusInput, *, trace_id: str
     ) -> ReposCreateCommitStatusOutput:
@@ -14865,7 +18471,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_watchers_for_repo")
+    @nw_action(
+        "activity_list_watchers_for_repo",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/subscribers",
+    )
     async def activity_list_watchers_for_repo(
         self, params: ActivityListWatchersForRepoInput, *, trace_id: str
     ) -> ActivityListWatchersForRepoOutput:
@@ -14877,7 +18487,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_get_repo_subscription")
+    @nw_action(
+        "activity_get_repo_subscription",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/subscription",
+    )
     async def activity_get_repo_subscription(
         self, params: ActivityGetRepoSubscriptionInput, *, trace_id: str
     ) -> ActivityGetRepoSubscriptionOutput:
@@ -14889,7 +18503,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_set_repo_subscription")
+    @nw_action(
+        "activity_set_repo_subscription",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/subscription",
+    )
     async def activity_set_repo_subscription(
         self, params: ActivitySetRepoSubscriptionInput, *, trace_id: str
     ) -> ActivitySetRepoSubscriptionOutput:
@@ -14901,7 +18519,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_delete_repo_subscription")
+    @nw_action(
+        "activity_delete_repo_subscription",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/subscription",
+    )
     async def activity_delete_repo_subscription(
         self, params: ActivityDeleteRepoSubscriptionInput, *, trace_id: str
     ) -> ActivityDeleteRepoSubscriptionOutput:
@@ -14913,7 +18535,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_tags")
+    @nw_action("repos_list_tags", http_method="GET", http_path="/repos/{owner}/{repo}/tags")
     async def repos_list_tags(
         self, params: ReposListTagsInput, *, trace_id: str
     ) -> ReposListTagsOutput:
@@ -14925,7 +18547,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_download_tarball_archive")
+    @nw_action(
+        "repos_download_tarball_archive",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/tarball/{ref}",
+    )
     async def repos_download_tarball_archive(
         self, params: ReposDownloadTarballArchiveInput, *, trace_id: str
     ) -> ReposDownloadTarballArchiveOutput:
@@ -14937,7 +18563,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_teams")
+    @nw_action("repos_list_teams", http_method="GET", http_path="/repos/{owner}/{repo}/teams")
     async def repos_list_teams(
         self, params: ReposListTeamsInput, *, trace_id: str
     ) -> ReposListTeamsOutput:
@@ -14949,7 +18575,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_all_topics")
+    @nw_action("repos_get_all_topics", http_method="GET", http_path="/repos/{owner}/{repo}/topics")
     async def repos_get_all_topics(
         self, params: ReposGetAllTopicsInput, *, trace_id: str
     ) -> ReposGetAllTopicsOutput:
@@ -14961,7 +18587,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_replace_all_topics")
+    @nw_action(
+        "repos_replace_all_topics", http_method="PUT", http_path="/repos/{owner}/{repo}/topics"
+    )
     async def repos_replace_all_topics(
         self, params: ReposReplaceAllTopicsInput, *, trace_id: str
     ) -> ReposReplaceAllTopicsOutput:
@@ -14973,7 +18601,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_clones")
+    @nw_action(
+        "repos_get_clones", http_method="GET", http_path="/repos/{owner}/{repo}/traffic/clones"
+    )
     async def repos_get_clones(
         self, params: ReposGetClonesInput, *, trace_id: str
     ) -> ReposGetClonesOutput:
@@ -14985,7 +18615,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_top_paths")
+    @nw_action(
+        "repos_get_top_paths",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/traffic/popular/paths",
+    )
     async def repos_get_top_paths(
         self, params: ReposGetTopPathsInput, *, trace_id: str
     ) -> ReposGetTopPathsOutput:
@@ -14997,7 +18631,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_top_referrers")
+    @nw_action(
+        "repos_get_top_referrers",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/traffic/popular/referrers",
+    )
     async def repos_get_top_referrers(
         self, params: ReposGetTopReferrersInput, *, trace_id: str
     ) -> ReposGetTopReferrersOutput:
@@ -15009,7 +18647,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_get_views")
+    @nw_action(
+        "repos_get_views", http_method="GET", http_path="/repos/{owner}/{repo}/traffic/views"
+    )
     async def repos_get_views(
         self, params: ReposGetViewsInput, *, trace_id: str
     ) -> ReposGetViewsOutput:
@@ -15021,7 +18661,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_transfer")
+    @nw_action("repos_transfer", http_method="POST", http_path="/repos/{owner}/{repo}/transfer")
     async def repos_transfer(
         self, params: ReposTransferInput, *, trace_id: str
     ) -> ReposTransferOutput:
@@ -15033,7 +18673,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_check_vulnerability_alerts")
+    @nw_action(
+        "repos_check_vulnerability_alerts",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/vulnerability-alerts",
+    )
     async def repos_check_vulnerability_alerts(
         self, params: ReposCheckVulnerabilityAlertsInput, *, trace_id: str
     ) -> ReposCheckVulnerabilityAlertsOutput:
@@ -15045,7 +18689,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_enable_vulnerability_alerts")
+    @nw_action(
+        "repos_enable_vulnerability_alerts",
+        http_method="PUT",
+        http_path="/repos/{owner}/{repo}/vulnerability-alerts",
+    )
     async def repos_enable_vulnerability_alerts(
         self, params: ReposEnableVulnerabilityAlertsInput, *, trace_id: str
     ) -> ReposEnableVulnerabilityAlertsOutput:
@@ -15057,7 +18705,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_disable_vulnerability_alerts")
+    @nw_action(
+        "repos_disable_vulnerability_alerts",
+        http_method="DELETE",
+        http_path="/repos/{owner}/{repo}/vulnerability-alerts",
+    )
     async def repos_disable_vulnerability_alerts(
         self, params: ReposDisableVulnerabilityAlertsInput, *, trace_id: str
     ) -> ReposDisableVulnerabilityAlertsOutput:
@@ -15069,7 +18721,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_download_zipball_archive")
+    @nw_action(
+        "repos_download_zipball_archive",
+        http_method="GET",
+        http_path="/repos/{owner}/{repo}/zipball/{ref}",
+    )
     async def repos_download_zipball_archive(
         self, params: ReposDownloadZipballArchiveInput, *, trace_id: str
     ) -> ReposDownloadZipballArchiveOutput:
@@ -15081,7 +18737,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_using_template")
+    @nw_action(
+        "repos_create_using_template",
+        http_method="POST",
+        http_path="/repos/{template_owner}/{template_repo}/generate",
+    )
     async def repos_create_using_template(
         self, params: ReposCreateUsingTemplateInput, *, trace_id: str
     ) -> ReposCreateUsingTemplateOutput:
@@ -15093,7 +18753,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_public")
+    @nw_action("repos_list_public", http_method="GET", http_path="/repositories")
     async def repos_list_public(
         self, params: ReposListPublicInput, *, trace_id: str
     ) -> ReposListPublicOutput:
@@ -15105,7 +18765,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("search_code")
+    @nw_action("search_code", http_method="GET", http_path="/search/code")
     async def search_code(self, params: SearchCodeInput, *, trace_id: str) -> SearchCodeOutput:
         return await self.execute_rest(
             method="GET",
@@ -15115,7 +18775,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("search_commits")
+    @nw_action("search_commits", http_method="GET", http_path="/search/commits")
     async def search_commits(
         self, params: SearchCommitsInput, *, trace_id: str
     ) -> SearchCommitsOutput:
@@ -15127,7 +18787,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("search_issues_and_pull_requests")
+    @nw_action("search_issues_and_pull_requests", http_method="GET", http_path="/search/issues")
     async def search_issues_and_pull_requests(
         self, params: SearchIssuesAndPullRequestsInput, *, trace_id: str
     ) -> SearchIssuesAndPullRequestsOutput:
@@ -15139,7 +18799,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("search_labels")
+    @nw_action("search_labels", http_method="GET", http_path="/search/labels")
     async def search_labels(
         self, params: SearchLabelsInput, *, trace_id: str
     ) -> SearchLabelsOutput:
@@ -15151,7 +18811,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("search_repos")
+    @nw_action("search_repos", http_method="GET", http_path="/search/repositories")
     async def search_repos(self, params: SearchReposInput, *, trace_id: str) -> SearchReposOutput:
         return await self.execute_rest(
             method="GET",
@@ -15161,7 +18821,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("search_topics")
+    @nw_action("search_topics", http_method="GET", http_path="/search/topics")
     async def search_topics(
         self, params: SearchTopicsInput, *, trace_id: str
     ) -> SearchTopicsOutput:
@@ -15173,7 +18833,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("search_users")
+    @nw_action("search_users", http_method="GET", http_path="/search/users")
     async def search_users(self, params: SearchUsersInput, *, trace_id: str) -> SearchUsersOutput:
         return await self.execute_rest(
             method="GET",
@@ -15183,7 +18843,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_get_legacy", deprecated=True)
+    @nw_action("teams_get_legacy", deprecated=True, http_method="GET", http_path="/teams/{team_id}")
     async def teams_get_legacy(
         self, params: TeamsGetLegacyInput, *, trace_id: str
     ) -> TeamsGetLegacyOutput:
@@ -15195,7 +18855,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_update_legacy", deprecated=True)
+    @nw_action(
+        "teams_update_legacy", deprecated=True, http_method="PATCH", http_path="/teams/{team_id}"
+    )
     async def teams_update_legacy(
         self, params: TeamsUpdateLegacyInput, *, trace_id: str
     ) -> TeamsUpdateLegacyOutput:
@@ -15207,7 +18869,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_delete_legacy", deprecated=True)
+    @nw_action(
+        "teams_delete_legacy", deprecated=True, http_method="DELETE", http_path="/teams/{team_id}"
+    )
     async def teams_delete_legacy(
         self, params: TeamsDeleteLegacyInput, *, trace_id: str
     ) -> TeamsDeleteLegacyOutput:
@@ -15219,7 +18883,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_list_pending_invitations_legacy", deprecated=True)
+    @nw_action(
+        "teams_list_pending_invitations_legacy",
+        deprecated=True,
+        http_method="GET",
+        http_path="/teams/{team_id}/invitations",
+    )
     async def teams_list_pending_invitations_legacy(
         self, params: TeamsListPendingInvitationsLegacyInput, *, trace_id: str
     ) -> TeamsListPendingInvitationsLegacyOutput:
@@ -15231,7 +18900,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_list_members_legacy", deprecated=True)
+    @nw_action(
+        "teams_list_members_legacy",
+        deprecated=True,
+        http_method="GET",
+        http_path="/teams/{team_id}/members",
+    )
     async def teams_list_members_legacy(
         self, params: TeamsListMembersLegacyInput, *, trace_id: str
     ) -> TeamsListMembersLegacyOutput:
@@ -15243,7 +18917,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_get_member_legacy", deprecated=True)
+    @nw_action(
+        "teams_get_member_legacy",
+        deprecated=True,
+        http_method="GET",
+        http_path="/teams/{team_id}/members/{username}",
+    )
     async def teams_get_member_legacy(
         self, params: TeamsGetMemberLegacyInput, *, trace_id: str
     ) -> TeamsGetMemberLegacyOutput:
@@ -15255,7 +18934,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_add_member_legacy", deprecated=True)
+    @nw_action(
+        "teams_add_member_legacy",
+        deprecated=True,
+        http_method="PUT",
+        http_path="/teams/{team_id}/members/{username}",
+    )
     async def teams_add_member_legacy(
         self, params: TeamsAddMemberLegacyInput, *, trace_id: str
     ) -> TeamsAddMemberLegacyOutput:
@@ -15267,7 +18951,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_remove_member_legacy", deprecated=True)
+    @nw_action(
+        "teams_remove_member_legacy",
+        deprecated=True,
+        http_method="DELETE",
+        http_path="/teams/{team_id}/members/{username}",
+    )
     async def teams_remove_member_legacy(
         self, params: TeamsRemoveMemberLegacyInput, *, trace_id: str
     ) -> TeamsRemoveMemberLegacyOutput:
@@ -15279,7 +18968,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_get_membership_for_user_legacy", deprecated=True)
+    @nw_action(
+        "teams_get_membership_for_user_legacy",
+        deprecated=True,
+        http_method="GET",
+        http_path="/teams/{team_id}/memberships/{username}",
+    )
     async def teams_get_membership_for_user_legacy(
         self, params: TeamsGetMembershipForUserLegacyInput, *, trace_id: str
     ) -> TeamsGetMembershipForUserLegacyOutput:
@@ -15291,7 +18985,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_add_or_update_membership_for_user_legacy", deprecated=True)
+    @nw_action(
+        "teams_add_or_update_membership_for_user_legacy",
+        deprecated=True,
+        http_method="PUT",
+        http_path="/teams/{team_id}/memberships/{username}",
+    )
     async def teams_add_or_update_membership_for_user_legacy(
         self, params: TeamsAddOrUpdateMembershipForUserLegacyInput, *, trace_id: str
     ) -> TeamsAddOrUpdateMembershipForUserLegacyOutput:
@@ -15303,7 +19002,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_remove_membership_for_user_legacy", deprecated=True)
+    @nw_action(
+        "teams_remove_membership_for_user_legacy",
+        deprecated=True,
+        http_method="DELETE",
+        http_path="/teams/{team_id}/memberships/{username}",
+    )
     async def teams_remove_membership_for_user_legacy(
         self, params: TeamsRemoveMembershipForUserLegacyInput, *, trace_id: str
     ) -> TeamsRemoveMembershipForUserLegacyOutput:
@@ -15315,7 +19019,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_list_repos_legacy", deprecated=True)
+    @nw_action(
+        "teams_list_repos_legacy",
+        deprecated=True,
+        http_method="GET",
+        http_path="/teams/{team_id}/repos",
+    )
     async def teams_list_repos_legacy(
         self, params: TeamsListReposLegacyInput, *, trace_id: str
     ) -> TeamsListReposLegacyOutput:
@@ -15327,7 +19036,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_check_permissions_for_repo_legacy", deprecated=True)
+    @nw_action(
+        "teams_check_permissions_for_repo_legacy",
+        deprecated=True,
+        http_method="GET",
+        http_path="/teams/{team_id}/repos/{owner}/{repo}",
+    )
     async def teams_check_permissions_for_repo_legacy(
         self, params: TeamsCheckPermissionsForRepoLegacyInput, *, trace_id: str
     ) -> TeamsCheckPermissionsForRepoLegacyOutput:
@@ -15339,7 +19053,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_add_or_update_repo_permissions_legacy", deprecated=True)
+    @nw_action(
+        "teams_add_or_update_repo_permissions_legacy",
+        deprecated=True,
+        http_method="PUT",
+        http_path="/teams/{team_id}/repos/{owner}/{repo}",
+    )
     async def teams_add_or_update_repo_permissions_legacy(
         self, params: TeamsAddOrUpdateRepoPermissionsLegacyInput, *, trace_id: str
     ) -> TeamsAddOrUpdateRepoPermissionsLegacyOutput:
@@ -15351,7 +19070,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_remove_repo_legacy", deprecated=True)
+    @nw_action(
+        "teams_remove_repo_legacy",
+        deprecated=True,
+        http_method="DELETE",
+        http_path="/teams/{team_id}/repos/{owner}/{repo}",
+    )
     async def teams_remove_repo_legacy(
         self, params: TeamsRemoveRepoLegacyInput, *, trace_id: str
     ) -> TeamsRemoveRepoLegacyOutput:
@@ -15363,7 +19087,12 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_list_child_legacy", deprecated=True)
+    @nw_action(
+        "teams_list_child_legacy",
+        deprecated=True,
+        http_method="GET",
+        http_path="/teams/{team_id}/teams",
+    )
     async def teams_list_child_legacy(
         self, params: TeamsListChildLegacyInput, *, trace_id: str
     ) -> TeamsListChildLegacyOutput:
@@ -15375,7 +19104,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_get_authenticated")
+    @nw_action("users_get_authenticated", http_method="GET", http_path="/user")
     async def users_get_authenticated(
         self, params: UsersGetAuthenticatedInput, *, trace_id: str
     ) -> UsersGetAuthenticatedOutput:
@@ -15387,7 +19116,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_update_authenticated")
+    @nw_action("users_update_authenticated", http_method="PATCH", http_path="/user")
     async def users_update_authenticated(
         self, params: UsersUpdateAuthenticatedInput, *, trace_id: str
     ) -> UsersUpdateAuthenticatedOutput:
@@ -15399,7 +19128,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_blocked_by_authenticated_user")
+    @nw_action(
+        "users_list_blocked_by_authenticated_user", http_method="GET", http_path="/user/blocks"
+    )
     async def users_list_blocked_by_authenticated_user(
         self, params: UsersListBlockedByAuthenticatedUserInput, *, trace_id: str
     ) -> UsersListBlockedByAuthenticatedUserOutput:
@@ -15411,7 +19142,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_check_blocked")
+    @nw_action("users_check_blocked", http_method="GET", http_path="/user/blocks/{username}")
     async def users_check_blocked(
         self, params: UsersCheckBlockedInput, *, trace_id: str
     ) -> UsersCheckBlockedOutput:
@@ -15423,7 +19154,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_block")
+    @nw_action("users_block", http_method="PUT", http_path="/user/blocks/{username}")
     async def users_block(self, params: UsersBlockInput, *, trace_id: str) -> UsersBlockOutput:
         return await self.execute_rest(
             method="PUT",
@@ -15433,7 +19164,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_unblock")
+    @nw_action("users_unblock", http_method="DELETE", http_path="/user/blocks/{username}")
     async def users_unblock(
         self, params: UsersUnblockInput, *, trace_id: str
     ) -> UsersUnblockOutput:
@@ -15445,7 +19176,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_list_for_authenticated_user")
+    @nw_action(
+        "codespaces_list_for_authenticated_user", http_method="GET", http_path="/user/codespaces"
+    )
     async def codespaces_list_for_authenticated_user(
         self, params: CodespacesListForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesListForAuthenticatedUserOutput:
@@ -15457,7 +19190,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_create_for_authenticated_user")
+    @nw_action(
+        "codespaces_create_for_authenticated_user", http_method="POST", http_path="/user/codespaces"
+    )
     async def codespaces_create_for_authenticated_user(
         self, params: CodespacesCreateForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesCreateForAuthenticatedUserOutput:
@@ -15469,7 +19204,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_list_secrets_for_authenticated_user")
+    @nw_action(
+        "codespaces_list_secrets_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/codespaces/secrets",
+    )
     async def codespaces_list_secrets_for_authenticated_user(
         self, params: CodespacesListSecretsForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesListSecretsForAuthenticatedUserOutput:
@@ -15481,7 +19220,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_get_public_key_for_authenticated_user")
+    @nw_action(
+        "codespaces_get_public_key_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/codespaces/secrets/public-key",
+    )
     async def codespaces_get_public_key_for_authenticated_user(
         self, params: CodespacesGetPublicKeyForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesGetPublicKeyForAuthenticatedUserOutput:
@@ -15493,7 +19236,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_get_secret_for_authenticated_user")
+    @nw_action(
+        "codespaces_get_secret_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/codespaces/secrets/{secret_name}",
+    )
     async def codespaces_get_secret_for_authenticated_user(
         self, params: CodespacesGetSecretForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesGetSecretForAuthenticatedUserOutput:
@@ -15505,7 +19252,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_create_or_update_secret_for_authenticated_user")
+    @nw_action(
+        "codespaces_create_or_update_secret_for_authenticated_user",
+        http_method="PUT",
+        http_path="/user/codespaces/secrets/{secret_name}",
+    )
     async def codespaces_create_or_update_secret_for_authenticated_user(
         self, params: CodespacesCreateOrUpdateSecretForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesCreateOrUpdateSecretForAuthenticatedUserOutput:
@@ -15517,7 +19268,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_delete_secret_for_authenticated_user")
+    @nw_action(
+        "codespaces_delete_secret_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/user/codespaces/secrets/{secret_name}",
+    )
     async def codespaces_delete_secret_for_authenticated_user(
         self, params: CodespacesDeleteSecretForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesDeleteSecretForAuthenticatedUserOutput:
@@ -15529,7 +19284,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_list_repositories_for_secret_for_authenticated")
+    @nw_action(
+        "codespaces_list_repositories_for_secret_for_authenticated",
+        http_method="GET",
+        http_path="/user/codespaces/secrets/{secret_name}/repositories",
+    )
     async def codespaces_list_repositories_for_secret_for_authenticated(
         self, params: CodespacesListRepositoriesForSecretForAuthenticatedInput, *, trace_id: str
     ) -> CodespacesListRepositoriesForSecretForAuthenticatedOutput:
@@ -15541,7 +19300,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_set_repositories_for_secret_for_authenticated")
+    @nw_action(
+        "codespaces_set_repositories_for_secret_for_authenticated",
+        http_method="PUT",
+        http_path="/user/codespaces/secrets/{secret_name}/repositories",
+    )
     async def codespaces_set_repositories_for_secret_for_authenticated(
         self, params: CodespacesSetRepositoriesForSecretForAuthenticatedInput, *, trace_id: str
     ) -> CodespacesSetRepositoriesForSecretForAuthenticatedOutput:
@@ -15553,7 +19316,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_add_repository_for_secret_for_authenticated")
+    @nw_action(
+        "codespaces_add_repository_for_secret_for_authenticated",
+        http_method="PUT",
+        http_path="/user/codespaces/secrets/{secret_name}/repositories/{repository_id}",
+    )
     async def codespaces_add_repository_for_secret_for_authenticated(
         self, params: CodespacesAddRepositoryForSecretForAuthenticatedInput, *, trace_id: str
     ) -> CodespacesAddRepositoryForSecretForAuthenticatedOutput:
@@ -15565,7 +19332,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_remove_repository_for_secret_for_authenticated")
+    @nw_action(
+        "codespaces_remove_repository_for_secret_for_authenticated",
+        http_method="DELETE",
+        http_path="/user/codespaces/secrets/{secret_name}/repositories/{repository_id}",
+    )
     async def codespaces_remove_repository_for_secret_for_authenticated(
         self, params: CodespacesRemoveRepositoryForSecretForAuthenticatedInput, *, trace_id: str
     ) -> CodespacesRemoveRepositoryForSecretForAuthenticatedOutput:
@@ -15577,7 +19348,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_get_for_authenticated_user")
+    @nw_action(
+        "codespaces_get_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/codespaces/{codespace_name}",
+    )
     async def codespaces_get_for_authenticated_user(
         self, params: CodespacesGetForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesGetForAuthenticatedUserOutput:
@@ -15589,7 +19364,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_update_for_authenticated_user")
+    @nw_action(
+        "codespaces_update_for_authenticated_user",
+        http_method="PATCH",
+        http_path="/user/codespaces/{codespace_name}",
+    )
     async def codespaces_update_for_authenticated_user(
         self, params: CodespacesUpdateForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesUpdateForAuthenticatedUserOutput:
@@ -15601,7 +19380,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_delete_for_authenticated_user")
+    @nw_action(
+        "codespaces_delete_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/user/codespaces/{codespace_name}",
+    )
     async def codespaces_delete_for_authenticated_user(
         self, params: CodespacesDeleteForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesDeleteForAuthenticatedUserOutput:
@@ -15613,7 +19396,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_export_for_authenticated_user")
+    @nw_action(
+        "codespaces_export_for_authenticated_user",
+        http_method="POST",
+        http_path="/user/codespaces/{codespace_name}/exports",
+    )
     async def codespaces_export_for_authenticated_user(
         self, params: CodespacesExportForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesExportForAuthenticatedUserOutput:
@@ -15625,7 +19412,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_get_export_details_for_authenticated_user")
+    @nw_action(
+        "codespaces_get_export_details_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/codespaces/{codespace_name}/exports/{export_id}",
+    )
     async def codespaces_get_export_details_for_authenticated_user(
         self, params: CodespacesGetExportDetailsForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesGetExportDetailsForAuthenticatedUserOutput:
@@ -15637,7 +19428,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_codespace_machines_for_authenticated_user")
+    @nw_action(
+        "codespaces_codespace_machines_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/codespaces/{codespace_name}/machines",
+    )
     async def codespaces_codespace_machines_for_authenticated_user(
         self, params: CodespacesCodespaceMachinesForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesCodespaceMachinesForAuthenticatedUserOutput:
@@ -15649,7 +19444,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_publish_for_authenticated_user")
+    @nw_action(
+        "codespaces_publish_for_authenticated_user",
+        http_method="POST",
+        http_path="/user/codespaces/{codespace_name}/publish",
+    )
     async def codespaces_publish_for_authenticated_user(
         self, params: CodespacesPublishForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesPublishForAuthenticatedUserOutput:
@@ -15661,7 +19460,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_start_for_authenticated_user")
+    @nw_action(
+        "codespaces_start_for_authenticated_user",
+        http_method="POST",
+        http_path="/user/codespaces/{codespace_name}/start",
+    )
     async def codespaces_start_for_authenticated_user(
         self, params: CodespacesStartForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesStartForAuthenticatedUserOutput:
@@ -15673,7 +19476,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("codespaces_stop_for_authenticated_user")
+    @nw_action(
+        "codespaces_stop_for_authenticated_user",
+        http_method="POST",
+        http_path="/user/codespaces/{codespace_name}/stop",
+    )
     async def codespaces_stop_for_authenticated_user(
         self, params: CodespacesStopForAuthenticatedUserInput, *, trace_id: str
     ) -> CodespacesStopForAuthenticatedUserOutput:
@@ -15685,7 +19492,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_list_docker_migration_conflicting_packages_for_1")
+    @nw_action(
+        "packages_list_docker_migration_conflicting_packages_for_1",
+        http_method="GET",
+        http_path="/user/docker/conflicts",
+    )
     async def packages_list_docker_migration_conflicting_packages_for_1(
         self, params: PackagesListDockerMigrationConflictingPackagesFor1Input, *, trace_id: str
     ) -> PackagesListDockerMigrationConflictingPackagesFor1Output:
@@ -15697,7 +19508,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_set_primary_email_visibility_for_authenticated_user")
+    @nw_action(
+        "users_set_primary_email_visibility_for_authenticated_user",
+        http_method="PATCH",
+        http_path="/user/email/visibility",
+    )
     async def users_set_primary_email_visibility_for_authenticated_user(
         self, params: UsersSetPrimaryEmailVisibilityForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersSetPrimaryEmailVisibilityForAuthenticatedUserOutput:
@@ -15709,7 +19524,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_emails_for_authenticated_user")
+    @nw_action(
+        "users_list_emails_for_authenticated_user", http_method="GET", http_path="/user/emails"
+    )
     async def users_list_emails_for_authenticated_user(
         self, params: UsersListEmailsForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersListEmailsForAuthenticatedUserOutput:
@@ -15721,7 +19538,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_add_email_for_authenticated_user")
+    @nw_action(
+        "users_add_email_for_authenticated_user", http_method="POST", http_path="/user/emails"
+    )
     async def users_add_email_for_authenticated_user(
         self, params: UsersAddEmailForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersAddEmailForAuthenticatedUserOutput:
@@ -15733,7 +19552,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_delete_email_for_authenticated_user")
+    @nw_action(
+        "users_delete_email_for_authenticated_user", http_method="DELETE", http_path="/user/emails"
+    )
     async def users_delete_email_for_authenticated_user(
         self, params: UsersDeleteEmailForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersDeleteEmailForAuthenticatedUserOutput:
@@ -15745,7 +19566,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_followers_for_authenticated_user")
+    @nw_action(
+        "users_list_followers_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/followers",
+    )
     async def users_list_followers_for_authenticated_user(
         self, params: UsersListFollowersForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersListFollowersForAuthenticatedUserOutput:
@@ -15757,7 +19582,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_followed_by_authenticated_user")
+    @nw_action(
+        "users_list_followed_by_authenticated_user", http_method="GET", http_path="/user/following"
+    )
     async def users_list_followed_by_authenticated_user(
         self, params: UsersListFollowedByAuthenticatedUserInput, *, trace_id: str
     ) -> UsersListFollowedByAuthenticatedUserOutput:
@@ -15769,7 +19596,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_check_person_is_followed_by_authenticated")
+    @nw_action(
+        "users_check_person_is_followed_by_authenticated",
+        http_method="GET",
+        http_path="/user/following/{username}",
+    )
     async def users_check_person_is_followed_by_authenticated(
         self, params: UsersCheckPersonIsFollowedByAuthenticatedInput, *, trace_id: str
     ) -> UsersCheckPersonIsFollowedByAuthenticatedOutput:
@@ -15781,7 +19612,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_follow")
+    @nw_action("users_follow", http_method="PUT", http_path="/user/following/{username}")
     async def users_follow(self, params: UsersFollowInput, *, trace_id: str) -> UsersFollowOutput:
         return await self.execute_rest(
             method="PUT",
@@ -15791,7 +19622,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_unfollow")
+    @nw_action("users_unfollow", http_method="DELETE", http_path="/user/following/{username}")
     async def users_unfollow(
         self, params: UsersUnfollowInput, *, trace_id: str
     ) -> UsersUnfollowOutput:
@@ -15803,7 +19634,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_gpg_keys_for_authenticated_user")
+    @nw_action(
+        "users_list_gpg_keys_for_authenticated_user", http_method="GET", http_path="/user/gpg_keys"
+    )
     async def users_list_gpg_keys_for_authenticated_user(
         self, params: UsersListGpgKeysForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersListGpgKeysForAuthenticatedUserOutput:
@@ -15815,7 +19648,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_create_gpg_key_for_authenticated_user")
+    @nw_action(
+        "users_create_gpg_key_for_authenticated_user",
+        http_method="POST",
+        http_path="/user/gpg_keys",
+    )
     async def users_create_gpg_key_for_authenticated_user(
         self, params: UsersCreateGpgKeyForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersCreateGpgKeyForAuthenticatedUserOutput:
@@ -15827,7 +19664,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_get_gpg_key_for_authenticated_user")
+    @nw_action(
+        "users_get_gpg_key_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/gpg_keys/{gpg_key_id}",
+    )
     async def users_get_gpg_key_for_authenticated_user(
         self, params: UsersGetGpgKeyForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersGetGpgKeyForAuthenticatedUserOutput:
@@ -15839,7 +19680,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_delete_gpg_key_for_authenticated_user")
+    @nw_action(
+        "users_delete_gpg_key_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/user/gpg_keys/{gpg_key_id}",
+    )
     async def users_delete_gpg_key_for_authenticated_user(
         self, params: UsersDeleteGpgKeyForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersDeleteGpgKeyForAuthenticatedUserOutput:
@@ -15851,7 +19696,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_list_installations_for_authenticated_user")
+    @nw_action(
+        "apps_list_installations_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/installations",
+    )
     async def apps_list_installations_for_authenticated_user(
         self, params: AppsListInstallationsForAuthenticatedUserInput, *, trace_id: str
     ) -> AppsListInstallationsForAuthenticatedUserOutput:
@@ -15863,7 +19712,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_list_installation_repos_for_authenticated_user")
+    @nw_action(
+        "apps_list_installation_repos_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/installations/{installation_id}/repositories",
+    )
     async def apps_list_installation_repos_for_authenticated_user(
         self, params: AppsListInstallationReposForAuthenticatedUserInput, *, trace_id: str
     ) -> AppsListInstallationReposForAuthenticatedUserOutput:
@@ -15875,7 +19728,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_add_repo_to_installation_for_authenticated_user")
+    @nw_action(
+        "apps_add_repo_to_installation_for_authenticated_user",
+        http_method="PUT",
+        http_path="/user/installations/{installation_id}/repositories/{repository_id}",
+    )
     async def apps_add_repo_to_installation_for_authenticated_user(
         self, params: AppsAddRepoToInstallationForAuthenticatedUserInput, *, trace_id: str
     ) -> AppsAddRepoToInstallationForAuthenticatedUserOutput:
@@ -15887,7 +19744,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_remove_repo_from_installation_for_authenticated_user")
+    @nw_action(
+        "apps_remove_repo_from_installation_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/user/installations/{installation_id}/repositories/{repository_id}",
+    )
     async def apps_remove_repo_from_installation_for_authenticated_user(
         self, params: AppsRemoveRepoFromInstallationForAuthenticatedUserInput, *, trace_id: str
     ) -> AppsRemoveRepoFromInstallationForAuthenticatedUserOutput:
@@ -15899,7 +19760,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_get_restrictions_for_authenticated_user")
+    @nw_action(
+        "interactions_get_restrictions_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/interaction-limits",
+    )
     async def interactions_get_restrictions_for_authenticated_user(
         self, params: InteractionsGetRestrictionsForAuthenticatedUserInput, *, trace_id: str
     ) -> InteractionsGetRestrictionsForAuthenticatedUserOutput:
@@ -15911,7 +19776,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_set_restrictions_for_authenticated_user")
+    @nw_action(
+        "interactions_set_restrictions_for_authenticated_user",
+        http_method="PUT",
+        http_path="/user/interaction-limits",
+    )
     async def interactions_set_restrictions_for_authenticated_user(
         self, params: InteractionsSetRestrictionsForAuthenticatedUserInput, *, trace_id: str
     ) -> InteractionsSetRestrictionsForAuthenticatedUserOutput:
@@ -15923,7 +19792,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("interactions_remove_restrictions_for_authenticated_user")
+    @nw_action(
+        "interactions_remove_restrictions_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/user/interaction-limits",
+    )
     async def interactions_remove_restrictions_for_authenticated_user(
         self, params: InteractionsRemoveRestrictionsForAuthenticatedUserInput, *, trace_id: str
     ) -> InteractionsRemoveRestrictionsForAuthenticatedUserOutput:
@@ -15935,7 +19808,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("issues_list_for_authenticated_user")
+    @nw_action("issues_list_for_authenticated_user", http_method="GET", http_path="/user/issues")
     async def issues_list_for_authenticated_user(
         self, params: IssuesListForAuthenticatedUserInput, *, trace_id: str
     ) -> IssuesListForAuthenticatedUserOutput:
@@ -15947,7 +19820,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_public_ssh_keys_for_authenticated_user")
+    @nw_action(
+        "users_list_public_ssh_keys_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/keys",
+    )
     async def users_list_public_ssh_keys_for_authenticated_user(
         self, params: UsersListPublicSshKeysForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersListPublicSshKeysForAuthenticatedUserOutput:
@@ -15959,7 +19836,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_create_public_ssh_key_for_authenticated_user")
+    @nw_action(
+        "users_create_public_ssh_key_for_authenticated_user",
+        http_method="POST",
+        http_path="/user/keys",
+    )
     async def users_create_public_ssh_key_for_authenticated_user(
         self, params: UsersCreatePublicSshKeyForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersCreatePublicSshKeyForAuthenticatedUserOutput:
@@ -15971,7 +19852,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_get_public_ssh_key_for_authenticated_user")
+    @nw_action(
+        "users_get_public_ssh_key_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/keys/{key_id}",
+    )
     async def users_get_public_ssh_key_for_authenticated_user(
         self, params: UsersGetPublicSshKeyForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersGetPublicSshKeyForAuthenticatedUserOutput:
@@ -15983,7 +19868,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_delete_public_ssh_key_for_authenticated_user")
+    @nw_action(
+        "users_delete_public_ssh_key_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/user/keys/{key_id}",
+    )
     async def users_delete_public_ssh_key_for_authenticated_user(
         self, params: UsersDeletePublicSshKeyForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersDeletePublicSshKeyForAuthenticatedUserOutput:
@@ -15995,7 +19884,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_list_subscriptions_for_authenticated_user")
+    @nw_action(
+        "apps_list_subscriptions_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/marketplace_purchases",
+    )
     async def apps_list_subscriptions_for_authenticated_user(
         self, params: AppsListSubscriptionsForAuthenticatedUserInput, *, trace_id: str
     ) -> AppsListSubscriptionsForAuthenticatedUserOutput:
@@ -16007,7 +19900,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_list_subscriptions_for_authenticated_user_stubbed")
+    @nw_action(
+        "apps_list_subscriptions_for_authenticated_user_stubbed",
+        http_method="GET",
+        http_path="/user/marketplace_purchases/stubbed",
+    )
     async def apps_list_subscriptions_for_authenticated_user_stubbed(
         self, params: AppsListSubscriptionsForAuthenticatedUserStubbedInput, *, trace_id: str
     ) -> AppsListSubscriptionsForAuthenticatedUserStubbedOutput:
@@ -16019,7 +19916,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_memberships_for_authenticated_user")
+    @nw_action(
+        "orgs_list_memberships_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/memberships/orgs",
+    )
     async def orgs_list_memberships_for_authenticated_user(
         self, params: OrgsListMembershipsForAuthenticatedUserInput, *, trace_id: str
     ) -> OrgsListMembershipsForAuthenticatedUserOutput:
@@ -16031,7 +19932,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_get_membership_for_authenticated_user")
+    @nw_action(
+        "orgs_get_membership_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/memberships/orgs/{org}",
+    )
     async def orgs_get_membership_for_authenticated_user(
         self, params: OrgsGetMembershipForAuthenticatedUserInput, *, trace_id: str
     ) -> OrgsGetMembershipForAuthenticatedUserOutput:
@@ -16043,7 +19948,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_update_membership_for_authenticated_user")
+    @nw_action(
+        "orgs_update_membership_for_authenticated_user",
+        http_method="PATCH",
+        http_path="/user/memberships/orgs/{org}",
+    )
     async def orgs_update_membership_for_authenticated_user(
         self, params: OrgsUpdateMembershipForAuthenticatedUserInput, *, trace_id: str
     ) -> OrgsUpdateMembershipForAuthenticatedUserOutput:
@@ -16055,7 +19964,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_list_for_authenticated_user")
+    @nw_action(
+        "migrations_list_for_authenticated_user", http_method="GET", http_path="/user/migrations"
+    )
     async def migrations_list_for_authenticated_user(
         self, params: MigrationsListForAuthenticatedUserInput, *, trace_id: str
     ) -> MigrationsListForAuthenticatedUserOutput:
@@ -16067,7 +19978,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_start_for_authenticated_user")
+    @nw_action(
+        "migrations_start_for_authenticated_user", http_method="POST", http_path="/user/migrations"
+    )
     async def migrations_start_for_authenticated_user(
         self, params: MigrationsStartForAuthenticatedUserInput, *, trace_id: str
     ) -> MigrationsStartForAuthenticatedUserOutput:
@@ -16079,7 +19992,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_get_status_for_authenticated_user")
+    @nw_action(
+        "migrations_get_status_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/migrations/{migration_id}",
+    )
     async def migrations_get_status_for_authenticated_user(
         self, params: MigrationsGetStatusForAuthenticatedUserInput, *, trace_id: str
     ) -> MigrationsGetStatusForAuthenticatedUserOutput:
@@ -16091,7 +20008,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_get_archive_for_authenticated_user")
+    @nw_action(
+        "migrations_get_archive_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/migrations/{migration_id}/archive",
+    )
     async def migrations_get_archive_for_authenticated_user(
         self, params: MigrationsGetArchiveForAuthenticatedUserInput, *, trace_id: str
     ) -> MigrationsGetArchiveForAuthenticatedUserOutput:
@@ -16103,7 +20024,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_delete_archive_for_authenticated_user")
+    @nw_action(
+        "migrations_delete_archive_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/user/migrations/{migration_id}/archive",
+    )
     async def migrations_delete_archive_for_authenticated_user(
         self, params: MigrationsDeleteArchiveForAuthenticatedUserInput, *, trace_id: str
     ) -> MigrationsDeleteArchiveForAuthenticatedUserOutput:
@@ -16115,7 +20040,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_unlock_repo_for_authenticated_user")
+    @nw_action(
+        "migrations_unlock_repo_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/user/migrations/{migration_id}/repos/{repo_name}/lock",
+    )
     async def migrations_unlock_repo_for_authenticated_user(
         self, params: MigrationsUnlockRepoForAuthenticatedUserInput, *, trace_id: str
     ) -> MigrationsUnlockRepoForAuthenticatedUserOutput:
@@ -16127,7 +20056,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("migrations_list_repos_for_authenticated_user")
+    @nw_action(
+        "migrations_list_repos_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/migrations/{migration_id}/repositories",
+    )
     async def migrations_list_repos_for_authenticated_user(
         self, params: MigrationsListReposForAuthenticatedUserInput, *, trace_id: str
     ) -> MigrationsListReposForAuthenticatedUserOutput:
@@ -16139,7 +20072,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_for_authenticated_user")
+    @nw_action("orgs_list_for_authenticated_user", http_method="GET", http_path="/user/orgs")
     async def orgs_list_for_authenticated_user(
         self, params: OrgsListForAuthenticatedUserInput, *, trace_id: str
     ) -> OrgsListForAuthenticatedUserOutput:
@@ -16151,7 +20084,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_list_packages_for_authenticated_user")
+    @nw_action(
+        "packages_list_packages_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/packages",
+    )
     async def packages_list_packages_for_authenticated_user(
         self, params: PackagesListPackagesForAuthenticatedUserInput, *, trace_id: str
     ) -> PackagesListPackagesForAuthenticatedUserOutput:
@@ -16163,7 +20100,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_get_package_for_authenticated_user")
+    @nw_action(
+        "packages_get_package_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/packages/{package_type}/{package_name}",
+    )
     async def packages_get_package_for_authenticated_user(
         self, params: PackagesGetPackageForAuthenticatedUserInput, *, trace_id: str
     ) -> PackagesGetPackageForAuthenticatedUserOutput:
@@ -16175,7 +20116,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_delete_package_for_authenticated_user")
+    @nw_action(
+        "packages_delete_package_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/user/packages/{package_type}/{package_name}",
+    )
     async def packages_delete_package_for_authenticated_user(
         self, params: PackagesDeletePackageForAuthenticatedUserInput, *, trace_id: str
     ) -> PackagesDeletePackageForAuthenticatedUserOutput:
@@ -16187,7 +20132,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_restore_package_for_authenticated_user")
+    @nw_action(
+        "packages_restore_package_for_authenticated_user",
+        http_method="POST",
+        http_path="/user/packages/{package_type}/{package_name}/restore",
+    )
     async def packages_restore_package_for_authenticated_user(
         self, params: PackagesRestorePackageForAuthenticatedUserInput, *, trace_id: str
     ) -> PackagesRestorePackageForAuthenticatedUserOutput:
@@ -16199,7 +20148,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_get_all_package_versions_for_package_owned_by_1")
+    @nw_action(
+        "packages_get_all_package_versions_for_package_owned_by_1",
+        http_method="GET",
+        http_path="/user/packages/{package_type}/{package_name}/versions",
+    )
     async def packages_get_all_package_versions_for_package_owned_by_1(
         self, params: PackagesGetAllPackageVersionsForPackageOwnedBy1Input, *, trace_id: str
     ) -> PackagesGetAllPackageVersionsForPackageOwnedBy1Output:
@@ -16211,7 +20164,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_get_package_version_for_authenticated_user")
+    @nw_action(
+        "packages_get_package_version_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/packages/{package_type}/{package_name}/versions/{package_version_id}",
+    )
     async def packages_get_package_version_for_authenticated_user(
         self, params: PackagesGetPackageVersionForAuthenticatedUserInput, *, trace_id: str
     ) -> PackagesGetPackageVersionForAuthenticatedUserOutput:
@@ -16223,7 +20180,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_delete_package_version_for_authenticated_user")
+    @nw_action(
+        "packages_delete_package_version_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/user/packages/{package_type}/{package_name}/versions/{package_version_id}",
+    )
     async def packages_delete_package_version_for_authenticated_user(
         self, params: PackagesDeletePackageVersionForAuthenticatedUserInput, *, trace_id: str
     ) -> PackagesDeletePackageVersionForAuthenticatedUserOutput:
@@ -16235,7 +20196,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_restore_package_version_for_authenticated_user")
+    @nw_action(
+        "packages_restore_package_version_for_authenticated_user",
+        http_method="POST",
+        http_path="/user/packages/{package_type}/{package_name}/versions/{package_version_id}/restore",
+    )
     async def packages_restore_package_version_for_authenticated_user(
         self, params: PackagesRestorePackageVersionForAuthenticatedUserInput, *, trace_id: str
     ) -> PackagesRestorePackageVersionForAuthenticatedUserOutput:
@@ -16247,7 +20212,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_public_emails_for_authenticated_user")
+    @nw_action(
+        "users_list_public_emails_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/public_emails",
+    )
     async def users_list_public_emails_for_authenticated_user(
         self, params: UsersListPublicEmailsForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersListPublicEmailsForAuthenticatedUserOutput:
@@ -16259,7 +20228,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_for_authenticated_user")
+    @nw_action("repos_list_for_authenticated_user", http_method="GET", http_path="/user/repos")
     async def repos_list_for_authenticated_user(
         self, params: ReposListForAuthenticatedUserInput, *, trace_id: str
     ) -> ReposListForAuthenticatedUserOutput:
@@ -16271,7 +20240,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_create_for_authenticated_user")
+    @nw_action("repos_create_for_authenticated_user", http_method="POST", http_path="/user/repos")
     async def repos_create_for_authenticated_user(
         self, params: ReposCreateForAuthenticatedUserInput, *, trace_id: str
     ) -> ReposCreateForAuthenticatedUserOutput:
@@ -16283,7 +20252,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_invitations_for_authenticated_user")
+    @nw_action(
+        "repos_list_invitations_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/repository_invitations",
+    )
     async def repos_list_invitations_for_authenticated_user(
         self, params: ReposListInvitationsForAuthenticatedUserInput, *, trace_id: str
     ) -> ReposListInvitationsForAuthenticatedUserOutput:
@@ -16295,7 +20268,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_accept_invitation_for_authenticated_user")
+    @nw_action(
+        "repos_accept_invitation_for_authenticated_user",
+        http_method="PATCH",
+        http_path="/user/repository_invitations/{invitation_id}",
+    )
     async def repos_accept_invitation_for_authenticated_user(
         self, params: ReposAcceptInvitationForAuthenticatedUserInput, *, trace_id: str
     ) -> ReposAcceptInvitationForAuthenticatedUserOutput:
@@ -16307,7 +20284,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_decline_invitation_for_authenticated_user")
+    @nw_action(
+        "repos_decline_invitation_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/user/repository_invitations/{invitation_id}",
+    )
     async def repos_decline_invitation_for_authenticated_user(
         self, params: ReposDeclineInvitationForAuthenticatedUserInput, *, trace_id: str
     ) -> ReposDeclineInvitationForAuthenticatedUserOutput:
@@ -16319,7 +20300,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_social_accounts_for_authenticated_user")
+    @nw_action(
+        "users_list_social_accounts_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/social_accounts",
+    )
     async def users_list_social_accounts_for_authenticated_user(
         self, params: UsersListSocialAccountsForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersListSocialAccountsForAuthenticatedUserOutput:
@@ -16331,7 +20316,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_add_social_account_for_authenticated_user")
+    @nw_action(
+        "users_add_social_account_for_authenticated_user",
+        http_method="POST",
+        http_path="/user/social_accounts",
+    )
     async def users_add_social_account_for_authenticated_user(
         self, params: UsersAddSocialAccountForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersAddSocialAccountForAuthenticatedUserOutput:
@@ -16343,7 +20332,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_delete_social_account_for_authenticated_user")
+    @nw_action(
+        "users_delete_social_account_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/user/social_accounts",
+    )
     async def users_delete_social_account_for_authenticated_user(
         self, params: UsersDeleteSocialAccountForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersDeleteSocialAccountForAuthenticatedUserOutput:
@@ -16355,7 +20348,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_ssh_signing_keys_for_authenticated_user")
+    @nw_action(
+        "users_list_ssh_signing_keys_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/ssh_signing_keys",
+    )
     async def users_list_ssh_signing_keys_for_authenticated_user(
         self, params: UsersListSshSigningKeysForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersListSshSigningKeysForAuthenticatedUserOutput:
@@ -16367,7 +20364,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_create_ssh_signing_key_for_authenticated_user")
+    @nw_action(
+        "users_create_ssh_signing_key_for_authenticated_user",
+        http_method="POST",
+        http_path="/user/ssh_signing_keys",
+    )
     async def users_create_ssh_signing_key_for_authenticated_user(
         self, params: UsersCreateSshSigningKeyForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersCreateSshSigningKeyForAuthenticatedUserOutput:
@@ -16379,7 +20380,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_get_ssh_signing_key_for_authenticated_user")
+    @nw_action(
+        "users_get_ssh_signing_key_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/ssh_signing_keys/{ssh_signing_key_id}",
+    )
     async def users_get_ssh_signing_key_for_authenticated_user(
         self, params: UsersGetSshSigningKeyForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersGetSshSigningKeyForAuthenticatedUserOutput:
@@ -16391,7 +20396,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_delete_ssh_signing_key_for_authenticated_user")
+    @nw_action(
+        "users_delete_ssh_signing_key_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/user/ssh_signing_keys/{ssh_signing_key_id}",
+    )
     async def users_delete_ssh_signing_key_for_authenticated_user(
         self, params: UsersDeleteSshSigningKeyForAuthenticatedUserInput, *, trace_id: str
     ) -> UsersDeleteSshSigningKeyForAuthenticatedUserOutput:
@@ -16403,7 +20412,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_repos_starred_by_authenticated_user")
+    @nw_action(
+        "activity_list_repos_starred_by_authenticated_user",
+        http_method="GET",
+        http_path="/user/starred",
+    )
     async def activity_list_repos_starred_by_authenticated_user(
         self, params: ActivityListReposStarredByAuthenticatedUserInput, *, trace_id: str
     ) -> ActivityListReposStarredByAuthenticatedUserOutput:
@@ -16415,7 +20428,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_check_repo_is_starred_by_authenticated_user")
+    @nw_action(
+        "activity_check_repo_is_starred_by_authenticated_user",
+        http_method="GET",
+        http_path="/user/starred/{owner}/{repo}",
+    )
     async def activity_check_repo_is_starred_by_authenticated_user(
         self, params: ActivityCheckRepoIsStarredByAuthenticatedUserInput, *, trace_id: str
     ) -> ActivityCheckRepoIsStarredByAuthenticatedUserOutput:
@@ -16427,7 +20444,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_star_repo_for_authenticated_user")
+    @nw_action(
+        "activity_star_repo_for_authenticated_user",
+        http_method="PUT",
+        http_path="/user/starred/{owner}/{repo}",
+    )
     async def activity_star_repo_for_authenticated_user(
         self, params: ActivityStarRepoForAuthenticatedUserInput, *, trace_id: str
     ) -> ActivityStarRepoForAuthenticatedUserOutput:
@@ -16439,7 +20460,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_unstar_repo_for_authenticated_user")
+    @nw_action(
+        "activity_unstar_repo_for_authenticated_user",
+        http_method="DELETE",
+        http_path="/user/starred/{owner}/{repo}",
+    )
     async def activity_unstar_repo_for_authenticated_user(
         self, params: ActivityUnstarRepoForAuthenticatedUserInput, *, trace_id: str
     ) -> ActivityUnstarRepoForAuthenticatedUserOutput:
@@ -16451,7 +20476,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_watched_repos_for_authenticated_user")
+    @nw_action(
+        "activity_list_watched_repos_for_authenticated_user",
+        http_method="GET",
+        http_path="/user/subscriptions",
+    )
     async def activity_list_watched_repos_for_authenticated_user(
         self, params: ActivityListWatchedReposForAuthenticatedUserInput, *, trace_id: str
     ) -> ActivityListWatchedReposForAuthenticatedUserOutput:
@@ -16463,7 +20492,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("teams_list_for_authenticated_user")
+    @nw_action("teams_list_for_authenticated_user", http_method="GET", http_path="/user/teams")
     async def teams_list_for_authenticated_user(
         self, params: TeamsListForAuthenticatedUserInput, *, trace_id: str
     ) -> TeamsListForAuthenticatedUserOutput:
@@ -16475,7 +20504,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_get_by_id")
+    @nw_action("users_get_by_id", http_method="GET", http_path="/user/{account_id}")
     async def users_get_by_id(
         self, params: UsersGetByIdInput, *, trace_id: str
     ) -> UsersGetByIdOutput:
@@ -16487,7 +20516,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_create_draft_item_for_authenticated_user")
+    @nw_action(
+        "projects_create_draft_item_for_authenticated_user",
+        http_method="POST",
+        http_path="/user/{user_id}/projectsV2/{project_number}/drafts",
+    )
     async def projects_create_draft_item_for_authenticated_user(
         self, params: ProjectsCreateDraftItemForAuthenticatedUserInput, *, trace_id: str
     ) -> ProjectsCreateDraftItemForAuthenticatedUserOutput:
@@ -16499,7 +20532,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list")
+    @nw_action("users_list", http_method="GET", http_path="/users")
     async def users_list(self, params: UsersListInput, *, trace_id: str) -> UsersListOutput:
         return await self.execute_rest(
             method="GET",
@@ -16509,7 +20542,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_create_view_for_user")
+    @nw_action(
+        "projects_create_view_for_user",
+        http_method="POST",
+        http_path="/users/{user_id}/projectsV2/{project_number}/views",
+    )
     async def projects_create_view_for_user(
         self, params: ProjectsCreateViewForUserInput, *, trace_id: str
     ) -> ProjectsCreateViewForUserOutput:
@@ -16521,7 +20558,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_get_by_username")
+    @nw_action("users_get_by_username", http_method="GET", http_path="/users/{username}")
     async def users_get_by_username(
         self, params: UsersGetByUsernameInput, *, trace_id: str
     ) -> UsersGetByUsernameOutput:
@@ -16533,7 +20570,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_attestations_bulk")
+    @nw_action(
+        "users_list_attestations_bulk",
+        http_method="POST",
+        http_path="/users/{username}/attestations/bulk-list",
+    )
     async def users_list_attestations_bulk(
         self, params: UsersListAttestationsBulkInput, *, trace_id: str
     ) -> UsersListAttestationsBulkOutput:
@@ -16545,7 +20586,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_delete_attestations_bulk")
+    @nw_action(
+        "users_delete_attestations_bulk",
+        http_method="POST",
+        http_path="/users/{username}/attestations/delete-request",
+    )
     async def users_delete_attestations_bulk(
         self, params: UsersDeleteAttestationsBulkInput, *, trace_id: str
     ) -> UsersDeleteAttestationsBulkOutput:
@@ -16557,7 +20602,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_delete_attestations_by_subject_digest")
+    @nw_action(
+        "users_delete_attestations_by_subject_digest",
+        http_method="DELETE",
+        http_path="/users/{username}/attestations/digest/{subject_digest}",
+    )
     async def users_delete_attestations_by_subject_digest(
         self, params: UsersDeleteAttestationsBySubjectDigestInput, *, trace_id: str
     ) -> UsersDeleteAttestationsBySubjectDigestOutput:
@@ -16569,7 +20618,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_delete_attestations_by_id")
+    @nw_action(
+        "users_delete_attestations_by_id",
+        http_method="DELETE",
+        http_path="/users/{username}/attestations/{attestation_id}",
+    )
     async def users_delete_attestations_by_id(
         self, params: UsersDeleteAttestationsByIdInput, *, trace_id: str
     ) -> UsersDeleteAttestationsByIdOutput:
@@ -16581,7 +20634,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_attestations")
+    @nw_action(
+        "users_list_attestations",
+        http_method="GET",
+        http_path="/users/{username}/attestations/{subject_digest}",
+    )
     async def users_list_attestations(
         self, params: UsersListAttestationsInput, *, trace_id: str
     ) -> UsersListAttestationsOutput:
@@ -16593,7 +20650,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_list_for_user")
+    @nw_action(
+        "copilot_spaces_list_for_user",
+        http_method="GET",
+        http_path="/users/{username}/copilot-spaces",
+    )
     async def copilot_spaces_list_for_user(
         self, params: CopilotSpacesListForUserInput, *, trace_id: str
     ) -> CopilotSpacesListForUserOutput:
@@ -16605,7 +20666,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_create_for_user")
+    @nw_action(
+        "copilot_spaces_create_for_user",
+        http_method="POST",
+        http_path="/users/{username}/copilot-spaces",
+    )
     async def copilot_spaces_create_for_user(
         self, params: CopilotSpacesCreateForUserInput, *, trace_id: str
     ) -> CopilotSpacesCreateForUserOutput:
@@ -16617,7 +20682,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_get_for_user")
+    @nw_action(
+        "copilot_spaces_get_for_user",
+        http_method="GET",
+        http_path="/users/{username}/copilot-spaces/{space_number}",
+    )
     async def copilot_spaces_get_for_user(
         self, params: CopilotSpacesGetForUserInput, *, trace_id: str
     ) -> CopilotSpacesGetForUserOutput:
@@ -16629,7 +20698,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_update_for_user")
+    @nw_action(
+        "copilot_spaces_update_for_user",
+        http_method="PUT",
+        http_path="/users/{username}/copilot-spaces/{space_number}",
+    )
     async def copilot_spaces_update_for_user(
         self, params: CopilotSpacesUpdateForUserInput, *, trace_id: str
     ) -> CopilotSpacesUpdateForUserOutput:
@@ -16641,7 +20714,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_delete_for_user")
+    @nw_action(
+        "copilot_spaces_delete_for_user",
+        http_method="DELETE",
+        http_path="/users/{username}/copilot-spaces/{space_number}",
+    )
     async def copilot_spaces_delete_for_user(
         self, params: CopilotSpacesDeleteForUserInput, *, trace_id: str
     ) -> CopilotSpacesDeleteForUserOutput:
@@ -16653,7 +20730,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_list_collaborators_for_user")
+    @nw_action(
+        "copilot_spaces_list_collaborators_for_user",
+        http_method="GET",
+        http_path="/users/{username}/copilot-spaces/{space_number}/collaborators",
+    )
     async def copilot_spaces_list_collaborators_for_user(
         self, params: CopilotSpacesListCollaboratorsForUserInput, *, trace_id: str
     ) -> CopilotSpacesListCollaboratorsForUserOutput:
@@ -16665,7 +20746,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_add_collaborator_for_user")
+    @nw_action(
+        "copilot_spaces_add_collaborator_for_user",
+        http_method="POST",
+        http_path="/users/{username}/copilot-spaces/{space_number}/collaborators",
+    )
     async def copilot_spaces_add_collaborator_for_user(
         self, params: CopilotSpacesAddCollaboratorForUserInput, *, trace_id: str
     ) -> CopilotSpacesAddCollaboratorForUserOutput:
@@ -16677,7 +20762,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_update_collaborator_for_user")
+    @nw_action(
+        "copilot_spaces_update_collaborator_for_user",
+        http_method="PUT",
+        http_path="/users/{username}/copilot-spaces/{space_number}/collaborators/{actor_type}/{actor_identifier}",
+    )
     async def copilot_spaces_update_collaborator_for_user(
         self, params: CopilotSpacesUpdateCollaboratorForUserInput, *, trace_id: str
     ) -> CopilotSpacesUpdateCollaboratorForUserOutput:
@@ -16689,7 +20778,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_remove_collaborator_for_user")
+    @nw_action(
+        "copilot_spaces_remove_collaborator_for_user",
+        http_method="DELETE",
+        http_path="/users/{username}/copilot-spaces/{space_number}/collaborators/{actor_type}/{actor_identifier}",
+    )
     async def copilot_spaces_remove_collaborator_for_user(
         self, params: CopilotSpacesRemoveCollaboratorForUserInput, *, trace_id: str
     ) -> CopilotSpacesRemoveCollaboratorForUserOutput:
@@ -16701,7 +20794,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_list_resources_for_user")
+    @nw_action(
+        "copilot_spaces_list_resources_for_user",
+        http_method="GET",
+        http_path="/users/{username}/copilot-spaces/{space_number}/resources",
+    )
     async def copilot_spaces_list_resources_for_user(
         self, params: CopilotSpacesListResourcesForUserInput, *, trace_id: str
     ) -> CopilotSpacesListResourcesForUserOutput:
@@ -16713,7 +20810,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_create_resource_for_user")
+    @nw_action(
+        "copilot_spaces_create_resource_for_user",
+        http_method="POST",
+        http_path="/users/{username}/copilot-spaces/{space_number}/resources",
+    )
     async def copilot_spaces_create_resource_for_user(
         self, params: CopilotSpacesCreateResourceForUserInput, *, trace_id: str
     ) -> CopilotSpacesCreateResourceForUserOutput:
@@ -16725,7 +20826,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_get_resource_for_user")
+    @nw_action(
+        "copilot_spaces_get_resource_for_user",
+        http_method="GET",
+        http_path="/users/{username}/copilot-spaces/{space_number}/resources/{space_resource_id}",
+    )
     async def copilot_spaces_get_resource_for_user(
         self, params: CopilotSpacesGetResourceForUserInput, *, trace_id: str
     ) -> CopilotSpacesGetResourceForUserOutput:
@@ -16737,7 +20842,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_update_resource_for_user")
+    @nw_action(
+        "copilot_spaces_update_resource_for_user",
+        http_method="PUT",
+        http_path="/users/{username}/copilot-spaces/{space_number}/resources/{space_resource_id}",
+    )
     async def copilot_spaces_update_resource_for_user(
         self, params: CopilotSpacesUpdateResourceForUserInput, *, trace_id: str
     ) -> CopilotSpacesUpdateResourceForUserOutput:
@@ -16749,7 +20858,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("copilot_spaces_delete_resource_for_user")
+    @nw_action(
+        "copilot_spaces_delete_resource_for_user",
+        http_method="DELETE",
+        http_path="/users/{username}/copilot-spaces/{space_number}/resources/{space_resource_id}",
+    )
     async def copilot_spaces_delete_resource_for_user(
         self, params: CopilotSpacesDeleteResourceForUserInput, *, trace_id: str
     ) -> CopilotSpacesDeleteResourceForUserOutput:
@@ -16761,7 +20874,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_list_docker_migration_conflicting_packages_for_2")
+    @nw_action(
+        "packages_list_docker_migration_conflicting_packages_for_2",
+        http_method="GET",
+        http_path="/users/{username}/docker/conflicts",
+    )
     async def packages_list_docker_migration_conflicting_packages_for_2(
         self, params: PackagesListDockerMigrationConflictingPackagesFor2Input, *, trace_id: str
     ) -> PackagesListDockerMigrationConflictingPackagesFor2Output:
@@ -16773,7 +20890,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_events_for_authenticated_user")
+    @nw_action(
+        "activity_list_events_for_authenticated_user",
+        http_method="GET",
+        http_path="/users/{username}/events",
+    )
     async def activity_list_events_for_authenticated_user(
         self, params: ActivityListEventsForAuthenticatedUserInput, *, trace_id: str
     ) -> ActivityListEventsForAuthenticatedUserOutput:
@@ -16785,7 +20906,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_org_events_for_authenticated_user")
+    @nw_action(
+        "activity_list_org_events_for_authenticated_user",
+        http_method="GET",
+        http_path="/users/{username}/events/orgs/{org}",
+    )
     async def activity_list_org_events_for_authenticated_user(
         self, params: ActivityListOrgEventsForAuthenticatedUserInput, *, trace_id: str
     ) -> ActivityListOrgEventsForAuthenticatedUserOutput:
@@ -16797,7 +20922,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_public_events_for_user")
+    @nw_action(
+        "activity_list_public_events_for_user",
+        http_method="GET",
+        http_path="/users/{username}/events/public",
+    )
     async def activity_list_public_events_for_user(
         self, params: ActivityListPublicEventsForUserInput, *, trace_id: str
     ) -> ActivityListPublicEventsForUserOutput:
@@ -16809,7 +20938,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_followers_for_user")
+    @nw_action(
+        "users_list_followers_for_user", http_method="GET", http_path="/users/{username}/followers"
+    )
     async def users_list_followers_for_user(
         self, params: UsersListFollowersForUserInput, *, trace_id: str
     ) -> UsersListFollowersForUserOutput:
@@ -16821,7 +20952,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_following_for_user")
+    @nw_action(
+        "users_list_following_for_user", http_method="GET", http_path="/users/{username}/following"
+    )
     async def users_list_following_for_user(
         self, params: UsersListFollowingForUserInput, *, trace_id: str
     ) -> UsersListFollowingForUserOutput:
@@ -16833,7 +20966,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_check_following_for_user")
+    @nw_action(
+        "users_check_following_for_user",
+        http_method="GET",
+        http_path="/users/{username}/following/{target_user}",
+    )
     async def users_check_following_for_user(
         self, params: UsersCheckFollowingForUserInput, *, trace_id: str
     ) -> UsersCheckFollowingForUserOutput:
@@ -16845,7 +20982,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("gists_list_for_user")
+    @nw_action("gists_list_for_user", http_method="GET", http_path="/users/{username}/gists")
     async def gists_list_for_user(
         self, params: GistsListForUserInput, *, trace_id: str
     ) -> GistsListForUserOutput:
@@ -16857,7 +20994,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_gpg_keys_for_user")
+    @nw_action(
+        "users_list_gpg_keys_for_user", http_method="GET", http_path="/users/{username}/gpg_keys"
+    )
     async def users_list_gpg_keys_for_user(
         self, params: UsersListGpgKeysForUserInput, *, trace_id: str
     ) -> UsersListGpgKeysForUserOutput:
@@ -16869,7 +21008,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_get_context_for_user")
+    @nw_action(
+        "users_get_context_for_user", http_method="GET", http_path="/users/{username}/hovercard"
+    )
     async def users_get_context_for_user(
         self, params: UsersGetContextForUserInput, *, trace_id: str
     ) -> UsersGetContextForUserOutput:
@@ -16881,7 +21022,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("apps_get_user_installation")
+    @nw_action(
+        "apps_get_user_installation", http_method="GET", http_path="/users/{username}/installation"
+    )
     async def apps_get_user_installation(
         self, params: AppsGetUserInstallationInput, *, trace_id: str
     ) -> AppsGetUserInstallationOutput:
@@ -16893,7 +21036,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_public_keys_for_user")
+    @nw_action(
+        "users_list_public_keys_for_user", http_method="GET", http_path="/users/{username}/keys"
+    )
     async def users_list_public_keys_for_user(
         self, params: UsersListPublicKeysForUserInput, *, trace_id: str
     ) -> UsersListPublicKeysForUserOutput:
@@ -16905,7 +21050,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("orgs_list_for_user")
+    @nw_action("orgs_list_for_user", http_method="GET", http_path="/users/{username}/orgs")
     async def orgs_list_for_user(
         self, params: OrgsListForUserInput, *, trace_id: str
     ) -> OrgsListForUserOutput:
@@ -16917,7 +21062,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_list_packages_for_user")
+    @nw_action(
+        "packages_list_packages_for_user", http_method="GET", http_path="/users/{username}/packages"
+    )
     async def packages_list_packages_for_user(
         self, params: PackagesListPackagesForUserInput, *, trace_id: str
     ) -> PackagesListPackagesForUserOutput:
@@ -16929,7 +21076,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_get_package_for_user")
+    @nw_action(
+        "packages_get_package_for_user",
+        http_method="GET",
+        http_path="/users/{username}/packages/{package_type}/{package_name}",
+    )
     async def packages_get_package_for_user(
         self, params: PackagesGetPackageForUserInput, *, trace_id: str
     ) -> PackagesGetPackageForUserOutput:
@@ -16941,7 +21092,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_delete_package_for_user")
+    @nw_action(
+        "packages_delete_package_for_user",
+        http_method="DELETE",
+        http_path="/users/{username}/packages/{package_type}/{package_name}",
+    )
     async def packages_delete_package_for_user(
         self, params: PackagesDeletePackageForUserInput, *, trace_id: str
     ) -> PackagesDeletePackageForUserOutput:
@@ -16953,7 +21108,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_restore_package_for_user")
+    @nw_action(
+        "packages_restore_package_for_user",
+        http_method="POST",
+        http_path="/users/{username}/packages/{package_type}/{package_name}/restore",
+    )
     async def packages_restore_package_for_user(
         self, params: PackagesRestorePackageForUserInput, *, trace_id: str
     ) -> PackagesRestorePackageForUserOutput:
@@ -16965,7 +21124,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_get_all_package_versions_for_package_owned_by_2")
+    @nw_action(
+        "packages_get_all_package_versions_for_package_owned_by_2",
+        http_method="GET",
+        http_path="/users/{username}/packages/{package_type}/{package_name}/versions",
+    )
     async def packages_get_all_package_versions_for_package_owned_by_2(
         self, params: PackagesGetAllPackageVersionsForPackageOwnedBy2Input, *, trace_id: str
     ) -> PackagesGetAllPackageVersionsForPackageOwnedBy2Output:
@@ -16977,7 +21140,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_get_package_version_for_user")
+    @nw_action(
+        "packages_get_package_version_for_user",
+        http_method="GET",
+        http_path="/users/{username}/packages/{package_type}/{package_name}/versions/{package_version_id}",
+    )
     async def packages_get_package_version_for_user(
         self, params: PackagesGetPackageVersionForUserInput, *, trace_id: str
     ) -> PackagesGetPackageVersionForUserOutput:
@@ -16989,7 +21156,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_delete_package_version_for_user")
+    @nw_action(
+        "packages_delete_package_version_for_user",
+        http_method="DELETE",
+        http_path="/users/{username}/packages/{package_type}/{package_name}/versions/{package_version_id}",
+    )
     async def packages_delete_package_version_for_user(
         self, params: PackagesDeletePackageVersionForUserInput, *, trace_id: str
     ) -> PackagesDeletePackageVersionForUserOutput:
@@ -17001,7 +21172,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("packages_restore_package_version_for_user")
+    @nw_action(
+        "packages_restore_package_version_for_user",
+        http_method="POST",
+        http_path="/users/{username}/packages/{package_type}/{package_name}/versions/{package_version_id}/restore",
+    )
     async def packages_restore_package_version_for_user(
         self, params: PackagesRestorePackageVersionForUserInput, *, trace_id: str
     ) -> PackagesRestorePackageVersionForUserOutput:
@@ -17013,7 +21188,9 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_list_for_user")
+    @nw_action(
+        "projects_list_for_user", http_method="GET", http_path="/users/{username}/projectsV2"
+    )
     async def projects_list_for_user(
         self, params: ProjectsListForUserInput, *, trace_id: str
     ) -> ProjectsListForUserOutput:
@@ -17025,7 +21202,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_get_for_user")
+    @nw_action(
+        "projects_get_for_user",
+        http_method="GET",
+        http_path="/users/{username}/projectsV2/{project_number}",
+    )
     async def projects_get_for_user(
         self, params: ProjectsGetForUserInput, *, trace_id: str
     ) -> ProjectsGetForUserOutput:
@@ -17037,7 +21218,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_list_fields_for_user")
+    @nw_action(
+        "projects_list_fields_for_user",
+        http_method="GET",
+        http_path="/users/{username}/projectsV2/{project_number}/fields",
+    )
     async def projects_list_fields_for_user(
         self, params: ProjectsListFieldsForUserInput, *, trace_id: str
     ) -> ProjectsListFieldsForUserOutput:
@@ -17049,7 +21234,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_add_field_for_user")
+    @nw_action(
+        "projects_add_field_for_user",
+        http_method="POST",
+        http_path="/users/{username}/projectsV2/{project_number}/fields",
+    )
     async def projects_add_field_for_user(
         self, params: ProjectsAddFieldForUserInput, *, trace_id: str
     ) -> ProjectsAddFieldForUserOutput:
@@ -17061,7 +21250,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_get_field_for_user")
+    @nw_action(
+        "projects_get_field_for_user",
+        http_method="GET",
+        http_path="/users/{username}/projectsV2/{project_number}/fields/{field_id}",
+    )
     async def projects_get_field_for_user(
         self, params: ProjectsGetFieldForUserInput, *, trace_id: str
     ) -> ProjectsGetFieldForUserOutput:
@@ -17073,7 +21266,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_list_items_for_user")
+    @nw_action(
+        "projects_list_items_for_user",
+        http_method="GET",
+        http_path="/users/{username}/projectsV2/{project_number}/items",
+    )
     async def projects_list_items_for_user(
         self, params: ProjectsListItemsForUserInput, *, trace_id: str
     ) -> ProjectsListItemsForUserOutput:
@@ -17085,7 +21282,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_add_item_for_user")
+    @nw_action(
+        "projects_add_item_for_user",
+        http_method="POST",
+        http_path="/users/{username}/projectsV2/{project_number}/items",
+    )
     async def projects_add_item_for_user(
         self, params: ProjectsAddItemForUserInput, *, trace_id: str
     ) -> ProjectsAddItemForUserOutput:
@@ -17097,7 +21298,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_get_user_item")
+    @nw_action(
+        "projects_get_user_item",
+        http_method="GET",
+        http_path="/users/{username}/projectsV2/{project_number}/items/{item_id}",
+    )
     async def projects_get_user_item(
         self, params: ProjectsGetUserItemInput, *, trace_id: str
     ) -> ProjectsGetUserItemOutput:
@@ -17109,7 +21314,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_update_item_for_user")
+    @nw_action(
+        "projects_update_item_for_user",
+        http_method="PATCH",
+        http_path="/users/{username}/projectsV2/{project_number}/items/{item_id}",
+    )
     async def projects_update_item_for_user(
         self, params: ProjectsUpdateItemForUserInput, *, trace_id: str
     ) -> ProjectsUpdateItemForUserOutput:
@@ -17121,7 +21330,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_delete_item_for_user")
+    @nw_action(
+        "projects_delete_item_for_user",
+        http_method="DELETE",
+        http_path="/users/{username}/projectsV2/{project_number}/items/{item_id}",
+    )
     async def projects_delete_item_for_user(
         self, params: ProjectsDeleteItemForUserInput, *, trace_id: str
     ) -> ProjectsDeleteItemForUserOutput:
@@ -17133,7 +21346,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("projects_list_view_items_for_user")
+    @nw_action(
+        "projects_list_view_items_for_user",
+        http_method="GET",
+        http_path="/users/{username}/projectsV2/{project_number}/views/{view_number}/items",
+    )
     async def projects_list_view_items_for_user(
         self, params: ProjectsListViewItemsForUserInput, *, trace_id: str
     ) -> ProjectsListViewItemsForUserOutput:
@@ -17145,7 +21362,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_received_events_for_user")
+    @nw_action(
+        "activity_list_received_events_for_user",
+        http_method="GET",
+        http_path="/users/{username}/received_events",
+    )
     async def activity_list_received_events_for_user(
         self, params: ActivityListReceivedEventsForUserInput, *, trace_id: str
     ) -> ActivityListReceivedEventsForUserOutput:
@@ -17157,7 +21378,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_received_public_events_for_user")
+    @nw_action(
+        "activity_list_received_public_events_for_user",
+        http_method="GET",
+        http_path="/users/{username}/received_events/public",
+    )
     async def activity_list_received_public_events_for_user(
         self, params: ActivityListReceivedPublicEventsForUserInput, *, trace_id: str
     ) -> ActivityListReceivedPublicEventsForUserOutput:
@@ -17169,7 +21394,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("repos_list_for_user")
+    @nw_action("repos_list_for_user", http_method="GET", http_path="/users/{username}/repos")
     async def repos_list_for_user(
         self, params: ReposListForUserInput, *, trace_id: str
     ) -> ReposListForUserOutput:
@@ -17181,7 +21406,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("billing_get_github_billing_ai_credit_usage_report_user")
+    @nw_action(
+        "billing_get_github_billing_ai_credit_usage_report_user",
+        http_method="GET",
+        http_path="/users/{username}/settings/billing/ai_credit/usage",
+    )
     async def billing_get_github_billing_ai_credit_usage_report_user(
         self, params: BillingGetGithubBillingAiCreditUsageReportUserInput, *, trace_id: str
     ) -> BillingGetGithubBillingAiCreditUsageReportUserOutput:
@@ -17193,7 +21422,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("billing_get_github_billing_premium_request_usage_report_1")
+    @nw_action(
+        "billing_get_github_billing_premium_request_usage_report_1",
+        http_method="GET",
+        http_path="/users/{username}/settings/billing/premium_request/usage",
+    )
     async def billing_get_github_billing_premium_request_usage_report_1(
         self, params: BillingGetGithubBillingPremiumRequestUsageReport1Input, *, trace_id: str
     ) -> BillingGetGithubBillingPremiumRequestUsageReport1Output:
@@ -17205,7 +21438,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("billing_get_github_billing_usage_report_user")
+    @nw_action(
+        "billing_get_github_billing_usage_report_user",
+        http_method="GET",
+        http_path="/users/{username}/settings/billing/usage",
+    )
     async def billing_get_github_billing_usage_report_user(
         self, params: BillingGetGithubBillingUsageReportUserInput, *, trace_id: str
     ) -> BillingGetGithubBillingUsageReportUserOutput:
@@ -17217,7 +21454,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("billing_get_github_billing_usage_summary_report_user")
+    @nw_action(
+        "billing_get_github_billing_usage_summary_report_user",
+        http_method="GET",
+        http_path="/users/{username}/settings/billing/usage/summary",
+    )
     async def billing_get_github_billing_usage_summary_report_user(
         self, params: BillingGetGithubBillingUsageSummaryReportUserInput, *, trace_id: str
     ) -> BillingGetGithubBillingUsageSummaryReportUserOutput:
@@ -17229,7 +21470,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_social_accounts_for_user")
+    @nw_action(
+        "users_list_social_accounts_for_user",
+        http_method="GET",
+        http_path="/users/{username}/social_accounts",
+    )
     async def users_list_social_accounts_for_user(
         self, params: UsersListSocialAccountsForUserInput, *, trace_id: str
     ) -> UsersListSocialAccountsForUserOutput:
@@ -17241,7 +21486,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("users_list_ssh_signing_keys_for_user")
+    @nw_action(
+        "users_list_ssh_signing_keys_for_user",
+        http_method="GET",
+        http_path="/users/{username}/ssh_signing_keys",
+    )
     async def users_list_ssh_signing_keys_for_user(
         self, params: UsersListSshSigningKeysForUserInput, *, trace_id: str
     ) -> UsersListSshSigningKeysForUserOutput:
@@ -17253,7 +21502,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_repos_starred_by_user")
+    @nw_action(
+        "activity_list_repos_starred_by_user",
+        http_method="GET",
+        http_path="/users/{username}/starred",
+    )
     async def activity_list_repos_starred_by_user(
         self, params: ActivityListReposStarredByUserInput, *, trace_id: str
     ) -> ActivityListReposStarredByUserOutput:
@@ -17265,7 +21518,11 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("activity_list_repos_watched_by_user")
+    @nw_action(
+        "activity_list_repos_watched_by_user",
+        http_method="GET",
+        http_path="/users/{username}/subscriptions",
+    )
     async def activity_list_repos_watched_by_user(
         self, params: ActivityListReposWatchedByUserInput, *, trace_id: str
     ) -> ActivityListReposWatchedByUserOutput:
@@ -17277,7 +21534,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("meta_get_all_versions")
+    @nw_action("meta_get_all_versions", http_method="GET", http_path="/versions")
     async def meta_get_all_versions(
         self, params: MetaGetAllVersionsInput, *, trace_id: str
     ) -> MetaGetAllVersionsOutput:
@@ -17289,7 +21546,7 @@ class GithubConnector(RestConnector):
             trace_id=trace_id,
         )
 
-    @nw_action("meta_get_zen")
+    @nw_action("meta_get_zen", http_method="GET", http_path="/zen")
     async def meta_get_zen(self, params: MetaGetZenInput, *, trace_id: str) -> MetaGetZenOutput:
         return await self.execute_rest(
             method="GET",

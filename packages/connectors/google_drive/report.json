@@ -1,0 +1,338 @@
+{
+  "summary": {
+    "id": "google_drive",
+    "spec_source": "C:\\Users\\AOT\\AppData\\Local\\Temp\\claude\\b26b006effdaa054\\91e5a052-2e1b-4ad7-b8a3-6a9c60150543\\scratchpad\\gd\\drive_fixed.json",
+    "spec_version": "3.0.0",
+    "generator_version": "1.1.2",
+    "spec_content_hash": "b6878891a011c6b9c1f9f5601f8712926c7e21d10ad3514a071dac4f53f22a85",
+    "error": null,
+    "total_operations": 48,
+    "generated": 48,
+    "soft_dropped": 0,
+    "deprecated": 0,
+    "coverage_warning": false,
+    "default_base_url": "https://www.googleapis.com/drive/v3"
+  },
+  "generated_actions": [
+    {
+      "name": "drive_about_get",
+      "method": "GET",
+      "path": "/about",
+      "auth": true
+    },
+    {
+      "name": "drive_changes_list",
+      "method": "GET",
+      "path": "/changes",
+      "auth": true
+    },
+    {
+      "name": "drive_changes_get_start_page_token",
+      "method": "GET",
+      "path": "/changes/startPageToken",
+      "auth": true
+    },
+    {
+      "name": "drive_changes_watch",
+      "method": "POST",
+      "path": "/changes/watch",
+      "auth": true
+    },
+    {
+      "name": "drive_channels_stop",
+      "method": "POST",
+      "path": "/channels/stop",
+      "auth": true
+    },
+    {
+      "name": "drive_drives_list",
+      "method": "GET",
+      "path": "/drives",
+      "auth": true
+    },
+    {
+      "name": "drive_drives_create",
+      "method": "POST",
+      "path": "/drives",
+      "auth": true
+    },
+    {
+      "name": "drive_drives_delete",
+      "method": "DELETE",
+      "path": "/drives/{driveId}",
+      "auth": true
+    },
+    {
+      "name": "drive_drives_get",
+      "method": "GET",
+      "path": "/drives/{driveId}",
+      "auth": true
+    },
+    {
+      "name": "drive_drives_update",
+      "method": "PATCH",
+      "path": "/drives/{driveId}",
+      "auth": true
+    },
+    {
+      "name": "drive_drives_hide",
+      "method": "POST",
+      "path": "/drives/{driveId}/hide",
+      "auth": true
+    },
+    {
+      "name": "drive_drives_unhide",
+      "method": "POST",
+      "path": "/drives/{driveId}/unhide",
+      "auth": true
+    },
+    {
+      "name": "drive_files_list",
+      "method": "GET",
+      "path": "/files",
+      "auth": true
+    },
+    {
+      "name": "drive_files_create",
+      "method": "POST",
+      "path": "/files",
+      "auth": true
+    },
+    {
+      "name": "drive_files_generate_ids",
+      "method": "GET",
+      "path": "/files/generateIds",
+      "auth": true
+    },
+    {
+      "name": "drive_files_empty_trash",
+      "method": "DELETE",
+      "path": "/files/trash",
+      "auth": true
+    },
+    {
+      "name": "drive_files_delete",
+      "method": "DELETE",
+      "path": "/files/{fileId}",
+      "auth": true
+    },
+    {
+      "name": "drive_files_get",
+      "method": "GET",
+      "path": "/files/{fileId}",
+      "auth": true
+    },
+    {
+      "name": "drive_files_update",
+      "method": "PATCH",
+      "path": "/files/{fileId}",
+      "auth": true
+    },
+    {
+      "name": "drive_comments_list",
+      "method": "GET",
+      "path": "/files/{fileId}/comments",
+      "auth": true
+    },
+    {
+      "name": "drive_comments_create",
+      "method": "POST",
+      "path": "/files/{fileId}/comments",
+      "auth": true
+    },
+    {
+      "name": "drive_comments_delete",
+      "method": "DELETE",
+      "path": "/files/{fileId}/comments/{commentId}",
+      "auth": true
+    },
+    {
+      "name": "drive_comments_get",
+      "method": "GET",
+      "path": "/files/{fileId}/comments/{commentId}",
+      "auth": true
+    },
+    {
+      "name": "drive_comments_update",
+      "method": "PATCH",
+      "path": "/files/{fileId}/comments/{commentId}",
+      "auth": true
+    },
+    {
+      "name": "drive_replies_list",
+      "method": "GET",
+      "path": "/files/{fileId}/comments/{commentId}/replies",
+      "auth": true
+    },
+    {
+      "name": "drive_replies_create",
+      "method": "POST",
+      "path": "/files/{fileId}/comments/{commentId}/replies",
+      "auth": true
+    },
+    {
+      "name": "drive_replies_delete",
+      "method": "DELETE",
+      "path": "/files/{fileId}/comments/{commentId}/replies/{replyId}",
+      "auth": true
+    },
+    {
+      "name": "drive_replies_get",
+      "method": "GET",
+      "path": "/files/{fileId}/comments/{commentId}/replies/{replyId}",
+      "auth": true
+    },
+    {
+      "name": "drive_replies_update",
+      "method": "PATCH",
+      "path": "/files/{fileId}/comments/{commentId}/replies/{replyId}",
+      "auth": true
+    },
+    {
+      "name": "drive_files_copy",
+      "method": "POST",
+      "path": "/files/{fileId}/copy",
+      "auth": true
+    },
+    {
+      "name": "drive_files_export",
+      "method": "GET",
+      "path": "/files/{fileId}/export",
+      "auth": true
+    },
+    {
+      "name": "drive_files_list_labels",
+      "method": "GET",
+      "path": "/files/{fileId}/listLabels",
+      "auth": true
+    },
+    {
+      "name": "drive_files_modify_labels",
+      "method": "POST",
+      "path": "/files/{fileId}/modifyLabels",
+      "auth": true
+    },
+    {
+      "name": "drive_permissions_list",
+      "method": "GET",
+      "path": "/files/{fileId}/permissions",
+      "auth": true
+    },
+    {
+      "name": "drive_permissions_create",
+      "method": "POST",
+      "path": "/files/{fileId}/permissions",
+      "auth": true
+    },
+    {
+      "name": "drive_permissions_delete",
+      "method": "DELETE",
+      "path": "/files/{fileId}/permissions/{permissionId}",
+      "auth": true
+    },
+    {
+      "name": "drive_permissions_get",
+      "method": "GET",
+      "path": "/files/{fileId}/permissions/{permissionId}",
+      "auth": true
+    },
+    {
+      "name": "drive_permissions_update",
+      "method": "PATCH",
+      "path": "/files/{fileId}/permissions/{permissionId}",
+      "auth": true
+    },
+    {
+      "name": "drive_revisions_list",
+      "method": "GET",
+      "path": "/files/{fileId}/revisions",
+      "auth": true
+    },
+    {
+      "name": "drive_revisions_delete",
+      "method": "DELETE",
+      "path": "/files/{fileId}/revisions/{revisionId}",
+      "auth": true
+    },
+    {
+      "name": "drive_revisions_get",
+      "method": "GET",
+      "path": "/files/{fileId}/revisions/{revisionId}",
+      "auth": true
+    },
+    {
+      "name": "drive_revisions_update",
+      "method": "PATCH",
+      "path": "/files/{fileId}/revisions/{revisionId}",
+      "auth": true
+    },
+    {
+      "name": "drive_files_watch",
+      "method": "POST",
+      "path": "/files/{fileId}/watch",
+      "auth": true
+    },
+    {
+      "name": "drive_teamdrives_list",
+      "method": "GET",
+      "path": "/teamdrives",
+      "auth": true
+    },
+    {
+      "name": "drive_teamdrives_create",
+      "method": "POST",
+      "path": "/teamdrives",
+      "auth": true
+    },
+    {
+      "name": "drive_teamdrives_delete",
+      "method": "DELETE",
+      "path": "/teamdrives/{teamDriveId}",
+      "auth": true
+    },
+    {
+      "name": "drive_teamdrives_get",
+      "method": "GET",
+      "path": "/teamdrives/{teamDriveId}",
+      "auth": true
+    },
+    {
+      "name": "drive_teamdrives_update",
+      "method": "PATCH",
+      "path": "/teamdrives/{teamDriveId}",
+      "auth": true
+    }
+  ],
+  "skipped": [],
+  "auth": {
+    "scheme_name": "Oauth2c",
+    "provider": "static_token",
+    "tier": "host_supplied",
+    "secret_key": "GOOGLE_DRIVE_ACCESS_TOKEN",
+    "secret_keys": [
+      "GOOGLE_DRIVE_ACCESS_TOKEN"
+    ],
+    "yaml": {
+      "provider": "static_token",
+      "secret_key": "GOOGLE_DRIVE_ACCESS_TOKEN",
+      "header_name": "Authorization",
+      "prefix": "Bearer",
+      "host_supplied": true
+    },
+    "notes": [
+      "HOST-SUPPLIED CREDENTIAL: scheme 'Oauth2c' declares oauth2 flow(s) ['authorizationCode']. Node Wire never acquires this credential \u2014 the host application must obtain it (e.g. complete the provider's own auth flow) and set GOOGLE_DRIVE_ACCESS_TOKEN itself. Node Wire will present whatever value is there as a Bearer token but performs no refresh and detects no expiry; a stale token surfaces as a plain 401 from the API, not a managed refresh cycle.",
+      "Host auth documentation: authorizationUrl=https://accounts.google.com/o/oauth2/auth",
+      "Host auth documentation: tokenUrl=https://accounts.google.com/o/oauth2/token"
+    ]
+  },
+  "notes": [
+    "Dropped spec parameter(s) that duplicate the connector credential: token (in body). The configured AuthProvider supplies the credential; exposing it as a call argument would ask the caller for a secret"
+  ],
+  "gate": {
+    "ok": true,
+    "import_ok": true,
+    "pytest_ok": true,
+    "message": "clean build",
+    "pytest_output": "................................................                         [100%]\n48 passed in 1.16s\n"
+  }
+}

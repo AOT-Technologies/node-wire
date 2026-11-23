@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `nw wire <id>`: the idempotent wiring step (`connectors.yaml`, `sample.env`, `ALL_PACKAGES`)
+  on its own; `gen-all` rerun hints are now computed from what is on disk.
+- `fhir_epic` / `fhir_cerner`: searches return `next_link`, the Bundle's next-page URL.
+  `fhir_epic` `create_document_reference` sends `If-None-Exist` for the first identifier with a
+  system and value (FHIR conditional create), so a timed-out create is retried safely.
+
 ### Changed
 
 - **MCP tenant selection on streamable-http is per caller.** `nw_select_config` and
@@ -59,25 +67,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `smtp`: send failures raise typed errors instead of `ValueError`: `SMTP_AUTH_ERROR` (`AUTH`),
   `SMTP_CONNECT_ERROR` (`RETRYABLE`), `SMTP_TIMEOUT` and the new `SMTP_DISCONNECTED` (`FATAL`, not
   retried, because the message may have been sent).
-- `stripe`: `create_subscription` sends one idempotency key per step (`<key>:pm`, `<key>:attach`,
-  `<key>:sub`), and returns the created subscription with `partial: true` when only the follow-up
-  client-secret lookup fails. `charge` reports Stripe's own status (`pending` is no longer
-  reported as `failed`).
 - `slack`: `upload_file` retries a failed upload or completion step on its own instead of starting
   a new upload; a completion that still fails is `SLACK_UPLOAD_ERROR` naming the file id.
-- `google_drive`: `files.delete` reports `"status": "trashed"` (it moves the file to the trash).
-  The cached Drive client is built off the event loop, and dropped after an `AUTH` error or when
-  the auth provider's credentials change.
 - `salesforce`: `update_*` actions are declared idempotent (retried after a timeout or 5xx);
   `create_*` returns `OUTCOME_UNKNOWN` instead.
+- `node-wire-google-drive` is now generated from Google's Drive v3 API: 48 actions (plus the hand-written upload) named `drive_<resource>_<method>` (for example
+  `drive_files_list`; they replace `files.list`, `files.get`, `files.create`, `files.update`, `files.delete`, `permissions.create` and
+  `files.upload`). `drive_files_upload` (hand-written, up to 5 MB, `content` or `content_base64`) replaces `files.upload`; `drive_files_create` and `drive_files_update` take `name`, `mime_type`, `description` and `parents`, and `trashed: true` on update is the old soft delete. Shared drives stay on by default. **Not supported:** downloading content, replacing the content of an existing file, and uploads over 5 MB. `drive_files_get` cannot return content and binary responses are not returned.
+- The generated Google Drive connector accepts a service-account key again, besides an access token. In `connectors.yaml`, set
+  `auth: {provider: service_account, sa_json_secret: GOOGLE_DRIVE_SA_JSON}` (the shipped config does); the runtime now allows
+  `GOOGLE_DRIVE_SA_JSON` as a declared Google Drive secret. For a REST connector `ServiceAccountAuthProvider(bearer_header=True)`
+  returns `Authorization: Bearer <access token>`, fetched from Google and refreshed when it expires; the default (no headers, for
+  SDK connectors) is unchanged.
 
-### Added
+### Removed
 
-- `nw wire <id>`: the idempotent wiring step (`connectors.yaml`, `sample.env`, `ALL_PACKAGES`)
-  on its own; `gen-all` rerun hints are now computed from what is on disk.
-- `fhir_epic` / `fhir_cerner`: searches return `next_link`, the Bundle's next-page URL.
-  `fhir_epic` `create_document_reference` sends `If-None-Exist` for the first identifier with a
-  system and value (FHIR conditional create), so a timed-out create is retried safely.
+- The playground's hand-coded "Google Drive & IAM Vault" panel, its `POST /scenarios/gdrive-archival` route and its Playwright tests
+  (`tests/playground/gdrive/`). Google Drive now shows as the generic playground card, with every action of the connector.
 
 ### Fixed
 
@@ -110,6 +116,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hand-coded panel, listed by `GET /playground/connectors`. A connector built with `nw gen-all`
   appears after a server restart. In multitenancy mode the tenant header, config name and Add
   config dialog work for these connectors (`ConnectorFactory.config_template()`).
+- Action exposure profiles: `NW_EXPOSE_PROFILE` serves only the actions listed in
+  `expose/<connector_id>/<profile>.yaml` on REST, gRPC, MCP and stacklok servers. Hidden actions
+  are left out of listings and refused by `invoke()` with the new `ACTION_NOT_EXPOSED` error
+  (`BUSINESS`). Startup fails on an unknown profile or action; `NW_EXPOSE_STRICT_VERSION=true`
+  also refuses a profile written for another connector version. See `docs/exposure.md`.
+- `nw expose new | resolve [--check] | search` to author profiles from selectors (`method:`,
+  `path:`, `name:`, `tag:`; `*` stays within a path segment, `**` crosses them). A select or
+  exclude that matches nothing is an error. Search only helps find names; it is never stored. `nw gen-all` re-resolves them, `nw gen-mcp` and
+  `nw docker-build` refuse stale ones, and generated images carry `expose/`.
+- `@nw_action` accepts `http_method`, `http_path` and `tags`, and `nw gen-all` writes them from the
+  spec. The GitHub connector's 1,239 actions now carry them.
+- `node_wire_runtime.tool_search` holds the BM25 index (re-exported from
+  `bindings.mcp_server.tool_search`).
+
+### Changed
+
+- `bindings.invoke.invoke()` takes a required `exposure=` argument
+  (`ActionExposure.unrestricted()` keeps today's behaviour).
+- The root Docker image includes the GitHub connector.
 - The playground action picker is a searchable dropdown showing each action's HTTP method, and the
   GitHub token field lets you pick a personal access token or an OAuth token.
 

@@ -84,7 +84,7 @@ def test_a_missing_patch_anchor_fails_hard() -> None:
 
     from mcp_builder.generate.patches import PatchAnchorError, patch_mcp_builder
 
-    plan = SimpleNamespace(module_name="x_mcp", server_name="x", tools=[])
+    plan = SimpleNamespace(module_name="x_mcp", server_name="x", tools=[], node_wire=None)
     with pytest.raises(PatchAnchorError, match="return mcp"):
         patch_mcp_builder(
             'from x_mcp.settings import Settings\nmcp = FastMCP("t")\ntools = Tools()\n',

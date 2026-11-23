@@ -1,0 +1,17 @@
+# Edit select/exclude, then run: nw expose resolve. The runtime reads only `actions`.
+connector: slack_api
+connector_version: 1.0.0
+profile: slack-chat
+select:
+- path:/chat.**
+exclude:
+- path:/chat.delete*
+actions:
+- chat_get_permalink
+- chat_me_message
+- chat_post_ephemeral
+- chat_post_message
+- chat_schedule_message
+- chat_scheduled_messages_list
+- chat_unfurl
+- chat_update

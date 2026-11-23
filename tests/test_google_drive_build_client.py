@@ -2,250 +2,142 @@
 # SPDX-FileCopyrightText: 2026 AOT Technologies
 # SPDX-License-Identifier: Apache-2.0
 #
+"""Google Drive authentication: the credential reaches Drive as an HTTP header.
+
+Simplified: the generated connector is a RestConnector with no client to build, so what
+matters is that the configured auth provider's headers are sent with every Drive call.
+"""
+
 from __future__ import annotations
 
-from contextlib import contextmanager
-from unittest.mock import AsyncMock, MagicMock, patch
+import json
+from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
+import node_wire_runtime.rest as rest
 from node_wire_google_drive.logic import GoogleDriveConnector
 from node_wire_runtime import SecretProvider
+from node_wire_runtime.auth import StaticTokenAuthProvider
 from node_wire_runtime.auth.no_auth import NoAuthProvider
-
-_DRIVE_SCOPE = ["https://www.googleapis.com/auth/drive"]
 
 
 class MockSecretProvider(SecretProvider):
-    def __init__(self, *, sa_json: str | None = None) -> None:
-        self._sa_json = sa_json or '{"type":"service_account","project_id":"dummy"}'
+    def __init__(self, token: str = "ya29.dummy") -> None:
+        self._token = token
 
     def get_secret(self, key: str) -> str:
-        if key == "GOOGLE_DRIVE_SA_JSON":
-            return self._sa_json
+        if key == "GOOGLE_DRIVE_ACCESS_TOKEN":
+            return self._token
         raise KeyError(key)
 
 
+class _Resp:
+    status_code = 200
+    content = json.dumps({"id": "fid"}).encode()
+    text = content.decode()
+    headers = {"content-type": "application/json"}
+
+    def json(self) -> dict[str, Any]:
+        return {"id": "fid"}
+
+    def raise_for_status(self) -> None:
+        return None
+
+
+class _Client:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    async def request(self, **kwargs: Any) -> _Resp:
+        self.calls.append(kwargs)
+        return _Resp()
+
+
+class _ClientContext:
+    def __init__(self, client: Any) -> None:
+        self._client = client
+
+    async def __aenter__(self) -> Any:
+        return self._client
+
+    async def __aexit__(self, *_exc: object) -> bool:
+        return False
+
+
+def _install(monkeypatch: pytest.MonkeyPatch) -> _Client:
+    """Route the runtime's HTTP calls to a fake client (pooled-client and per-call runtimes)."""
+    client = _Client()
+    monkeypatch.setattr(rest, "assert_safe_destination", AsyncMock(return_value=None))
+    if hasattr(rest, "_shared_client"):
+        monkeypatch.setattr(rest, "_shared_client", lambda _trust_env: client)
+    else:
+        monkeypatch.setattr(rest.httpx, "AsyncClient", lambda **_kw: _ClientContext(client))
+    return client
+
+
 def _connector(
-    *,
-    auth_provider: object | None = None,
-    secret_provider: SecretProvider | None = None,
+    auth_provider: object, secrets: SecretProvider | None = None
 ) -> GoogleDriveConnector:
     return GoogleDriveConnector(
-        secret_provider=secret_provider or MockSecretProvider(),
-        auth_provider=auth_provider or NoAuthProvider(),
+        secret_provider=secrets or MockSecretProvider(), auth_provider=auth_provider
     )
 
 
-def _auth_provider_with_creds(fake_creds: object) -> MagicMock:
-    provider = MagicMock()
-    provider.get_client_credentials = AsyncMock(return_value=fake_creds)
-    return provider
-
-
-@contextmanager
-def _patch_build():
-    with patch(
-        "node_wire_google_drive.logic.build", return_value=MagicMock(name="drive")
-    ) as mock_build:
-        yield mock_build
-
-
-def test_build_client_uses_auth_provider_on_idle_event_loop() -> None:
-    fake_creds = object()
-    connector = _connector(auth_provider=_auth_provider_with_creds(fake_creds))
-    mock_loop = MagicMock()
-    mock_loop.is_running.return_value = False
-    mock_loop.run_until_complete.return_value = fake_creds
-
-    with (
-        patch("asyncio.get_event_loop", return_value=mock_loop),
-        _patch_build() as mock_build,
-    ):
-        client = connector.build_client()
-
-    assert client is mock_build.return_value
-    mock_loop.run_until_complete.assert_called_once()
-    mock_build.assert_called_once_with("drive", "v3", credentials=fake_creds)
+async def _get_file(connector: GoogleDriveConnector) -> None:
+    result = await connector.run({"action": "drive_files_get", "fileId": "fid"})
+    assert result.success is True
 
 
 @pytest.mark.asyncio
-async def test_build_client_uses_auth_provider_when_event_loop_is_running() -> None:
-    fake_creds = object()
-    connector = _connector(auth_provider=_auth_provider_with_creds(fake_creds))
+async def test_static_token_is_sent_as_a_bearer_header(monkeypatch):
+    client = _install(monkeypatch)
+    secrets = MockSecretProvider("ya29.abc")
+    auth = StaticTokenAuthProvider(secret_provider=secrets, secret_key="GOOGLE_DRIVE_ACCESS_TOKEN")
 
-    with _patch_build() as mock_build:
-        client = connector.build_client()
+    await _get_file(_connector(auth, secrets))
 
-    assert client is mock_build.return_value
-    mock_build.assert_called_once_with("drive", "v3", credentials=fake_creds)
-    connector.auth_provider.get_client_credentials.assert_awaited_once()
-
-
-def test_build_client_uses_asyncio_run_when_get_event_loop_raises() -> None:
-    fake_creds = object()
-    connector = _connector(auth_provider=_auth_provider_with_creds(fake_creds))
-
-    with (
-        patch("asyncio.get_event_loop", side_effect=RuntimeError("no loop")),
-        patch("asyncio.run", return_value=fake_creds) as mock_run,
-        _patch_build() as mock_build,
-    ):
-        client = connector.build_client()
-
-    assert client is mock_build.return_value
-    mock_run.assert_called_once()
-    mock_build.assert_called_once_with("drive", "v3", credentials=fake_creds)
-
-
-def test_build_client_falls_back_to_inline_sa_json_when_auth_returns_none() -> None:
-    connector = _connector()
-    json_creds = MagicMock(name="json_creds")
-    sa_info = {"type": "service_account", "project_id": "dummy"}
-
-    with (
-        patch(
-            "google.oauth2.service_account.Credentials.from_service_account_info",
-            return_value=json_creds,
-        ) as mock_from_info,
-        patch(
-            "google.oauth2.service_account.Credentials.from_service_account_file"
-        ) as mock_from_file,
-        _patch_build() as mock_build,
-    ):
-        client = connector.build_client()
-
-    assert client is mock_build.return_value
-    mock_from_info.assert_called_once_with(sa_info, scopes=_DRIVE_SCOPE)
-    mock_from_file.assert_not_called()
-    mock_build.assert_called_once_with("drive", "v3", credentials=json_creds)
-
-
-def test_build_client_falls_back_to_sa_file_path_when_json_parse_fails() -> None:
-    connector = _connector(secret_provider=MockSecretProvider(sa_json="/path/to/sa.json"))
-    file_creds = MagicMock(name="file_creds")
-
-    with (
-        patch(
-            "google.oauth2.service_account.Credentials.from_service_account_info",
-        ) as mock_from_info,
-        patch(
-            "google.oauth2.service_account.Credentials.from_service_account_file",
-            return_value=file_creds,
-        ) as mock_from_file,
-        _patch_build() as mock_build,
-    ):
-        client = connector.build_client()
-
-    assert client is mock_build.return_value
-    mock_from_info.assert_not_called()
-    mock_from_file.assert_called_once_with("/path/to/sa.json", scopes=_DRIVE_SCOPE)
-    mock_build.assert_called_once_with("drive", "v3", credentials=file_creds)
-
-
-def test_get_client_caches_build_client_result() -> None:
-    connector = _connector()
-    mock_drive = MagicMock(name="drive")
-
-    with patch.object(connector, "build_client", return_value=mock_drive) as mock_build_client:
-        first = connector.get_client()
-        second = connector.get_client()
-
-    assert first is mock_drive
-    assert second is mock_drive
-    mock_build_client.assert_called_once()
-
-
-# ---------------------------------------------------------------------------
-# Cached client lifecycle: off the loop, dropped on AUTH errors and on refresh
-# ---------------------------------------------------------------------------
-
-
-def _provider(creds: object) -> MagicMock:
-    provider = _auth_provider_with_creds(creds)
-    provider.per_request_credentials = False
-    return provider
-
-
-def _list_params():
-    from node_wire_google_drive.schema import GoogleDriveOperationInput
-
-    return GoogleDriveOperationInput.model_validate({"action": "files.list", "page_size": 1})
-
-
-async def _ok_spec(*_args: object, **_kwargs: object) -> dict:
-    return {"files": []}
+    assert client.calls[0]["headers"]["Authorization"] == "Bearer ya29.abc"
 
 
 @pytest.mark.asyncio
-async def test_client_is_built_off_the_event_loop() -> None:
-    import threading
+async def test_token_is_read_once_when_cached(monkeypatch):
+    client = _install(monkeypatch)
+    secrets = MockSecretProvider("ya29.first")
+    auth = StaticTokenAuthProvider(secret_provider=secrets, secret_key="GOOGLE_DRIVE_ACCESS_TOKEN")
+    connector = _connector(auth, secrets)
 
-    connector = _connector(auth_provider=_provider(object()))
-    threads: list[str] = []
+    await _get_file(connector)
+    secrets._token = "ya29.rotated"
+    await _get_file(connector)
 
-    def _build(*args: object, **kwargs: object) -> MagicMock:
-        threads.append(threading.current_thread().name)
-        return MagicMock(name="drive")
-
-    with (
-        patch("node_wire_google_drive.logic.build", side_effect=_build),
-        patch("node_wire_google_drive.logic.execute_spec_in_thread", side_effect=_ok_spec),
-    ):
-        await connector.internal_execute(_list_params(), trace_id="t")
-
-    assert threads and threads[0] != threading.main_thread().name
+    assert [c["headers"]["Authorization"] for c in client.calls] == ["Bearer ya29.first"] * 2
 
 
 @pytest.mark.asyncio
-async def test_client_is_rebuilt_after_the_provider_refreshes_its_credentials() -> None:
-    first, second = object(), object()
-    provider = _provider(first)
-    connector = _connector(auth_provider=provider)
+async def test_uncached_token_picks_up_rotation(monkeypatch):
+    client = _install(monkeypatch)
+    secrets = MockSecretProvider("ya29.first")
+    auth = StaticTokenAuthProvider(
+        secret_provider=secrets, secret_key="GOOGLE_DRIVE_ACCESS_TOKEN", cache=False
+    )
+    connector = _connector(auth, secrets)
 
-    with (
-        _patch_build() as mock_build,
-        patch("node_wire_google_drive.logic.execute_spec_in_thread", side_effect=_ok_spec),
-    ):
-        await connector.internal_execute(_list_params(), trace_id="t1")
-        await connector.internal_execute(_list_params(), trace_id="t2")
-        assert mock_build.call_count == 1  # cached
+    await _get_file(connector)
+    secrets._token = "ya29.rotated"
+    await _get_file(connector)
 
-        provider.get_client_credentials = AsyncMock(return_value=second)  # rotated
-        await connector.internal_execute(_list_params(), trace_id="t3")
-
-    assert mock_build.call_count == 2
-    assert mock_build.call_args.kwargs["credentials"] is second
+    assert [c["headers"]["Authorization"] for c in client.calls] == [
+        "Bearer ya29.first",
+        "Bearer ya29.rotated",
+    ]
 
 
 @pytest.mark.asyncio
-async def test_an_auth_error_drops_the_cached_client_and_refreshes_the_provider() -> None:
-    from googleapiclient.errors import HttpError
+async def test_no_auth_provider_sends_no_authorization_header(monkeypatch):
+    client = _install(monkeypatch)
 
-    from node_wire_google_drive.exceptions import GoogleDriveAuthError
+    await _get_file(_connector(NoAuthProvider()))
 
-    provider = _provider(object())
-    provider.refresh = AsyncMock(return_value=None)
-    connector = _connector(auth_provider=provider)
-
-    async def _unauthorized(*_args: object, **_kwargs: object) -> None:
-        resp = MagicMock()
-        resp.status = 401
-        resp.reason = "unauthorized"
-        raise HttpError(resp, b"error")
-
-    with (
-        _patch_build() as mock_build,
-        patch("node_wire_google_drive.logic.execute_spec_in_thread", side_effect=_unauthorized),
-    ):
-        with pytest.raises(GoogleDriveAuthError):
-            await connector.internal_execute(_list_params(), trace_id="t1")
-        assert connector._client is None
-        provider.refresh.assert_awaited_once()
-
-    with (
-        _patch_build() as mock_build,
-        patch("node_wire_google_drive.logic.execute_spec_in_thread", side_effect=_ok_spec),
-    ):
-        await connector.internal_execute(_list_params(), trace_id="t2")
-    mock_build.assert_called_once()
+    assert "Authorization" not in client.calls[0]["headers"]

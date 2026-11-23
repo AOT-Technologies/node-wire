@@ -598,6 +598,7 @@ def test_factory_builds_service_account_provider() -> None:
     }
     provider = factory._build_auth_provider("google_drive", cfg)
     assert isinstance(provider, ServiceAccountAuthProvider)
+    assert provider._bearer_header is True  # Google Drive is a REST connector: it needs the header
 
 
 @pytest.mark.asyncio

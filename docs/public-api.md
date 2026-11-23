@@ -19,6 +19,7 @@ Stable top-level exports (`node_wire_runtime.__all__`):
 - `BaseConnector`, `RestConnector` — base classes for connectors (`RestConnector` adds the shared HTTP-request scaffolding used by OpenAPI-generated connectors).
 - `RestResponseOutput` — shared output model for `RestConnector`-based connectors.
 - `RestEnvelopeError` — raised by `RestConnector` when a 2xx response's declared success flag (`envelope_ok_field`, for example, Slack's `ok`) reports failure.
+- `RestAuthError`, `RestRateLimited`, `RestUnavailable` — `httpx.HTTPStatusError` subclasses that `RestConnector` raises for a 401, a 429, and a 502, 503 or 504 on a read or delete. Generated connectors map them to auth, retryable and retryable; any other status stays a plain `HTTPStatusError` (business).
 - `get_connector_registry()` — returns a copy of the connector-id → class registry.
 - `nw_action`, `sdk_action` — action decorators.
 - `SdkActionSpec`, `default_build_kwargs`, `default_resolve_method`, `default_invoke`, `execute_spec_in_thread`, `execute_spec_async`.
