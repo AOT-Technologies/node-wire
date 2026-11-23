@@ -212,6 +212,11 @@ class _Unavailable(httpx.HTTPStatusError):
     """502/503/504 on GET or DELETE (safe to repeat; a gateway error on a POST may have run it)."""
 
 
+class _WriteTimedOut(httpx.TimeoutException):
+    """A write (or webhook call) timed out after it was sent, with no Idempotency-Key: n8n may
+    have run it already, so the runtime must not repeat it."""
+
+
 class _AuthRejected(httpx.HTTPStatusError):
     """401, or 403 for a key that lacks the scope (a licence 403 stays a plain status error)."""
 
@@ -222,10 +227,12 @@ class N8nConnector(BaseConnector):
     connector_id = "n8n"
     output_model = RestResponseOutput
 
-    # Simplified: other 5xx (and 502/503/504 on writes) are not retried.
+    # Simplified: other 5xx (and 502/503/504 on writes) are not retried, nor is a timeout of a write
+    # sent without an Idempotency-Key.
     error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
         httpx.TimeoutException: (ErrorCategory.RETRYABLE, "N8N_TIMEOUT"),
         httpx.ConnectError: (ErrorCategory.RETRYABLE, "N8N_CONNECT_ERROR"),
+        _WriteTimedOut: (ErrorCategory.FATAL, "N8N_TIMEOUT_OUTCOME_UNKNOWN"),
         httpx.RequestError: (ErrorCategory.FATAL, "N8N_REQUEST_ERROR"),
         httpx.HTTPStatusError: (ErrorCategory.BUSINESS, "N8N_HTTP_STATUS_ERROR"),
         _RateLimited: (ErrorCategory.RETRYABLE, "N8N_RATE_LIMITED"),
@@ -264,17 +271,25 @@ class N8nConnector(BaseConnector):
             },
         )
         # Simplified: no private-address guard. The runtime's pooled client has no timeout of its own.
-        response = await _shared_client(False).request(
-            method,
-            url,
-            headers=headers,
-            params=query or None,
-            json=body,
-            data=form or None,
-            files=files or None,
-            auth=auth,
-            timeout=float(os.getenv("NW_TIMEOUT", "30.0")),
-        )
+        try:
+            response = await _shared_client(False).request(
+                method,
+                url,
+                headers=headers,
+                params=query or None,
+                json=body,
+                data=form or None,
+                files=files or None,
+                auth=auth,
+                timeout=float(os.getenv("NW_TIMEOUT", "30.0")),
+            )
+        except httpx.TimeoutException as exc:
+            # A connect or pool timeout means nothing was sent, so a retry is always safe. After that,
+            # only reads, deletes and writes carrying an Idempotency-Key may be repeated.
+            sent = not isinstance(exc, (httpx.ConnectTimeout, httpx.PoolTimeout))
+            if sent and method not in ("GET", "DELETE") and "Idempotency-Key" not in headers:
+                raise _WriteTimedOut(str(exc) or "timed out after the request was sent") from exc
+            raise
         if response.is_error:
             status = response.status_code
             error: type[httpx.HTTPStatusError] = httpx.HTTPStatusError

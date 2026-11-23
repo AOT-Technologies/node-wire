@@ -1541,6 +1541,35 @@ async def test_transport_errors_are_retryable(wire: Wire, error: Exception, code
     assert (result.error_code, result.error_category) == (code, "RETRYABLE")
 
 
+@pytest.mark.parametrize(
+    ("action", "extra", "error", "code", "category"),
+    [
+        # a write that timed out after it was sent may have run: never repeat it
+        ("create_tag", {}, httpx.ReadTimeout("slow"), "N8N_TIMEOUT_OUTCOME_UNKNOWN", "FATAL"),
+        ("create_tag", {}, httpx.WriteTimeout("slow"), "N8N_TIMEOUT_OUTCOME_UNKNOWN", "FATAL"),
+        # but not when nothing was sent, when it is a read, or when the call carries a key
+        ("create_tag", {}, httpx.ConnectTimeout("slow"), "N8N_TIMEOUT", "RETRYABLE"),
+        ("create_tag", {}, httpx.PoolTimeout("busy"), "N8N_TIMEOUT", "RETRYABLE"),
+        ("create_tag", {}, httpx.ConnectError("refused"), "N8N_CONNECT_ERROR", "RETRYABLE"),
+        (
+            "create_tag",
+            {"idempotency_key": "k"},
+            httpx.ReadTimeout("slow"),
+            "N8N_TIMEOUT",
+            "RETRYABLE",
+        ),
+        ("list_tags", {}, httpx.ReadTimeout("slow"), "N8N_TIMEOUT", "RETRYABLE"),
+    ],
+)
+async def test_only_a_safe_timeout_is_retryable(
+    wire: Wire, action: str, extra: dict[str, Any], error: Exception, code: str, category: str
+) -> None:
+    wire.error = error
+    payload = {"action": action, **({"name": "t"} if action == "create_tag" else {}), **extra}
+    result = await make().run(payload)
+    assert (result.error_code, result.error_category) == (code, category)
+
+
 # ---- bodies that are not a plain object, and wire names that are not camelCase ---------------
 
 

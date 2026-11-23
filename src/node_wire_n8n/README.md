@@ -50,7 +50,8 @@ executions, tags and `trigger_workflow`, no deletes). Use one with `NW_EXPOSE_PR
   | 502, 503, 504 on `GET` and `DELETE` | `N8N_UNAVAILABLE` | retryable (not on writes: a gateway error on a `POST` may have run it) |
   | 401, and 403 for a key that lacks the scope | `N8N_AUTH_ERROR` | auth |
   | any other 4xx or 5xx, and a 403 licence message | `N8N_HTTP_STATUS_ERROR` | business |
-  | timeout, connection failure | `N8N_TIMEOUT`, `N8N_CONNECT_ERROR` | retryable |
+  | connection failure, connect or pool timeout; any other timeout on a read, a delete or a write sent with an `idempotency_key` | `N8N_CONNECT_ERROR`, `N8N_TIMEOUT` | retryable |
+  | timeout after the request was sent, on a write without an `idempotency_key` | `N8N_TIMEOUT_OUTCOME_UNKNOWN` | not retried: n8n may have run it |
 - Calls share the runtime's pooled HTTP client, so connections are reused.
 - **Package files are base64.** `import_package` and `import_package_selection` take the `.n8np` archive as base64 in the
   `package` field and send it as a multipart upload; their other fields are form fields. `export_package` returns the
