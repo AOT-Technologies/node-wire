@@ -123,7 +123,7 @@ def test_mcp_tool_invoke_sets_action():
     tools = server.list_tools()
     names = {t["name"] for t in tools}
     assert "google_drive_drive_files_list" in names
-    assert "stripe_charge" in names
+    assert "stripe_post_charges" in names
 
 
 def test_mcp_llm_safe_input_schema_strips_null_unions() -> None:
