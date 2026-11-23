@@ -206,6 +206,7 @@ _KNOWN_CONNECTOR_IDS = tuple(
             "fhir_epic",
             "http_generic",
             "salesforce",
+            "postgres",
             "stripe",
             "smtp",
             "slack",
