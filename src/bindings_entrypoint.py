@@ -4,8 +4,10 @@
 #
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+import sys
 
 import uvicorn
 from dotenv import load_dotenv
@@ -41,7 +43,12 @@ def main() -> None:
 
         port = int(os.getenv("PORT", "8000"))
         host = os.getenv("NW_REST_HOST", "127.0.0.1")
-        uvicorn.run(rest_app, host=host, port=port)
+        if sys.platform == "win32":
+            # Simplified: psycopg async cannot run on Windows' default Proactor loop.
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+            uvicorn.run(rest_app, host=host, port=port, loop="none")
+        else:
+            uvicorn.run(rest_app, host=host, port=port)
     elif mode == "GRPC":
         # Import gRPC server lazily so API/MCP modes do not require
         # gRPC-specific dependencies or generated stubs at import time.

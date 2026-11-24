@@ -144,3 +144,11 @@ connectors:
       header_name: Authorization
       prefix: Bearer
       host_supplied: true
+  postgres:
+    enabled: true
+    exposed_via: [rest, grpc, mcp]
+    host: 127.0.0.1
+    port: 55432
+    database: nwdb
+    sslmode: disable
+    mode: read_only           # read_only | read_write | admin (insert needs read_write)

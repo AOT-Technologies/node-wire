@@ -126,6 +126,7 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 |---|---|---|---|
 | [`http_generic`](#http_generic) | `request` | `none` | — |
 | [`smtp`](#smtp) | `send_email`, `send_bulk`, `send_raw`, `check_connection`, `get_server_capabilities`, `get_tls_info`, `ping`, `verify_address`, `expand_list`, `get_help`, `validate_address_syntax` (11 actions) | `static_credentials` | — |
+| [`postgres`](#postgres) | 55 actions: server and session, schema discovery, read, write, DDL | `none` (credentials via secrets) | — |
 | [`stripe`](#stripe) | `charge`, `create_payment_intent`, `create_subscription`, `cancel_subscription`, `issue_refund` | `static_token` | — |
 | [`salesforce`](#salesforce) | `create_lead`, `read_lead`, `update_lead`, `delete_lead`, `create_contact`, `read_contact`, `update_contact`, `delete_contact` | `oauth2` (`refresh_token`) | [Salesforce](salesforce_connector.md) |
 | [`google_drive`](#google_drive) | 49 Drive v3 actions (48 generated, plus `drive_files_upload`) (`drive_files_list`, `drive_files_get`, `drive_files_create`, `drive_files_update`, `drive_files_delete`, `drive_permissions_create`, comments, revisions, shared drives and more); upload up to 5 MB, no download | `service_account` (or `upstream_bearer`) | [Google Drive](google_drive_connector.md) |
@@ -155,6 +156,20 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 - **Egress:** relay settings are server-side only and no action accepts them, so credentials never go to a
   caller-chosen host. Set `NW_SMTP_ALLOWED_HOSTS` in production. `subject` and header values may not contain
   newlines or control characters.
+
+### `postgres`
+
+- **Package:** `node-wire-postgres`, `src/node_wire_postgres/`. Driver: psycopg 3 with `psycopg_pool`.
+- **Versions:** PostgreSQL 11 or later (tested on 16; `reindex` with `concurrently` needs 12; 17 and 18 expected to work but not tested; older than 11 unsupported). psycopg `>=3.2,<4`, Python 3.11+.
+- **Secrets / settings:** secrets `POSTGRES_USERNAME`, `POSTGRES_PASSWORD`. Settings `host`, `port`, `database`,
+  `sslmode` in `connectors.yaml` or `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DATABASE`, `POSTGRES_SSLMODE`.
+  They are server-side only: the payload never names the server.
+- **Modes:** `mode` (`NW_POSTGRES_MODE`) is `read_only`, `read_write` or `admin` (default `read_only`). Each action
+  needs a minimum mode. Read actions always run in `SET TRANSACTION READ ONLY`, so the database enforces it.
+- **Limits:** `statement_timeout_ms` (30000), `max_rows` (1000), `pool_max` (5), `allowed_schemas`, `allowed_tables`
+  (`schema.table`). Raw SQL takes one statement with bound parameters. The allowlists cover the structured actions;
+  give the database role only the privileges it needs, because that role is the real boundary.
+- **Actions:** see `src/node_wire_postgres/README.md`. Expose a subset with the action-expose function.
 
 ### `stripe`
 
