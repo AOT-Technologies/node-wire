@@ -35,20 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const ehrPanel = document.getElementById('ehr-panel');
     const itopsPanel = document.getElementById('itops-panel');
     const cernerPanel = document.getElementById('cerner-panel');
-    const gdriveForm = document.getElementById('gdrive-form');
-    const gdriveRunBtn = document.getElementById('gdrive-run-btn');
-    const gdriveSpinner = gdriveRunBtn.querySelector('.loading-spinner');
-    const gdriveBtnText = gdriveRunBtn.querySelector('.btn-lbl');
-    const gdrivePanel = document.getElementById('gdrive-panel');
-    const gdriveSubTabs = document.querySelectorAll('.sub-tab');
-    const gdriveNoteSection = document.getElementById('gdrive-note-section');
-    const gdriveFileSection = document.getElementById('gdrive-file-section');
-    const gdriveDocNameGroup = document.getElementById('gdrive-doc-name-group');
-    const gdriveFileInput = document.getElementById('gdrive-file');
-    const gdriveActionSelect = document.getElementById('gdrive-action-select');
-    const gdriveUploadOnly = document.getElementById('gdrive-upload-only');
-    const gdriveListOnly = document.getElementById('gdrive-list-only');
-    const gdriveSubNav = document.getElementById('gdrive-sub-nav');
     const slackForm = document.getElementById('slack-form');
     const slackRunBtn = document.getElementById('slack-run-btn');
     const slackSpinner = slackRunBtn?.querySelector('.loading-spinner');
@@ -62,10 +48,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const slackFileChosenPreview = document.getElementById('slack-file-chosen-preview');
     const slackPreviewName = slackFileChosenPreview?.querySelector('.preview-name');
     const slackRemoveFileBtn = slackFileChosenPreview?.querySelector('.remove-file-btn');
-    const fileDropZone = document.getElementById('file-drop-zone');
-    const fileChosenPreview = document.getElementById('file-chosen-preview');
-    const previewName = fileChosenPreview?.querySelector('.preview-name');
-    const removeFileBtn = fileChosenPreview?.querySelector('.remove-file-btn');
 
     const stripeForm = document.getElementById('stripe-form');
     const stripeRunBtn = document.getElementById('stripe-run-btn');
@@ -106,7 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const extViewerBtnText = extViewerRunBtn ? extViewerRunBtn.querySelector('.btn-lbl') : null;
     const extViewerPanel = document.getElementById('ext-patient-viewer-panel');
 
-    let currentSubMode = 'file';
     let currentStripeSubMode = 'charge';
     let currentSalesforceSubMode = 'create_lead';
     const connectorStatus = document.getElementById('connector-status');
@@ -173,24 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
             "Locate Medical Visit",
             "Secure Sync to Cerner",
             "Verify EHR Update"
-        ],
-        gdrive: [
-            "Format Archival Metadata",
-            "Upload to Secure Vault",
-            "Establish Data Access",
-            "Verify Integrity"
-        ],
-        gdriveList: [
-            "List Drive Files"
-        ],
-        gdriveGet: [
-            "Get file metadata"
-        ],
-        gdriveUpdate: [
-            "Prepare update request",
-            "Apply file update",
-            "Verify file metadata",
-            "Complete update"
         ],
         slack: [
             "Format Slack Payload",
@@ -484,89 +447,6 @@ document.addEventListener('DOMContentLoaded', () => {
         log('Agent chat reset', 'system');
     });
 
-    function applyGdriveUploadSubMode() {
-        if (!gdriveFileSection) return;
-        if (currentSubMode === 'note') {
-            if (gdriveNoteSection) gdriveNoteSection.classList.remove('hidden');
-            gdriveFileSection.classList.add('hidden');
-            if (gdriveDocNameGroup) gdriveDocNameGroup.classList.remove('hidden');
-        } else {
-            if (gdriveNoteSection) gdriveNoteSection.classList.add('hidden');
-            gdriveFileSection.classList.remove('hidden');
-            if (gdriveDocNameGroup) gdriveDocNameGroup.classList.add('hidden');
-        }
-    }
-
-    /** Trust options[selectedIndex] first — some engines lag select.value on early/capture-phase reads. */
-    function resolveGdriveActionValue(sel) {
-        if (!sel) return '';
-        const i = sel.selectedIndex;
-        if (i >= 0 && sel.options && sel.options[i]) {
-            return String(sel.options[i].value || '').trim();
-        }
-        return String(sel.value || '').trim();
-    }
-
-    function gdrivePipelineLabelOverride() {
-        const sel = document.getElementById('gdrive-action-select');
-        if (!sel) return null;
-        const v = resolveGdriveActionValue(sel);
-        if (v === 'files.list') return pipelineLabels.gdriveList;
-        if (v === 'files.get') return pipelineLabels.gdriveGet;
-        if (v === 'files.update') return pipelineLabels.gdriveUpdate;
-        return null;
-    }
-
-    function syncGdriveActionForm() {
-        const actionSelect = document.getElementById('gdrive-action-select');
-        if (!actionSelect) return;
-        const uploadRow = document.getElementById('gdrive-upload-only');
-        const listSection = document.getElementById('gdrive-list-only');
-        const getSection = document.getElementById('gdrive-get-only');
-        const updateSection = document.getElementById('gdrive-update-only');
-        const fileSection = document.getElementById('gdrive-file-section');
-        const subNav = document.getElementById('gdrive-sub-nav');
-
-        const action = resolveGdriveActionValue(actionSelect);
-        const isList = action === 'files.list';
-        const isGet = action === 'files.get';
-        const isUpdate = action === 'files.update';
-
-        if (isList) {
-            if (uploadRow) uploadRow.classList.add('hidden');
-            if (getSection) getSection.classList.add('hidden');
-            if (updateSection) updateSection.classList.add('hidden');
-            if (listSection) listSection.classList.remove('hidden');
-            if (subNav) subNav.classList.add('hidden');
-            if (fileSection) fileSection.classList.add('hidden');
-            if (gdriveBtnText) gdriveBtnText.textContent = 'List files';
-        } else if (isGet) {
-            if (uploadRow) uploadRow.classList.add('hidden');
-            if (listSection) listSection.classList.add('hidden');
-            if (updateSection) updateSection.classList.add('hidden');
-            if (getSection) getSection.classList.remove('hidden');
-            if (subNav) subNav.classList.add('hidden');
-            if (fileSection) fileSection.classList.add('hidden');
-            if (gdriveBtnText) gdriveBtnText.textContent = 'Get file';
-        } else if (isUpdate) {
-            if (uploadRow) uploadRow.classList.add('hidden');
-            if (listSection) listSection.classList.add('hidden');
-            if (getSection) getSection.classList.add('hidden');
-            if (updateSection) updateSection.classList.remove('hidden');
-            if (subNav) subNav.classList.add('hidden');
-            if (fileSection) fileSection.classList.add('hidden');
-            if (gdriveBtnText) gdriveBtnText.textContent = 'Update file';
-        } else {
-            if (uploadRow) uploadRow.classList.remove('hidden');
-            if (listSection) listSection.classList.add('hidden');
-            if (getSection) getSection.classList.add('hidden');
-            if (updateSection) updateSection.classList.add('hidden');
-            if (subNav) subNav.classList.remove('hidden');
-            applyGdriveUploadSubMode();
-            if (gdriveBtnText) gdriveBtnText.textContent = 'Encrypt & Archive';
-        }
-    }
-
     function stripePipelineLabelOverride() {
         if (currentStripeSubMode === 'charge') return pipelineLabels.stripe_charge;
         if (currentStripeSubMode === 'payment_intent') return pipelineLabels.stripe_payment_intent;
@@ -651,7 +531,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ehrPanel.classList.add('hidden');
         itopsPanel.classList.add('hidden');
         cernerPanel.classList.add('hidden');
-        gdrivePanel.classList.add('hidden');
         stripePanel.classList.add('hidden');
         salesforcePanel.classList.add('hidden');
         if (slackPanel) slackPanel.classList.add('hidden');
@@ -680,12 +559,6 @@ document.addEventListener('DOMContentLoaded', () => {
             tagline.textContent = 'Oracle Health Cerner Orchestration';
             document.documentElement.style.setProperty('--brand-accent', '#0ea5e9');
             log('Switched to Cerner FHIR R4 Orchestration mode', 'system');
-        } else if (mode === 'gdrive') {
-            gdrivePanel.classList.remove('hidden');
-            connectorStatus.textContent = 'Google API Online';
-            tagline.textContent = 'Secure Vault Orchestration';
-            document.documentElement.style.setProperty('--brand-accent', '#10b981');
-            log('Switched to Secure Document Archival mode (Google Drive)', 'system');
         } else if (mode === 'stripe') {
             stripePanel.classList.remove('hidden');
             connectorStatus.textContent = 'Stripe Online';
@@ -711,10 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.documentElement.style.setProperty('--brand-accent', '#0d9488');
             log('Switched to External Patient Viewer mode (read-only)', 'system');
         }
-        if (mode === 'gdrive') {
-            syncGdriveActionForm();
-            resetUI(gdrivePipelineLabelOverride());
-        } else if (mode === 'stripe') {
+        if (mode === 'stripe') {
             syncStripeActionForm();
             resetUI(stripePipelineLabelOverride());
         } else if (mode === 'salesforce') {
@@ -790,43 +660,6 @@ document.addEventListener('DOMContentLoaded', () => {
             log('Returned to Connectors list', 'system');
         }
     });
-
-    // Google Drive Sub-mode Switching
-    gdriveSubTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const mode = tab.dataset.submode;
-            if (mode === currentSubMode) return;
-
-            currentSubMode = mode;
-            gdriveSubTabs.forEach(t => t.classList.toggle('active', t === tab));
-
-            const gdriveActionResolved = gdriveActionSelect ? resolveGdriveActionValue(gdriveActionSelect) : '';
-            if (
-                gdriveActionSelect &&
-                (gdriveActionResolved === 'files.list' ||
-                    gdriveActionResolved === 'files.get' ||
-                    gdriveActionResolved === 'files.update')
-            ) {
-                log(mode === 'note' ? 'Switched to Write Note sub-mode' : 'Switched to Upload File sub-mode', 'system');
-                return;
-            }
-
-            applyGdriveUploadSubMode();
-            log(mode === 'note' ? 'Switched to Write Note sub-mode' : 'Switched to Upload File sub-mode', 'system');
-        });
-    });
-
-    function onGdriveDriveActionChanged() {
-        syncGdriveActionForm();
-        if (currentMode === 'gdrive') resetUI(gdrivePipelineLabelOverride());
-    }
-
-    function scheduleGdriveDriveActionSyncFromUser() {
-        queueMicrotask(() => onGdriveDriveActionChanged());
-    }
-    if (gdriveActionSelect) {
-        gdriveActionSelect.addEventListener('change', scheduleGdriveDriveActionSyncFromUser);
-    }
 
     // --- Multitenancy feature flag (fetched once on page load) ---
     let _multitenancyEnabled = false;
@@ -1117,7 +950,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const _modeToConnectorId = {
         ehr: 'fhir_epic',
         cerner: 'fhir_cerner',
-        gdrive: 'google_drive',
         itops: 'http_generic',
         slack: 'slack',
         stripe: 'stripe',
@@ -1133,14 +965,6 @@ document.addEventListener('DOMContentLoaded', () => {
         http_generic: {
             config: {},
             auth: {},
-        },
-        google_drive: {
-            config: {},
-            auth: {
-                provider: 'service_account',
-                sa_json_secret: 'GOOGLE_DRIVE_SA_JSON',
-                scopes: ['https://www.googleapis.com/auth/drive'],
-            },
         },
         fhir_epic: {
             config: {
@@ -1188,9 +1012,9 @@ document.addEventListener('DOMContentLoaded', () => {
             config: {},
             auth: {
                 provider: 'static_token',
-                secret_key: 'stripe_api_key',
-                header_name: 'Authorization',
-                prefix: '',
+                secret_key: 'STRIPE_BASIC_AUTH',
+                prefix: 'Basic',
+                encoding: 'base64',
             },
         },
         salesforce: {
@@ -1209,9 +1033,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Varying-only secret fields shown in Add config (shared env auto-copied server-side).
     // Format / required secret validation is server-side only (tenant_store).
     const _connectorSecretFields = {
-        google_drive: [
-            { key: 'GOOGLE_DRIVE_SA_JSON', label: 'Service account JSON', type: 'textarea', required: true },
-        ],
         fhir_epic: [
             { key: 'EPIC_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
             { key: 'EPIC_PRIVATE_KEY', label: 'Private key (PEM)', type: 'textarea', required: true },
@@ -1227,7 +1048,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { key: 'SLACK_BOT_TOKEN', label: 'Bot token', type: 'text', required: true },
         ],
         stripe: [
-            { key: 'stripe_api_key', label: 'API key', type: 'text', required: true },
+            { key: 'STRIPE_BASIC_AUTH', label: 'Secret key + ":" (sk_test_...:)', type: 'text', required: true },
         ],
         salesforce: [
             { key: 'SALESFORCE_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
@@ -1789,162 +1610,6 @@ document.addEventListener('DOMContentLoaded', () => {
             log(`Switched to Stripe mode [${currentStripeSubMode}]`);
         });
     }
-
-    // File Preview Logic
-    if (gdriveFileInput && fileChosenPreview && previewName && fileDropZone) {
-        gdriveFileInput.addEventListener('change', () => {
-            if (gdriveFileInput.files.length > 0) {
-                const fileName = gdriveFileInput.files[0].name;
-                previewName.textContent = fileName;
-                fileChosenPreview.classList.remove('hidden');
-                fileDropZone.classList.add('hidden');
-            }
-        });
-    }
-
-    if (removeFileBtn && gdriveFileInput && fileChosenPreview && fileDropZone) {
-        removeFileBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            gdriveFileInput.value = '';
-            fileChosenPreview.classList.add('hidden');
-            fileDropZone.classList.remove('hidden');
-        });
-    }
-
-    if (fileDropZone) {
-        fileDropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            fileDropZone.style.borderColor = 'var(--brand-accent)';
-            fileDropZone.style.background = 'rgba(255, 255, 255, 0.08)';
-        });
-
-        fileDropZone.addEventListener('dragleave', () => {
-            fileDropZone.style.borderColor = '';
-            fileDropZone.style.background = '';
-        });
-
-        fileDropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            fileDropZone.style.borderColor = '';
-            fileDropZone.style.background = '';
-            if (gdriveFileInput && e.dataTransfer.files.length > 0) {
-                gdriveFileInput.files = e.dataTransfer.files;
-                gdriveFileInput.dispatchEvent(new Event('change'));
-            }
-        });
-    }
-
-    gdriveForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(gdriveForm);
-        const payload = Object.fromEntries(formData.entries());
-
-        const fileInput = document.getElementById('gdrive-file');
-
-        if (payload.action === 'files.list') {
-            const rawPs = payload.list_page_size;
-            const ps = parseInt(String(rawPs != null ? rawPs : '10'), 10);
-            payload.list_page_size = Number.isFinite(ps) ? Math.min(100, Math.max(1, ps)) : 10;
-            const lq = String(payload.list_query || '').trim();
-            const lf = String(payload.list_fields || '').trim();
-            if (!lq) delete payload.list_query;
-            if (!lf) delete payload.list_fields;
-            await handleSubmission(
-                payload,
-                '/scenarios/gdrive-archival',
-                gdriveRunBtn,
-                gdriveBtnText,
-                gdriveSpinner,
-                'List files',
-                pipelineLabels.gdriveList
-            );
-            return;
-        }
-
-        if (payload.action === 'files.get') {
-            payload.get_file_id = String(payload.get_file_id || '').trim();
-            const gf = String(payload.get_fields || '').trim();
-            if (gf) payload.get_fields = gf;
-            else delete payload.get_fields;
-            await handleSubmission(
-                payload,
-                '/scenarios/gdrive-archival',
-                gdriveRunBtn,
-                gdriveBtnText,
-                gdriveSpinner,
-                'Get file',
-                pipelineLabels.gdriveGet
-            );
-            return;
-        }
-
-        if (payload.action === 'files.update') {
-            payload.update_file_id = String(payload.update_file_id || '').trim();
-            const un = String(payload.update_name || '').trim();
-            const um = String(payload.update_mime_type || '').trim();
-            const uap = String(payload.update_add_parents || '').trim();
-            const urp = String(payload.update_remove_parents || '').trim();
-            if (un) payload.update_name = un;
-            else delete payload.update_name;
-            if (um) payload.update_mime_type = um;
-            else delete payload.update_mime_type;
-            if (uap) payload.update_add_parents = uap;
-            else delete payload.update_add_parents;
-            if (urp) payload.update_remove_parents = urp;
-            else delete payload.update_remove_parents;
-            await handleSubmission(
-                payload,
-                '/scenarios/gdrive-archival',
-                gdriveRunBtn,
-                gdriveBtnText,
-                gdriveSpinner,
-                'Update file',
-                pipelineLabels.gdriveUpdate
-            );
-            return;
-        }
-
-        if (currentSubMode === 'file' && fileInput.files.length > 0) {
-            const file = fileInput.files[0];
-            const reader = new FileReader();
-
-            // Re-use the UI update logic outside to show "Encrypting" immediately
-            resetUI();
-            gdriveRunBtn.disabled = true;
-            gdriveSpinner.classList.remove('hidden');
-            gdriveBtnText.textContent = 'Encrypting File...';
-
-            reader.onload = async (event) => {
-                try {
-                    const base64Data = event.target.result.split(',')[1];
-                    payload.file_base64 = base64Data;
-                    payload.file_mime_type = file.type || 'application/octet-stream';
-
-                    // Auto-update document name to the real file name if sending a binary file
-                    payload.document_name = file.name;
-
-                    await handleSubmission(payload, '/scenarios/gdrive-archival', gdriveRunBtn, gdriveBtnText, gdriveSpinner, 'Encrypt & Archive');
-                } catch (error) {
-                    log(`File parsing error: ${error.message}`, 'error');
-                    gdriveBtnText.textContent = 'System Error';
-                    gdriveRunBtn.disabled = false;
-                    gdriveSpinner.classList.add('hidden');
-                }
-            };
-
-            reader.onerror = () => {
-                log('Failed to read binary file from memory.', 'error');
-                gdriveBtnText.textContent = 'System Error';
-                gdriveRunBtn.disabled = false;
-                gdriveSpinner.classList.add('hidden');
-            };
-
-            reader.readAsDataURL(file);
-        } else {
-            // Standard text submission
-            await handleSubmission(payload, '/scenarios/gdrive-archival', gdriveRunBtn, gdriveBtnText, gdriveSpinner, 'Encrypt & Archive');
-        }
-    });
 
     // --- Per-connector runtime config CRUD ---
     const addConfigBtn = document.getElementById('add-config-btn');

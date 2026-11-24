@@ -37,7 +37,7 @@ def _factory() -> ConnectorFactory:
 def test_overlay_resolves_before_env(monkeypatch: pytest.MonkeyPatch):
     overlay = OverlaySecretProvider.instance()
     key = tenant_scoped_secret_key(
-        "acme", "google_drive", "GOOGLE_DRIVE_SA_JSON", config_name="test"
+        "acme", "google_drive", "GOOGLE_DRIVE_ACCESS_TOKEN", config_name="test"
     )
     monkeypatch.setenv(key, "from-env")
     overlay.set_secret(key, "from-overlay")
@@ -62,10 +62,10 @@ def test_drive_then_epic_same_tenant_config_name(monkeypatch: pytest.MonkeyPatch
                 "config": {},
                 "auth": {
                     "provider": "service_account",
-                    "sa_json_secret": "GOOGLE_DRIVE_SA_JSON",
+                    "sa_json_secret": "GOOGLE_DRIVE_ACCESS_TOKEN",
                     "scopes": ["https://www.googleapis.com/auth/drive"],
                 },
-                "secrets": {"GOOGLE_DRIVE_SA_JSON": '{"type":"service_account"}'},
+                "secrets": {"GOOGLE_DRIVE_ACCESS_TOKEN": '{"type":"service_account"}'},
             },
             headers=headers,
         )
@@ -133,7 +133,7 @@ def test_tenants_persist_roundtrip(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     upsert_tenant_secrets(
         "acme",
         "google_drive",
-        {"GOOGLE_DRIVE_SA_JSON": '{"type":"service_account","client_email":"a@b.c"}'},
+        {"GOOGLE_DRIVE_ACCESS_TOKEN": '{"type":"service_account","client_email":"a@b.c"}'},
         config_name="test",
     )
     store_factory.store.create(
@@ -143,7 +143,7 @@ def test_tenants_persist_roundtrip(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
             "name": "test",
             "default": True,
             "config": {},
-            "auth": {"provider": "service_account", "sa_json_secret": "GOOGLE_DRIVE_SA_JSON"},
+            "auth": {"provider": "service_account", "sa_json_secret": "GOOGLE_DRIVE_ACCESS_TOKEN"},
         },
     )
     save_tenants(store_factory.store)
@@ -151,7 +151,7 @@ def test_tenants_persist_roundtrip(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert "acme" in raw["tenants"]
     # References only: the YAML names the secret, the store holds its value.
-    assert raw["secrets"]["acme"]["google_drive"]["test"] == ["GOOGLE_DRIVE_SA_JSON"]
+    assert raw["secrets"]["acme"]["google_drive"]["test"] == ["GOOGLE_DRIVE_ACCESS_TOKEN"]
     assert "client_email" not in path.read_text(encoding="utf-8")
 
     OverlaySecretProvider.instance().clear()
@@ -159,7 +159,7 @@ def test_tenants_persist_roundtrip(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     load_tenants(fresh.store)
     assert fresh.store.has_config("acme", "google_drive")
     scoped = tenant_scoped_secret_key(
-        "acme", "google_drive", "GOOGLE_DRIVE_SA_JSON", config_name="test"
+        "acme", "google_drive", "GOOGLE_DRIVE_ACCESS_TOKEN", config_name="test"
     )
     assert OverlaySecretProvider.instance().get_secret(scoped) == (
         '{"type":"service_account","client_email":"a@b.c"}'
@@ -182,9 +182,9 @@ def test_new_config_without_secrets_rejected(monkeypatch: pytest.MonkeyPatch):
                 "config": {},
                 "auth": {
                     "provider": "service_account",
-                    "sa_json_secret": "GOOGLE_DRIVE_SA_JSON",
+                    "sa_json_secret": "GOOGLE_DRIVE_ACCESS_TOKEN",
                 },
-                "secrets": {"GOOGLE_DRIVE_SA_JSON": '{"type":"service_account"}'},
+                "secrets": {"GOOGLE_DRIVE_ACCESS_TOKEN": '{"type":"service_account"}'},
             },
             headers=headers,
         )
@@ -199,14 +199,14 @@ def test_new_config_without_secrets_rejected(monkeypatch: pytest.MonkeyPatch):
                 "config": {},
                 "auth": {
                     "provider": "service_account",
-                    "sa_json_secret": "GOOGLE_DRIVE_SA_JSON",
+                    "sa_json_secret": "GOOGLE_DRIVE_ACCESS_TOKEN",
                 },
                 "secrets": {},
             },
             headers=headers,
         )
         assert second.status_code == 400
-        assert "GOOGLE_DRIVE_SA_JSON" in second.json()["detail"]
+        assert "GOOGLE_DRIVE_ACCESS_TOKEN" in second.json()["detail"]
     finally:
         app.dependency_overrides.clear()
 
@@ -229,9 +229,9 @@ def test_per_config_secrets_are_isolated(monkeypatch: pytest.MonkeyPatch):
                     "config": {},
                     "auth": {
                         "provider": "service_account",
-                        "sa_json_secret": "GOOGLE_DRIVE_SA_JSON",
+                        "sa_json_secret": "GOOGLE_DRIVE_ACCESS_TOKEN",
                     },
-                    "secrets": {"GOOGLE_DRIVE_SA_JSON": sa_a},
+                    "secrets": {"GOOGLE_DRIVE_ACCESS_TOKEN": sa_a},
                 },
                 headers=headers,
             ).status_code
@@ -246,9 +246,9 @@ def test_per_config_secrets_are_isolated(monkeypatch: pytest.MonkeyPatch):
                     "config": {},
                     "auth": {
                         "provider": "service_account",
-                        "sa_json_secret": "GOOGLE_DRIVE_SA_JSON",
+                        "sa_json_secret": "GOOGLE_DRIVE_ACCESS_TOKEN",
                     },
-                    "secrets": {"GOOGLE_DRIVE_SA_JSON": sa_b},
+                    "secrets": {"GOOGLE_DRIVE_ACCESS_TOKEN": sa_b},
                 },
                 headers=headers,
             ).status_code
@@ -256,10 +256,10 @@ def test_per_config_secrets_are_isolated(monkeypatch: pytest.MonkeyPatch):
         )
 
         key_a = tenant_scoped_secret_key(
-            "acme", "google_drive", "GOOGLE_DRIVE_SA_JSON", config_name="test"
+            "acme", "google_drive", "GOOGLE_DRIVE_ACCESS_TOKEN", config_name="test"
         )
         key_b = tenant_scoped_secret_key(
-            "acme", "google_drive", "GOOGLE_DRIVE_SA_JSON", config_name="test new 1"
+            "acme", "google_drive", "GOOGLE_DRIVE_ACCESS_TOKEN", config_name="test new 1"
         )
         overlay = OverlaySecretProvider.instance()
         assert overlay.get_secret(key_a) == sa_a

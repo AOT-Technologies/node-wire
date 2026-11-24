@@ -31,6 +31,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   was retryable. Error messages carry only Salesforce's `errorCode` and `message` (at most 3, 200 characters each), never the raw body.
 - Salesforce requests are sent as JSON (CSV for Bulk API data) instead of the OAuth provider's FHIR media types, which Salesforce refuses.
 - The package now requires `node-wire-runtime>=1.1.3`. Because it adds many actions and changes defaults, release it as a minor version.
+### Removed
+
+- The playground's hand-coded "Google Drive & IAM Vault" panel, its `POST /scenarios/gdrive-archival` route and its Playwright tests
+  (`tests/playground/gdrive/`). Google Drive now shows as the generic playground card, with every action of the connector.
+
+### Changed
+
+- `node-wire-google-drive` is now generated from Google's Drive v3 API: 48 actions (plus the hand-written upload) named `drive_<resource>_<method>` (for example
+  `drive_files_list`; they replace `files.list`, `files.get`, `files.create`, `files.update`, `files.delete`, `permissions.create` and
+  `files.upload`). `drive_files_upload` (hand-written, up to 5 MB, `content` or `content_base64`) replaces `files.upload`; `drive_files_create` and `drive_files_update` take `name`, `mime_type`, `description` and `parents`, and `trashed: true` on update is the old soft delete. Shared drives stay on by default. **Not supported:** downloading content, replacing the content of an existing file, and uploads over 5 MB. `drive_files_get` cannot return content and binary responses are not returned.
+- The generated Google Drive connector accepts a service-account key again, besides an access token. In `connectors.yaml`, set
+  `auth: {provider: service_account, sa_json_secret: GOOGLE_DRIVE_SA_JSON}` (the shipped config does); the runtime now allows
+  `GOOGLE_DRIVE_SA_JSON` as a declared Google Drive secret. For a REST connector `ServiceAccountAuthProvider(bearer_header=True)`
+  returns `Authorization: Bearer <access token>`, fetched from Google and refreshed when it expires; the default (no headers, for
+  SDK connectors) is unchanged.
 
 ## [1.1.2] - 2026-11-06
 

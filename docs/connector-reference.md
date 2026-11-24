@@ -126,9 +126,11 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 |---|---|---|---|
 | [`http_generic`](#http_generic) | `request` | `none` | — |
 | [`smtp`](#smtp) | `send_email` | `static_credentials` | — |
+| [`postgres`](#postgres) | 55 actions: server and session, schema discovery, read, write, DDL | `none` (credentials via secrets) | — |
 | [`stripe`](#stripe) | `charge`, `create_payment_intent`, `create_subscription`, `cancel_subscription`, `issue_refund` | `static_token` | — |
 | [`salesforce`](#salesforce) | 150 actions: leads and contacts, plus the REST API v68.0 (records, metadata, query, search, composite, process, knowledge, consent and more) and Bulk API 2.0 | `oauth2` (`refresh_token`) | [Salesforce](salesforce_connector.md) |
-| [`google_drive`](#google_drive) | `files.list`, `files.get`, `files.create`, `files.upload`, `files.update`, `files.delete`, `permissions.create` | `service_account` (or `upstream_bearer`) | [Google Drive](google_drive_connector.md) |
+| [`salesforce`](#salesforce) | `create_lead`, `read_lead`, `update_lead`, `delete_lead`, `create_contact`, `read_contact`, `update_contact`, `delete_contact` | `oauth2` (`refresh_token`) | [Salesforce](salesforce_connector.md) |
+| [`google_drive`](#google_drive) | 49 Drive v3 actions (48 generated, plus `drive_files_upload`) (`drive_files_list`, `drive_files_get`, `drive_files_create`, `drive_files_update`, `drive_files_delete`, `drive_permissions_create`, comments, revisions, shared drives and more); upload up to 5 MB, no download | `service_account` (or `upstream_bearer`) | [Google Drive](google_drive_connector.md) |
 | [`slack`](#slack) | `post_message`, `send_direct_message`, `upload_file` | `static_token` | [Slack](slack_connector.md) |
 | [`fhir_epic`](#fhir_epic-and-fhir_cerner) | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | `oauth2` (`private_key_jwt`) | — |
 | [`fhir_cerner`](#fhir_epic-and-fhir_cerner) | same actions as `fhir_epic` | `oauth2` (`private_key_jwt`) | — |
@@ -149,12 +151,30 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
   settings are server-side only, so credentials never go to a caller-chosen host. Set
   `NW_SMTP_ALLOWED_HOSTS` in production. `subject` may not contain newlines or control characters.
 
+### `postgres`
+
+- **Package:** `node-wire-postgres`, `src/node_wire_postgres/`. Driver: psycopg 3 with `psycopg_pool`.
+- **Versions:** PostgreSQL 11 or later (tested on 16; `reindex` with `concurrently` needs 12; 17 and 18 expected to work but not tested; older than 11 unsupported). psycopg `>=3.2,<4`, Python 3.11+.
+- **Secrets / settings:** secrets `POSTGRES_USERNAME`, `POSTGRES_PASSWORD`. Settings `host`, `port`, `database`,
+  `sslmode` in `connectors.yaml` or `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DATABASE`, `POSTGRES_SSLMODE`.
+  They are server-side only: the payload never names the server.
+- **Modes:** `mode` (`NW_POSTGRES_MODE`) is `read_only`, `read_write` or `admin` (default `read_only`). Each action
+  needs a minimum mode. Read actions always run in `SET TRANSACTION READ ONLY`, so the database enforces it.
+- **Limits:** `statement_timeout_ms` (30000), `max_rows` (1000), `pool_max` (5), `allowed_schemas`, `allowed_tables`
+  (`schema.table`). Raw SQL takes one statement with bound parameters. The allowlists cover the structured actions;
+  give the database role only the privileges it needs, because that role is the real boundary.
+- **Actions:** see `src/node_wire_postgres/README.md`. Expose a subset with the action-expose function.
+
 ### `stripe`
 
 - **Package:** `node-wire-stripe`, `src/node_wire_stripe/`. MCP image `nw-stripe`.
-- **Secrets / settings:** `STRIPE_API_KEY`, sent raw in `Authorization` (`prefix: ""`).
-- **Errors:** `src/node_wire_stripe/logic.py` is the worked `error_map` example
+- **Secrets / settings:** `STRIPE_BASIC_AUTH` (the Stripe secret key followed by a colon, `sk_test_...:`), sent as HTTP Basic in `Authorization` (`prefix: Basic`, `encoding: base64`).
+- **Errors:** the connector is generated, so it uses the shared REST error map: 401 is `HTTP_AUTH_ERROR` (auth), 429 is
+  `HTTP_RATE_LIMITED` and 502, 503 and 504 on reads and deletes are `HTTP_UNAVAILABLE` (both retryable), and any other
+  status, including a declined card (402), is `HTTP_STATUS_ERROR` (business)
   ([Build a connector](connectors-build.md#optional-error_map-for-errormapper)).
+- **Key format:** `STRIPE_BASIC_AUTH` must be `sk_test_…:`, `sk_live_…:` or an `rk_` restricted key, each followed by the colon. A tenant
+  secret in any other form (no colon, or already base64) is refused when stored.
 
 ### `salesforce`
 
@@ -173,7 +193,8 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 - **Secrets / settings:** `GOOGLE_DRIVE_SA_JSON` (JSON contents, or an absolute path locally), `GOOGLE_DRIVE_FOLDER_ID`.
 - **Per-user access:** `upstream_bearer` relays each caller's own Google token
   ([Google Drive — upstream bearer](google_drive_connector.md#upstream_bearer)).
-- **Guide:** [Google Drive](google_drive_connector.md) covers service-account setup and the error codes.
+- **Not supported:** file-content upload, download and update. The connector calls only the `/drive/v3` address, so `drive_files_create` and `drive_files_update` work on metadata, and `drive_files_get` cannot return content.
+- **Guide:** [Google Drive](google_drive_connector.md) covers service-account setup, the action list and the error codes.
 
 ### `slack`
 

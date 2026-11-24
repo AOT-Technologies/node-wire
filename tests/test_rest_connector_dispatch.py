@@ -47,16 +47,16 @@ _REST_SMOKE_CASES = [
     ),
     pytest.param(
         "stripe",
-        "charge",
-        "/connectors/stripe/charge",
+        "post_charges",
+        "/connectors/stripe/post_charges",
         {"amount": 100, "currency": "usd", "source": "tok_visa"},
         id="stripe",
     ),
     pytest.param(
         "google_drive",
-        "files.list",
-        "/connectors/google_drive/files.list",
-        {"action": "files.list", "page_size": 1},
+        "drive_files_list",
+        "/connectors/google_drive/drive_files_list",
+        {"action": "drive_files_list", "pageSize": 1},
         id="google_drive",
     ),
     pytest.param(
