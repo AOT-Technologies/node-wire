@@ -324,9 +324,15 @@ class SmtpConnector(BaseConnector):
                     results.append(
                         BulkResult(index=index, sent=True, message_id=str(message["Message-ID"]))
                     )
-                except aiosmtplib.SMTPServerDisconnected as exc:
-                    # Simplified: the connection is gone, so the rest are reported as not sent
-                    # instead of reconnecting.
+                except (
+                    aiosmtplib.SMTPServerDisconnected,
+                    aiosmtplib.SMTPTimeoutError,
+                    OSError,
+                ) as exc:
+                    # Simplified: after a lost connection, a timeout or a transport error the session
+                    # cannot be trusted (a late reply would be read as the next message's), so the
+                    # rest are reported as not sent instead of reconnecting. The message that timed
+                    # out may still have been delivered; the caller must not blindly resend it.
                     for rest in range(index, len(built)):
                         results.append(BulkResult(index=rest, sent=False, error=str(exc)[:300]))
                     break
@@ -347,8 +353,8 @@ class SmtpConnector(BaseConnector):
         )
         username, password = await self._credentials()
         mode = self._tls_mode(relay)
-        # Simplified: the message is sent as given (no header checks, no size limit of our own);
-        # the relay's own limits and policy apply.
+        # The message is validated by SendRawInput (From must match from_email; no Bcc, Received
+        # or Return-Path; size cap). The relay's own limits and policy apply on top.
         await aiosmtplib.send(
             params.message,
             sender=str(params.from_email),

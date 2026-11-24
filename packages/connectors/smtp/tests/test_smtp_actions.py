@@ -654,6 +654,24 @@ async def test_send_bulk_reports_the_rest_when_the_connection_drops(wire: Wire) 
     assert "connection lost" in result.data["results"][2]["error"]
 
 
+@pytest.mark.parametrize(
+    "error",
+    [SMTPTimeoutError("timed out"), ConnectionResetError("reset"), OSError("broken pipe")],
+    ids=["timeout", "reset", "oserror"],
+)
+async def test_send_bulk_returns_partial_results_on_a_timeout_or_transport_error(
+    wire: Wire, error: Exception
+) -> None:
+    wire.bulk_errors = {1: error}
+    result = await make().run(
+        {"action": "send_bulk", "messages": [item("a"), item("b"), item("c")]}
+    )
+    assert result.success  # the first message went out, so the caller still gets its result
+    assert (result.data["sent"], result.data["failed"]) == (1, 2)
+    assert [r["sent"] for r in result.data["results"]] == [True, False, False]
+    assert str(error) in result.data["results"][2]["error"]
+
+
 async def test_send_bulk_connect_error_is_classified(wire: Wire) -> None:
     wire.error = SMTPConnectError("refused")
     result = await make().run({"action": "send_bulk", "messages": [item()]})
