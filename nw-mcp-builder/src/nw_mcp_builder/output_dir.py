@@ -15,9 +15,10 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,10 @@ _OLD = ".old-"
 def _pid_alive(pid: int) -> bool:
     if pid == os.getpid():
         return True
+    if os.name == "nt":
+        # Not os.kill(pid, 0): on Windows signal 0 is CTRL_C_EVENT, which interrupts the
+        # process group instead of probing, and a missing pid raises a plain OSError.
+        return _pid_alive_windows(pid)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -35,6 +40,42 @@ def _pid_alive(pid: int) -> bool:
     except (PermissionError, OSError):
         return True  # exists, owned by someone else (or cannot tell): leave it alone
     return True
+
+
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+_STILL_ACTIVE = 259
+_ERROR_ACCESS_DENIED = 5
+
+
+def _pid_alive_windows(
+    pid: int, kernel32: Any = None, get_last_error: Callable[[], int] | None = None
+) -> bool:
+    """Whether ``pid`` is a running process, asked of the Win32 API without touching it.
+
+    ``kernel32`` / ``get_last_error`` default to the real ones; tests pass fakes.
+    """
+    import ctypes
+
+    if kernel32 is None:
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        kernel32.OpenProcess.argtypes = (ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32)
+        kernel32.GetExitCodeProcess.argtypes = (ctypes.c_void_p, ctypes.c_void_p)
+        kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
+    if get_last_error is None:
+        get_last_error = ctypes.get_last_error  # type: ignore[attr-defined]
+    handle = kernel32.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        # Access denied: it exists, owned by someone else. Anything else (87, invalid
+        # parameter): no such process.
+        return get_last_error() == _ERROR_ACCESS_DENIED
+    try:
+        code = ctypes.c_uint32()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return True  # cannot tell: leave it alone
+        return code.value == _STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 def clean_stale_staging(final: Path) -> None:
