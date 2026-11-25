@@ -131,8 +131,8 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 | [`salesforce`](#salesforce) | `create_lead`, `read_lead`, `update_lead`, `delete_lead`, `create_contact`, `read_contact`, `update_contact`, `delete_contact` | `oauth2` (`refresh_token`) | [Salesforce](salesforce_connector.md) |
 | [`google_drive`](#google_drive) | 49 Drive v3 actions (48 generated, plus `drive_files_upload`) (`drive_files_list`, `drive_files_get`, `drive_files_create`, `drive_files_update`, `drive_files_delete`, `drive_permissions_create`, comments, revisions, shared drives and more); upload up to 5 MB, no download | `service_account` (or `upstream_bearer`) | [Google Drive](google_drive_connector.md) |
 | [`slack`](#slack) | `post_message`, `send_direct_message`, `upload_file` | `static_token` | [Slack](slack_connector.md) |
-| [`fhir_epic`](#fhir_epic-and-fhir_cerner) | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | `oauth2` (`private_key_jwt`) | — |
-| [`fhir_cerner`](#fhir_epic-and-fhir_cerner) | same actions as `fhir_epic` | `oauth2` (`private_key_jwt`) | — |
+| [`fhir_epic`](#fhir_epic) | 137 Epic R4 actions: `read_<resource>`, `search_<resource>`, `create_<resource>`, `update_<resource>` for Epic's public resources, `patient_match`, `patient_summary`, bulk export and more | `oauth2` (`private_key_jwt`) | — |
+| [`fhir_cerner`](#fhir_cerner) | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | `oauth2` (`private_key_jwt`) | — |
 
 ### `http_generic`
 
@@ -198,23 +198,38 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
   `NW_SLACK_ATTACHMENTS_DIR` (default `/slack_attachments`).
 - **Guide:** [Slack](slack_connector.md) covers bot setup, channel resolution and the error codes.
 
-### `fhir_epic` and `fhir_cerner`
+### `fhir_epic`
 
-- **Packages:** `node-wire-fhir-epic` (`src/node_wire_fhir_epic/`, MCP image `nw-smartonfhir-epic`)
-  and `node-wire-fhir-cerner` (`src/node_wire_fhir_cerner/`, MCP image `nw-smartonfhir-cerner`).
-  Both are SMART on FHIR R4 backend services with Epic- and Cerner-specific schemas.
-- **Secrets / settings:** Epic: `EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`, `EPIC_CLIENT_ID`, `EPIC_KID`,
-  `EPIC_PRIVATE_KEY`. Cerner: the same with a `CERNER_` prefix, plus `CERNER_SCOPES`.
-- **Privacy:** logs record operation mode, HTTP status and counts, never request parameters or
-  FHIR bodies ([Privacy](privacy.md)).
-- **Arguments:** normalizers accept common LLM aliases (`patientId` → `resource_id`; root-level
-  `patient` / `patientId` → `patient_id` and `sort` → `_sort` on `search_encounter`). Encounter
-  search requires a patient filter before any outbound call.
+- **Package:** `node-wire-fhir-epic` (`src/node_wire_fhir_epic/`, MCP image `nw-smartonfhir-epic`). Epic on FHIR R4, SMART
+  backend services.
+- **Secrets / settings:** `EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`, `EPIC_CLIENT_ID`, `EPIC_KID`, `EPIC_PRIVATE_KEY`.
+- **Actions:** 137, in waves: the original five, US Core and other resources (read and search), writes (create and update, the
+  FHIR resource as JSON), and the operations (`patient_match`, `patient_summary`, `value_set_expand`, group bulk export,
+  `fetch_next_page`). The full list, the request rules and the error codes are in `src/node_wire_fhir_epic/README.md`.
+- **Privacy:** logs record the operation, the method, the URL path, the status and counts, never query values or FHIR bodies
+  ([Privacy](privacy.md)).
+- **Writes:** a create that timed out after it was sent is not retried (Epic has no conditional create). Limit a deployment
+  with an [exposure profile](exposure.md); the connector can write to a patient chart.
+- **Arguments:** the original five accept common LLM aliases (`patientId` → `resource_id`; root-level `patient` /
+  `patientId` → `patient_id` and `sort` → `_sort` on `search_encounter`).
 
-The following table lists the main read and search actions:
+### `fhir_cerner`
+
+- **Package:** `node-wire-fhir-cerner` (`src/node_wire_fhir_cerner/`, MCP image `nw-smartonfhir-cerner`). SMART on FHIR R4
+  backend services with Cerner-specific schemas.
+- **Secrets / settings:** `CERNER_FHIR_BASE_URL`, `CERNER_TOKEN_URL`, `CERNER_CLIENT_ID`, `CERNER_KID`, `CERNER_PRIVATE_KEY`,
+  plus `CERNER_SCOPES`.
+- **Privacy:** logs record operation mode, HTTP status and counts, never request parameters or FHIR bodies.
+- **Arguments:** the same aliases as the original five Epic actions. Encounter search requires a patient filter before any
+  outbound call.
 
 | Action | When to use | Example arguments |
 |--------|-------------|-------------------|
+| `read_patient` | You have a Patient ID | `{"resource_id": "12724066"}` |
+| `search_patients` | No ID, or name-based search | `{"given_name": "Nancy", "family_name": "Smart"}` |
+| `search_encounter` | Find medical visits | `{"patient_id": "12724066"}` |
+
+--------|-------------|-------------------|
 | `read_patient` | You have a Patient ID | `{"resource_id": "12724066"}` |
 | `search_patients` | No ID, or name-based search | `{"given_name": "Nancy", "family_name": "Smart"}` |
 | `search_encounter` | Find medical visits | `{"patient_id": "12724066"}` |

@@ -12,7 +12,6 @@ import pytest
 
 MODULES = [
     "node_wire_fhir_cerner.logic",
-    "node_wire_fhir_epic.logic",
     "node_wire_salesforce.logic",
     "node_wire_slack.logic",
     "node_wire_http_generic.logic",
