@@ -3085,7 +3085,7 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 </tr>
 <tr>
 <td><a href="#smtp"><code>smtp</code></a></td>
-<td><code>send_email</code></td>
+<td><code>send_email</code>, <code>send_bulk</code>, <code>send_raw</code>, <code>check_connection</code>, <code>get_server_capabilities</code>, <code>get_tls_info</code>, <code>ping</code>, <code>verify_address</code>, <code>expand_list</code>, <code>get_help</code>, <code>validate_address_syntax</code> (11 actions)</td>
 <td><code>static_credentials</code></td>
 <td>—</td>
 </tr>
@@ -3150,10 +3150,17 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 <h3 id="smtp"><code>smtp</code><a class="headerlink" href="#smtp" title="Anchor link to this section">&para;</a></h3>
 <ul>
 <li><strong>Package:</strong> <code>node-wire-smtp</code>, <code>src/node_wire_smtp/</code>. MCP image <code>nw-smtp</code>.</li>
-<li><strong>Secrets / settings:</strong> <code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USE_TLS</code>, <code>SMTP_USERNAME</code>, <code>SMTP_PASSWORD</code>, <code>FROM_EMAIL</code>.</li>
-<li><strong>Egress:</strong> the payload carries only <code>to</code>, <code>subject</code>, <code>body</code> and an optional <code>from_email</code>. Relay
-  settings are server-side only, so credentials never go to a caller-chosen host. Set
-  <code>NW_SMTP_ALLOWED_HOSTS</code> in production. <code>subject</code> may not contain newlines or control characters.</li>
+<li><strong>Secrets / settings:</strong> <code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USE_TLS</code>, <code>SMTP_USERNAME</code>, <code>SMTP_PASSWORD</code>, <code>FROM_EMAIL</code>.
+  <code>host</code>, <code>port</code> and <code>use_tls</code> can also be set in <code>connectors.yaml</code>; the environment wins.</li>
+<li><strong>Actions:</strong> <code>send_email</code> (plus optional <code>cc</code>, <code>bcc</code>, <code>reply_to</code>, <code>html_body</code>, base64 <code>attachments</code>, extra <code>headers</code>,
+  <code>priority</code>, <code>dsn_notify</code>, <code>dsn_return</code>; returns the <code>message_id</code>), <code>send_bulk</code> (up to 100 messages over one
+  connection, one result each), <code>send_raw</code> (a finished RFC 5322 message to given envelope recipients; its <code>From</code> header must equal <code>from_email</code>, it may not carry <code>Bcc</code>, <code>Received</code> or <code>Return-Path</code>, and it is limited to 10 MB),
+  <code>check_connection</code>, <code>get_server_capabilities</code>, <code>get_tls_info</code>, <code>ping</code>, <code>verify_address</code> (VRFY), <code>expand_list</code> (EXPN),
+  <code>get_help</code> (HELP) and <code>validate_address_syntax</code> (offline, no server call). Many servers disable VRFY, EXPN and
+  HELP and answer 502 (an <code>SMTP_ERROR</code>). <code>from_email</code> is required unless <code>FROM_EMAIL</code> or <code>SMTP_USERNAME</code> is set.</li>
+<li><strong>Egress:</strong> relay settings are server-side only and no action accepts them, so credentials never go to a
+  caller-chosen host. Set <code>NW_SMTP_ALLOWED_HOSTS</code> in production. <code>subject</code> and header values may not contain
+  newlines or control characters.</li>
 </ul>
 <h3 id="postgres"><code>postgres</code><a class="headerlink" href="#postgres" title="Anchor link to this section">&para;</a></h3>
 <ul>
