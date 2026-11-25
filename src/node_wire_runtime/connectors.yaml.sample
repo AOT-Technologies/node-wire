@@ -129,6 +129,18 @@ connectors:
       prefix: Basic
       encoding: base64  # value is "<secret key>:"
 
+  n8n:
+    enabled: false
+    exposed_via: [rest, grpc, mcp]
+    # The n8n instance root (not /api/v1). Set by the operator only; no action accepts it.
+    # Named instance_url because the config store allows `base_url` only for REST connectors.
+    instance_url: "https://n8n.example.com"
+    auth:
+      provider: static_token
+      secret_key: N8N_API_KEY
+      header_name: X-N8N-API-KEY
+      prefix: ""         # n8n expects the raw key with no "Bearer" prefix
+
   http_generic:
     enabled: false
     exposed_via: [rest, grpc, mcp]

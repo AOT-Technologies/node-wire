@@ -1,0 +1,42 @@
+# Edit select/exclude, then run: nw expose resolve. The runtime reads only `actions`.
+connector: n8n
+profile: n8n-workflows
+select:
+- path:/workflows/**
+- path:/executions/**
+- path:/tags/**
+- name:trigger_workflow
+exclude:
+- method:DELETE
+- name:transfer_workflow
+actions:
+- archive_workflow
+- cancel_test_run
+- create_tag
+- create_test_run
+- create_workflow
+- get_execution
+- get_tag
+- get_test_run
+- get_workflow
+- get_workflow_version
+- list_execution_tags
+- list_executions
+- list_tags
+- list_test_cases
+- list_test_runs
+- list_workflow_dependencies
+- list_workflow_history
+- list_workflow_tags
+- list_workflows
+- publish_workflow
+- retry_execution
+- stop_execution
+- stop_many_executions
+- trigger_workflow
+- unarchive_workflow
+- unpublish_workflow
+- update_execution_tags
+- update_tag
+- update_workflow
+- update_workflow_tags
