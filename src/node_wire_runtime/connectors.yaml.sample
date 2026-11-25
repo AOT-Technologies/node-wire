@@ -97,8 +97,10 @@ connectors:
     enabled: false
     exposed_via: [rest, grpc, mcp]
     # Non-sensitive SMTP server config — safe in YAML
+    # SMTP_HOST / SMTP_PORT / SMTP_USE_TLS in the environment take precedence over these three.
     host: "smtp.example.com"
     port: 587
+    use_tls: true
     from_email: "noreply@example.com"
     auth:
       provider: static_credentials

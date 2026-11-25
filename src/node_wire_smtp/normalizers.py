@@ -2,11 +2,7 @@
 # SPDX-FileCopyrightText: 2026 AOT Technologies
 # SPDX-License-Identifier: Apache-2.0
 #
-"""
-SMTP-specific MCP argument normalizers.
-
-Owned by this connector.
-"""
+"""SMTP-specific MCP argument normalizers. Owned by this connector."""
 
 from __future__ import annotations
 
@@ -14,11 +10,7 @@ from typing import Any, Dict
 
 
 def _is_missing_or_blank(value: Any) -> bool:
-    if value is None:
-        return True
-    if isinstance(value, str) and not value.strip():
-        return True
-    return False
+    return value is None or (isinstance(value, str) and not value.strip())
 
 
 def normalize_smtp_send_email(args: Dict[str, Any]) -> None:
@@ -34,5 +26,6 @@ def normalize_smtp_send_email(args: Dict[str, Any]) -> None:
     for relay_key in ("host", "port", "use_tls"):
         args.pop(relay_key, None)
 
-    if isinstance(args.get("to"), str):
-        args["to"] = [args["to"]]
+    for field in ("to", "cc", "bcc"):
+        if isinstance(args.get(field), str):
+            args[field] = [args[field]]
