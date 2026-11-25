@@ -41,6 +41,7 @@ Each connector reads its credentials from the following variables:
 | **SMTP** | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USE_TLS`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `FROM_EMAIL` | Sending emails; relay pinned on the server (env or `connectors.yaml`, not request payload) |
 | **Postgres** | `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DATABASE`, `POSTGRES_SSLMODE`, `POSTGRES_USERNAME`, `POSTGRES_PASSWORD`; optional `NW_POSTGRES_MODE`, `NW_POSTGRES_STATEMENT_TIMEOUT_MS`, `NW_POSTGRES_MAX_ROWS`, `NW_POSTGRES_POOL_MAX`, `NW_POSTGRES_ALLOWED_SCHEMAS`, `NW_POSTGRES_ALLOWED_TABLES` | Postgres connector; connection target is server-side only |
 | **Slack** | `SLACK_BOT_TOKEN` | Sending Slack messages |
+| **n8n** | `N8N_API_KEY` (`instance_url` is set in `connectors.yaml`) | n8n public API and workflow webhooks |
 | **Stripe** | `STRIPE_BASIC_AUTH` | Stripe payments |
 | **Salesforce** | `SALESFORCE_INSTANCE_URL`, `SALESFORCE_TOKEN_URL`, `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_REFRESH_TOKEN` | Salesforce CRM integration |
 | **LLM / Agent** | `LLM_PROVIDER`, `GROQ_API_KEY` / `GROQ_MODEL`, `NVIDIA_API_KEY` / `NVIDIA_BASE_URL` / `NVIDIA_MODEL`, `OPENROUTER_API_KEY` / `OPENROUTER_BASE_URL` / `OPENROUTER_MODEL` / `OPENROUTER_MODELS`, `OLLAMA_BASE_URL` / `OLLAMA_MODEL` / `OLLAMA_API_KEY` (or other provider keys) | AI agent / ToolHive / playground LLM switcher (Groq, NVIDIA, OpenRouter, local Ollama). OpenRouter free models log prompts — do not send PHI/confidential data. |
