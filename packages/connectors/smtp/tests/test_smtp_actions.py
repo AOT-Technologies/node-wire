@@ -678,6 +678,27 @@ async def test_send_bulk_connect_error_is_classified(wire: Wire) -> None:
     assert (result.error_code, result.error_category) == ("SMTP_CONNECT_ERROR", "RETRYABLE")
 
 
+def _with_attachment(base64_chars: int) -> dict[str, Any]:
+    attachment = {
+        "filename": "f.bin",
+        "content_type": "application/octet-stream",
+        "content_base64": "QUJD" * (base64_chars // 4),
+    }
+    return item("big", attachments=[attachment])
+
+
+def test_send_bulk_caps_the_attachments_of_the_whole_batch() -> None:
+    from node_wire_smtp.schema import SendBulkInput
+
+    ok = [_with_attachment(12_000_000) for _ in range(3)]  # 36 MB of base64: under the cap
+    SendBulkInput.model_validate({"action": "send_bulk", "messages": ok})
+    too_much = ok + [
+        _with_attachment(12_000_000)
+    ]  # 48 MB: each attachment is fine, the batch is not
+    with pytest.raises(ValidationError, match="may total"):
+        SendBulkInput.model_validate({"action": "send_bulk", "messages": too_much})
+
+
 @pytest.mark.parametrize(
     "messages",
     [[], [item("x") for _ in range(101)], [{**item(), "subject": "a\nb"}], [{**item(), "to": []}]],

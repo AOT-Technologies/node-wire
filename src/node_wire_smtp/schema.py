@@ -21,6 +21,7 @@ _HEADER_NAME_RE = re.compile(r"^[A-Za-z0-9-]+$")  # RFC 5322 field names, no sep
 _CONTENT_TYPE_RE = re.compile(r"^[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+$")
 _MAX_RAW_MESSAGE = 10_000_000
 _MAX_ATTACHMENT_BASE64 = 14_000_000  # about 10 MB of file
+_MAX_BULK_ATTACHMENTS_BASE64 = 40_000_000  # all attachments of one send_bulk: about 30 MB of files
 _RAW_FORBIDDEN_HEADERS = ("Bcc", "Received", "Return-Path")
 # Set by the connector itself, so a caller header may not replace them.
 _RESERVED_HEADERS = frozenset(
@@ -261,6 +262,18 @@ class SendBulkInput(_Strict):
     action: Literal["send_bulk"] = "send_bulk"
     # Simplified: at most 100 messages per call (the size of an SMTP server's recipient buffer).
     messages: List[SmtpSendInput] = Field(min_length=1, max_length=100)
+
+    # Simplified: only the batch total is capped (not the attachments per message). Every message is
+    # built before the first is sent, so this bounds what one request can hold in memory.
+    @model_validator(mode="after")
+    def _bounded_batch(self) -> "SendBulkInput":
+        total = sum(len(a.content_base64) for m in self.messages for a in m.attachments or [])
+        if total > _MAX_BULK_ATTACHMENTS_BASE64:
+            raise ValueError(
+                f"the attachments of one send_bulk may total {_MAX_BULK_ATTACHMENTS_BASE64} base64 "
+                f"characters (about 30 MB of files); send fewer or smaller messages per call"
+            )
+        return self
 
 
 class BulkResult(BaseModel):
