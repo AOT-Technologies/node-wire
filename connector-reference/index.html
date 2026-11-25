@@ -1224,6 +1224,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#n8n" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        n8n
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fhir_epic-and-fhir_cerner" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2833,6 +2844,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#n8n" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        n8n
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#fhir_epic-and-fhir_cerner" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3098,6 +3120,12 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 <td><a href="../slack_connector/">Slack</a></td>
 </tr>
 <tr>
+<td><a href="#n8n"><code>n8n</code></a></td>
+<td>173 actions: every n8n 2.47.7 public API operation except 3 deprecated ones (workflows, executions, tags, variables, credentials, folders, data tables, evaluations, projects, roles, users, audit, insights, community packages, source control, instance settings, policies, promotions, n8n packages), plus <code>trigger_workflow</code></td>
+<td><code>static_token</code> (<code>X-N8N-API-KEY</code>)</td>
+<td>—</td>
+</tr>
+<tr>
 <td><a href="#fhir_epic-and-fhir_cerner"><code>fhir_epic</code></a></td>
 <td><code>read_patient</code>, <code>search_patients</code>, <code>search_encounter</code>, <code>create_document_reference</code>, <code>search_document_reference</code></td>
 <td><code>oauth2</code> (<code>private_key_jwt</code>)</td>
@@ -3174,6 +3202,17 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 <li><strong>Secrets / settings:</strong> <code>SLACK_BOT_TOKEN</code>. File uploads from disk must sit under
   <code>NW_SLACK_ATTACHMENTS_DIR</code> (default <code>/slack_attachments</code>).</li>
 <li><strong>Guide:</strong> <a href="../slack_connector/">Slack</a> covers bot setup, channel resolution and the error codes.</li>
+</ul>
+<h3 id="n8n"><code>n8n</code><a class="headerlink" href="#n8n" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Package:</strong> <code>node-wire-n8n</code>, <code>src/node_wire_n8n/</code>. Versions: n8n public API v1 (spec 1.1.1), written against n8n 2.47.7.</li>
+<li><strong>Secrets / settings:</strong> secret <code>N8N_API_KEY</code>, sent as <code>X-N8N-API-KEY</code> (<code>auth: static_token</code>, <code>prefix: ""</code>). <code>instance_url</code> is the
+  instance root and is set in <code>connectors.yaml</code> only: no action accepts it, so the key can only go to the configured host.</li>
+<li><strong>Egress:</strong> there is no private-address guard, so an n8n on localhost or a private network works. Use a scoped API key
+  (n8n 2.14+) and an exposure profile to limit what the connector can do. It is disabled and REST-only in the shipped config;
+  profiles <code>n8n-readonly</code> and <code>n8n-workflows</code> are in <code>expose/n8n/</code>.</li>
+<li><strong>Actions:</strong> see <code>src/node_wire_n8n/README.md</code>. <code>trigger_workflow</code> calls a workflow's webhook without the API key, and only
+  on the configured n8n host.</li>
 </ul>
 <h3 id="fhir_epic-and-fhir_cerner"><code>fhir_epic</code> and <code>fhir_cerner</code><a class="headerlink" href="#fhir_epic-and-fhir_cerner" title="Anchor link to this section">&para;</a></h3>
 <ul>
