@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
@@ -289,6 +290,17 @@ async def test_a_write_body_must_match_its_type_and_id(wire: Wire, payload: dict
     assert not result.success and not wire.requests
 
 
+async def test_a_create_reads_the_id_from_a_chunked_answer(wire: Wire) -> None:
+    # No Location header and no content-length: the body is the only place the id is.
+    async def body() -> AsyncIterator[bytes]:
+        yield b'{"resourceType": "Condition", "id": "c9"}'
+
+    wire.status = 201
+    wire.content = body()  # type: ignore[assignment]
+    result = await make().run({"action": "create_condition", "resource": {}})
+    assert result.success and result.data["resource_id"] == "c9"
+
+
 async def test_a_create_without_an_id_in_the_answer_is_an_error(wire: Wire) -> None:
     wire.status = 201
     wire.json = None
@@ -305,7 +317,7 @@ async def test_a_create_without_an_id_in_the_answer_is_an_error(wire: Wire) -> N
         (403, "FHIR_AUTH_ERROR", "AUTH"),
         (404, "FHIR_HTTP_ERROR", "BUSINESS"),
         (422, "FHIR_HTTP_ERROR", "BUSINESS"),
-        (500, "FHIR_HTTP_ERROR", "BUSINESS"),
+        (500, "FHIR_SERVER_ERROR", "FATAL"),
     ],
 )
 async def test_status_decides_the_category(
@@ -330,7 +342,7 @@ async def test_gateway_errors_retry_only_safe_methods(
 ) -> None:
     wire.status = status
     result = await make().run(payload)
-    expected = ("FHIR_UNAVAILABLE", "RETRYABLE") if retryable else ("FHIR_HTTP_ERROR", "BUSINESS")
+    expected = ("FHIR_UNAVAILABLE", "RETRYABLE") if retryable else ("FHIR_SERVER_ERROR", "FATAL")
     assert (result.error_code, result.error_category) == expected
 
 
@@ -555,6 +567,23 @@ async def test_bulk_file_is_ndjson_text_with_a_size_cap(
     monkeypatch.setattr(logic, "_MAX_BULK_FILE_BYTES", 5)
     result = await make().run({"action": "bulk_export_file", "file_url": "https://epic.test/f/1"})
     assert not result.success and "larger than" in (result.message or "")
+
+
+async def test_bulk_file_over_the_cap_is_refused_before_it_is_all_read(
+    wire: Wire, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(logic, "_MAX_BULK_FILE_BYTES", 10)
+    read: list[int] = []
+
+    async def chunks() -> AsyncIterator[bytes]:
+        for i in range(100):
+            read.append(i)
+            yield b"x" * 4
+
+    wire.content = chunks()  # type: ignore[assignment]
+    result = await make().run({"action": "bulk_export_file", "file_url": "https://epic.test/f/1"})
+    assert not result.success and "larger than" in (result.message or "")
+    assert len(read) < 100
 
 
 async def test_bulk_delete(wire: Wire) -> None:

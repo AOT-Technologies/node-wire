@@ -183,8 +183,8 @@ logger = logging.getLogger("connectors.fhir_epic")
 # Simplified: quiet the whole httpx logger rather than filter it; its WARNING and ERROR records stay.
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-# Simplified: a bulk file is read whole, so this only protects the answer, not memory. Narrow the export with
-# type and type_filter (Epic's own advice) to keep files small.
+# Simplified: a bulk file is returned whole in the answer, so it is capped. It is read in chunks and refused as
+# soon as it passes the cap. Narrow the export with type and type_filter (Epic's own advice) to keep files small.
 _MAX_BULK_FILE_BYTES = 20_000_000
 
 
@@ -194,6 +194,10 @@ class _WriteTimedOut(httpx.TimeoutException):
 
 class _AuthRejected(httpx.HTTPStatusError):
     """403: the Epic app is not authorised for this API."""
+
+
+class _ServerError(httpx.HTTPStatusError):
+    """A 5xx that is not retried: any 5xx on a write, and a 500 on a read."""
 
 
 class _Rejected(httpx.HTTPStatusError, ValueError):
@@ -228,7 +232,7 @@ def _status_error(method: str, exc: httpx.HTTPStatusError) -> httpx.HTTPStatusEr
     elif status in (502, 503, 504) and method in ("GET", "DELETE"):
         cls = RestUnavailable
     elif status >= 500:
-        cls = httpx.HTTPStatusError
+        cls = _ServerError
     return cls(message, request=exc.request, response=response)
 
 
@@ -296,6 +300,7 @@ class FhirEpicConnector(BaseConnector):
         _WriteTimedOut: (ErrorCategory.FATAL, "FHIR_TIMEOUT_OUTCOME_UNKNOWN"),
         httpx.RequestError: (ErrorCategory.FATAL, "FHIR_REQUEST_ERROR"),
         httpx.HTTPStatusError: (ErrorCategory.BUSINESS, "FHIR_HTTP_ERROR"),
+        _ServerError: (ErrorCategory.FATAL, "FHIR_SERVER_ERROR"),
         RestAuthError: (ErrorCategory.AUTH, "FHIR_AUTH_ERROR"),
         _AuthRejected: (ErrorCategory.AUTH, "FHIR_AUTH_ERROR"),
         RestRateLimited: (ErrorCategory.RETRYABLE, "FHIR_RATE_LIMITED"),
@@ -324,8 +329,12 @@ class FhirEpicConnector(BaseConnector):
         body: Any = None,
         headers: Optional[Dict[str, str]] = None,
         repeatable: Optional[bool] = None,
+        max_bytes: Optional[int] = None,
     ) -> httpx.Response:
-        """One request. ``repeatable``: a retry of this call is harmless (default: GET and DELETE)."""
+        """One request. ``repeatable``: a retry of this call is harmless (default: GET and DELETE).
+
+        ``max_bytes``: read the answer in chunks and refuse one that is larger.
+        """
         merged: Dict[str, str] = {"Accept": "application/fhir+json"}
         merged.update(await self.get_auth_headers())
         merged.update(headers or {})
@@ -351,7 +360,11 @@ class FhirEpicConnector(BaseConnector):
         if body is not None:
             kwargs["json"] = body
         try:
-            response = await getattr(_shared_client(True), method.lower())(url, **kwargs)
+            client = _shared_client(True)
+            if max_bytes is None:
+                response = await getattr(client, method.lower())(url, **kwargs)
+            else:
+                response = await self._read_capped(client, method, url, kwargs, max_bytes)
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             log_http_status_error(
@@ -381,6 +394,32 @@ class FhirEpicConnector(BaseConnector):
             )
             raise
         return response
+
+    @staticmethod
+    async def _read_capped(
+        client: httpx.AsyncClient, method: str, url: str, kwargs: Dict[str, Any], max_bytes: int
+    ) -> httpx.Response:
+        """The answer, read in chunks. A body over ``max_bytes`` is refused before it is all in memory."""
+        async with client.stream(method, url, **kwargs) as streamed:
+            body = bytearray()
+            async for chunk in streamed.aiter_bytes():
+                body += chunk
+                if len(body) > max_bytes:
+                    raise ValueError(
+                        f"the export file is larger than {max_bytes // 1_000_000} MB; "
+                        "narrow the export with type and type_filter"
+                    )
+            # The chunks are already decoded, so the headers that describe the wire body are dropped.
+            dropped = ("content-encoding", "content-length", "transfer-encoding")
+            headers = [
+                (k, v) for k, v in streamed.headers.multi_items() if k.lower() not in dropped
+            ]
+            return httpx.Response(
+                streamed.status_code,
+                headers=headers,
+                content=bytes(body),
+                request=streamed.request,
+            )
 
     @staticmethod
     def _query(params: Any) -> Dict[str, Any]:
@@ -433,11 +472,7 @@ class FhirEpicConnector(BaseConnector):
         if location:
             history = location.find("/_history/")
             resource_id = (location[:history] if history != -1 else location).split("/")[-1]
-        if (
-            not resource_id
-            and response.headers.get("content-length", "0") != "0"
-            and response.content
-        ):
+        if not resource_id and response.content:
             try:
                 body = response.json()
                 resource_id = body.get("id")
@@ -687,11 +722,8 @@ class FhirEpicConnector(BaseConnector):
             self._same_server(params.file_url),
             trace_id,
             headers={"Accept": "application/fhir+ndjson"},
+            max_bytes=_MAX_BULK_FILE_BYTES,
         )
-        if len(response.content) > _MAX_BULK_FILE_BYTES:
-            raise ValueError(
-                "the export file is larger than 20 MB; narrow the export with type and type_filter"
-            )
         return FhirEpicOperationOutput(status_code=response.status_code, content=response.text)
 
     @nw_action("bulk_export_delete", http_method="DELETE", http_path="/BulkRequest/{id}")

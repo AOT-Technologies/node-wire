@@ -60,9 +60,10 @@ with an [exposure profile](../../docs/exposure.md) (`NW_EXPOSE_PROFILE`).
   | Answer | Error code | Category |
   |---|---|---|
   | 429 | `FHIR_RATE_LIMITED` | retryable |
-  | 502, 503, 504 on `GET` and `DELETE` | `FHIR_UNAVAILABLE` | retryable (not on writes: a gateway error on a `POST` may have stored it) |
+  | 502, 503, 504 on `GET` and `DELETE` | `FHIR_UNAVAILABLE` | retryable |
+  | any other 5xx (500, and 502, 503, 504 on a write) | `FHIR_SERVER_ERROR` | fatal, not retried: a gateway error on a `POST` may have stored the record |
   | 401, 403 (the Epic app is not authorised for this API) | `FHIR_AUTH_ERROR` | auth |
-  | any other 4xx or 5xx, and a bad input | `FHIR_HTTP_ERROR`, `FHIR_INVALID_REQUEST` | business |
+  | any other 4xx, and a bad input | `FHIR_HTTP_ERROR`, `FHIR_INVALID_REQUEST` | business |
   | connection failure, connect or pool timeout; any other timeout on a read, an update, a `$match` | `FHIR_CONNECT_ERROR`, `FHIR_TIMEOUT` | retryable |
   | timeout after a create or a bulk kick-off was sent | `FHIR_TIMEOUT_OUTCOME_UNKNOWN` | not retried: Epic has no conditional create, so a repeat could store the record twice, and a kick-off counts against Epic's one request per group per day |
 
@@ -79,7 +80,7 @@ names, inputs (including `search_params` and the name fields) and the LLM-alias 
 
 Epic supports only the group export, on bulk data 1.0.1 with some 1.1.0 features: `bulk_export_group` (needs the id of a
 group the organisation set up), then `bulk_export_status` until it returns the manifest (`resource.output`), then
-`bulk_export_file` for each file (NDJSON text, 20 MB at most) and `bulk_export_delete` once everything is downloaded. Poll every
+`bulk_export_file` for each file (NDJSON text, 20 MB at most; a larger one is refused while it is being read) and `bulk_export_delete` once everything is downloaded. Poll every
 10 minutes (groups up to 100 patients) or 30 minutes. `type` and `type_filter` keep the files small; `type_filter` needs `type`.
 A group can be exported once in 24 hours unless the organisation changes that.
 
