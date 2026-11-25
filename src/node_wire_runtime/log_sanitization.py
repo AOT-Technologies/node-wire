@@ -208,6 +208,7 @@ _KNOWN_CONNECTOR_IDS = tuple(
             "stripe",
             "smtp",
             "slack",
+            "n8n",
         ),
         key=len,
         reverse=True,

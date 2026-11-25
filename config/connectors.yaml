@@ -144,6 +144,15 @@ connectors:
       header_name: Authorization
       prefix: Bearer
       host_supplied: true
+  n8n:
+    enabled: false  # opt-in: the API key grants instance-admin actions (users, credentials, SSO)
+    exposed_via: [rest]  # add grpc/mcp only together with an NW_EXPOSE_PROFILE (expose/n8n/)
+    instance_url: http://localhost:5678
+    auth:
+      provider: static_token
+      secret_key: N8N_API_KEY
+      header_name: X-N8N-API-KEY
+      prefix: ''
   postgres:
     enabled: true
     exposed_via: [rest, grpc, mcp]

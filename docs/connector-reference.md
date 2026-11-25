@@ -131,6 +131,7 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 | [`salesforce`](#salesforce) | `create_lead`, `read_lead`, `update_lead`, `delete_lead`, `create_contact`, `read_contact`, `update_contact`, `delete_contact` | `oauth2` (`refresh_token`) | [Salesforce](salesforce_connector.md) |
 | [`google_drive`](#google_drive) | 49 Drive v3 actions (48 generated, plus `drive_files_upload`) (`drive_files_list`, `drive_files_get`, `drive_files_create`, `drive_files_update`, `drive_files_delete`, `drive_permissions_create`, comments, revisions, shared drives and more); upload up to 5 MB, no download | `service_account` (or `upstream_bearer`) | [Google Drive](google_drive_connector.md) |
 | [`slack`](#slack) | `post_message`, `send_direct_message`, `upload_file` | `static_token` | [Slack](slack_connector.md) |
+| [`n8n`](#n8n) | 173 actions: every n8n 2.47.7 public API operation except 3 deprecated ones (workflows, executions, tags, variables, credentials, folders, data tables, evaluations, projects, roles, users, audit, insights, community packages, source control, instance settings, policies, promotions, n8n packages), plus `trigger_workflow` | `static_token` (`X-N8N-API-KEY`) | — |
 | [`fhir_epic`](#fhir_epic-and-fhir_cerner) | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | `oauth2` (`private_key_jwt`) | — |
 | [`fhir_cerner`](#fhir_epic-and-fhir_cerner) | same actions as `fhir_epic` | `oauth2` (`private_key_jwt`) | — |
 
@@ -197,6 +198,17 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 - **Secrets / settings:** `SLACK_BOT_TOKEN`. File uploads from disk must sit under
   `NW_SLACK_ATTACHMENTS_DIR` (default `/slack_attachments`).
 - **Guide:** [Slack](slack_connector.md) covers bot setup, channel resolution and the error codes.
+
+### `n8n`
+
+- **Package:** `node-wire-n8n`, `src/node_wire_n8n/`. Versions: n8n public API v1 (spec 1.1.1), written against n8n 2.47.7.
+- **Secrets / settings:** secret `N8N_API_KEY`, sent as `X-N8N-API-KEY` (`auth: static_token`, `prefix: ""`). `instance_url` is the
+  instance root and is set in `connectors.yaml` only: no action accepts it, so the key can only go to the configured host.
+- **Egress:** there is no private-address guard, so an n8n on localhost or a private network works. Use a scoped API key
+  (n8n 2.14+) and an exposure profile to limit what the connector can do. It is disabled and REST-only in the shipped config;
+  profiles `n8n-readonly` and `n8n-workflows` are in `expose/n8n/`.
+- **Actions:** see `src/node_wire_n8n/README.md`. `trigger_workflow` calls a workflow's webhook without the API key, and only
+  on the configured n8n host.
 
 ### `fhir_epic` and `fhir_cerner`
 
