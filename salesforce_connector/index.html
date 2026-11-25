@@ -1211,6 +1211,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Capabilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rest-api-and-bulk-api-20-142-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        REST API and Bulk API 2.0 (142 actions)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1279,6 +1296,45 @@
     <span class="md-ellipsis">
       
         Playground interface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limiting-what-a-deployment-can-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limiting what a deployment can do
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Limiting what a deployment can do">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-the-lead-and-contact-connector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from the lead and contact connector
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Errors
       
     </span>
   </a>
@@ -2653,6 +2709,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Capabilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rest-api-and-bulk-api-20-142-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        REST API and Bulk API 2.0 (142 actions)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2721,6 +2794,45 @@
     <span class="md-ellipsis">
       
         Playground interface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limiting-what-a-deployment-can-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limiting what a deployment can do
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Limiting what a deployment can do">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#upgrading-from-the-lead-and-contact-connector" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading from the lead and contact connector
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Errors
       
     </span>
   </a>
@@ -2824,7 +2936,7 @@ SPDX-License-Identifier: Apache-2.0
 -->
 
 <h1 id="salesforce-connector-srcnode_wire_salesforce">Salesforce connector (<code>src/node_wire_salesforce</code>)<a class="headerlink" href="#salesforce-connector-srcnode_wire_salesforce" title="Anchor link to this section">&para;</a></h1>
-<p>The Salesforce connector provides a secure, asynchronous interface for managing CRM records (Leads and Contacts). It uses Node Wire's <code>OAuth2AuthProvider</code> to refresh tokens automatically, so it fits agentic workflows and medical-to-CRM pipelines.</p>
+<p>The Salesforce connector provides a secure, asynchronous interface to Salesforce: CRM records (Leads and Contacts), the rest of the REST API and Bulk API 2.0. It has 150 actions, written against API <strong>v68.0 (Winter '27)</strong>. It uses Node Wire's <code>OAuth2AuthProvider</code> to refresh tokens automatically, so it fits agentic workflows and medical-to-CRM pipelines.</p>
 <h2 id="capabilities">Capabilities<a class="headerlink" href="#capabilities" title="Anchor link to this section">&para;</a></h2>
 <p>The connector exposes full CRUD (Create, Read, Update, Delete) operations for the two most common Salesforce objects used in healthcare and enterprise outreach:</p>
 <table>
@@ -2869,19 +2981,113 @@ SPDX-License-Identifier: Apache-2.0
 </tr>
 </tbody>
 </table>
+<h3 id="rest-api-and-bulk-api-20-142-actions">REST API and Bulk API 2.0 (142 actions)<a class="headerlink" href="#rest-api-and-bulk-api-20-142-actions" title="Anchor link to this section">&para;</a></h3>
+<p>Every operation of the REST API Developer Guide and the Bulk API 2.0 guide (v68.0) that is not deprecated, in beta or a plain
+"return headers" (HEAD) variant. Fields named in the path go in the path, the others go to the query (<code>GET</code>, <code>DELETE</code>) or the JSON body.
+Lists are comma separated in the query. Open-ended options are one map (<code>parameters</code> for a query, a named field for a body). Responses are
+<code>status_code</code>, <code>headers</code> and <code>body</code>; a binary answer (a blob field) is base64 and Bulk API 2.0 results are CSV text.</p>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Org and discovery (10)</td>
+<td><code>list_api_versions</code>, <code>list_resources</code>, <code>get_limits</code>, <code>get_record_counts</code>, <code>describe_global</code>, <code>get_tabs</code>, <code>get_theme</code>, <code>get_app_menu_types</code>, <code>get_app_menu_items</code>, <code>get_mobile_app_menu_items</code></td>
+</tr>
+<tr>
+<td>sObject metadata (13)</td>
+<td><code>get_sobject_info</code>, <code>describe_sobject</code>, <code>get_deleted_records</code>, <code>get_updated_records</code>, <code>get_named_layout</code>, <code>get_layouts</code>, <code>get_layouts_for_record_type</code>, <code>get_global_publisher_layouts</code>, <code>get_compact_layouts</code>, <code>get_compact_layouts_for_objects</code>, <code>get_approval_layouts</code>, <code>get_approval_layout</code>, <code>get_platform_action</code></td>
+</tr>
+<tr>
+<td>sObject records (12)</td>
+<td><code>create_record</code>, <code>get_record</code>, <code>update_record</code>, <code>delete_record</code>, <code>get_record_by_external_id</code>, <code>upsert_record_by_external_id</code>, <code>delete_record_by_external_id</code>, <code>get_blob_field</code>, <code>get_rich_text_image</code>, <code>get_related_records</code>, <code>update_related_record</code>, <code>delete_related_record</code></td>
+</tr>
+<tr>
+<td>Collections (6)</td>
+<td><code>create_records</code>, <code>get_records</code>, <code>get_records_with_body</code>, <code>update_records</code>, <code>upsert_records</code>, <code>delete_records</code></td>
+</tr>
+<tr>
+<td>Composite (5)</td>
+<td><code>composite</code>, <code>get_composite_resources</code>, <code>composite_graph</code>, <code>composite_batch</code>, <code>create_record_tree</code></td>
+</tr>
+<tr>
+<td>Query and search (13)</td>
+<td><code>query</code>, <code>query_more</code>, <code>query_all</code>, <code>query_all_more</code>, <code>search</code>, <code>parameterized_search_get</code>, <code>parameterized_search_post</code>, <code>get_search_scope_order</code>, <code>get_search_result_layouts</code>, <code>search_suggestions</code>, <code>search_title_matches</code>, <code>search_suggested_queries</code>, <code>run_named_query</code></td>
+</tr>
+<tr>
+<td>List views and recent (7)</td>
+<td><code>list_list_views</code>, <code>get_list_view</code>, <code>describe_list_view</code>, <code>get_list_view_results</code>, <code>get_recent_list_views</code>, <code>get_recent_items</code>, <code>get_relevant_items</code></td>
+</tr>
+<tr>
+<td>Quick actions (8)</td>
+<td><code>list_quick_actions</code>, <code>create_record_with_quick_action</code>, <code>list_sobject_quick_actions</code>, <code>get_sobject_quick_action</code>, <code>invoke_sobject_quick_action</code>, <code>describe_sobject_quick_action</code>, <code>get_quick_action_default_values</code>, <code>get_quick_action_default_values_for_record</code></td>
+</tr>
+<tr>
+<td>Process and automation (11)</td>
+<td><code>list_process_approvals</code>, <code>submit_process_approval</code>, <code>list_process_rules</code>, <code>trigger_process_rules</code>, <code>list_process_rules_for_sobject</code>, <code>get_process_rule</code>, <code>trigger_process_rule</code>, <code>list_invocable_actions</code>, <code>list_standard_invocable_actions</code>, <code>list_custom_invocable_actions</code>, <code>deploy_data_kit_components</code></td>
+</tr>
+<tr>
+<td>Product schedules (3)</td>
+<td><code>get_product_schedules</code>, <code>create_product_schedules</code>, <code>delete_product_schedules</code></td>
+</tr>
+<tr>
+<td>Knowledge and support (9)</td>
+<td><code>get_support_resources</code>, <code>list_data_category_groups</code>, <code>get_data_category_detail</code>, <code>list_knowledge_articles</code>, <code>get_knowledge_article</code>, <code>get_knowledge_language_settings</code>, <code>get_suggested_articles</code>, <code>get_suggested_articles_for_record</code>, <code>get_embedded_service_config</code></td>
+</tr>
+<tr>
+<td>Platform events (2)</td>
+<td><code>get_event_schema_by_name</code>, <code>get_event_schema_by_id</code></td>
+</tr>
+<tr>
+<td>Consent and privacy (5)</td>
+<td><code>compile_consent</code>, <code>compile_multi_consent</code>, <code>write_consent</code>, <code>request_portability_data</code>, <code>get_portability_status</code></td>
+</tr>
+<tr>
+<td>Scheduler (3)</td>
+<td><code>get_scheduling_resources</code>, <code>get_appointment_slots</code>, <code>get_appointment_candidates</code></td>
+</tr>
+<tr>
+<td>Survey translations (6)</td>
+<td><code>set_survey_field_translation</code>, <code>set_survey_field_translations</code>, <code>delete_survey_field_translation</code>, <code>delete_survey_field_translations</code>, <code>get_survey_field_translation</code>, <code>get_survey_field_translations</code></td>
+</tr>
+<tr>
+<td>User passwords (6)</td>
+<td><code>get_user_password_status</code>, <code>set_user_password</code>, <code>reset_user_password</code>, <code>get_self_service_user_password_status</code>, <code>set_self_service_user_password</code>, <code>reset_self_service_user_password</code></td>
+</tr>
+<tr>
+<td>Lightning usage (6)</td>
+<td><code>get_lightning_toggle_metrics</code>, <code>get_lightning_usage_by_app_type</code>, <code>get_lightning_usage_by_browser</code>, <code>get_lightning_usage_by_page</code>, <code>get_lightning_usage_by_flexipage</code>, <code>get_lightning_exit_by_page</code></td>
+</tr>
+<tr>
+<td>Bulk API 2.0 ingest (10)</td>
+<td><code>create_ingest_job</code>, <code>upload_ingest_job_data</code>, <code>complete_ingest_job</code>, <code>abort_ingest_job</code>, <code>delete_ingest_job</code>, <code>get_ingest_job</code>, <code>list_ingest_jobs</code>, <code>get_ingest_successful_results</code>, <code>get_ingest_failed_results</code>, <code>get_ingest_unprocessed_records</code></td>
+</tr>
+<tr>
+<td>Bulk API 2.0 query (7)</td>
+<td><code>create_query_job</code>, <code>get_query_job</code>, <code>abort_query_job</code>, <code>delete_query_job</code>, <code>list_query_jobs</code>, <code>get_query_job_results</code>, <code>get_query_job_result_pages</code></td>
+</tr>
+</tbody>
+</table>
+<p>Sources: the REST API Developer Guide and the Bulk API 2.0 and Bulk API Developer Guide, version 68.0 (Winter '27, October 2026).
+Not included: the Tooling, UI, Connect, GraphQL, Metadata and Analytics APIs, which are separate APIs.</p>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Anchor link to this section">&para;</a></h2>
 <p>Add the following to your <code>config/connectors.yaml</code>:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">connectors</span><span class="p">:</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">salesforce</span><span class="p">:</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">exposed_via</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"rest"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"grpc"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"mcp"</span><span class="p p-Indicator">]</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">auth</span><span class="p">:</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">      </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">oauth2</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">      </span><span class="nt">grant_method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">refresh_token</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">      </span><span class="nt">token_url_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SALESFORCE_TOKEN_URL</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">      </span><span class="nt">client_id_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SALESFORCE_CLIENT_ID</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">      </span><span class="nt">client_secret_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SALESFORCE_CLIENT_SECRET</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">      </span><span class="nt">refresh_token_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SALESFORCE_REFRESH_TOKEN</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">          </span><span class="c1"># the shipped config has this off: set it to true to use the connector</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">exposed_via</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"rest"</span><span class="p p-Indicator">]</span><span class="w">  </span><span class="c1"># add grpc and mcp only together with an exposure profile (below)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="c1"># api_version: v68.0   # optional; v68.0 is the default</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">auth</span><span class="p">:</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">      </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">oauth2</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">      </span><span class="nt">grant_method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">refresh_token</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">      </span><span class="nt">token_url_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SALESFORCE_TOKEN_URL</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">      </span><span class="nt">client_id_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SALESFORCE_CLIENT_ID</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">      </span><span class="nt">client_secret_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SALESFORCE_CLIENT_SECRET</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">      </span><span class="nt">refresh_token_secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SALESFORCE_REFRESH_TOKEN</span>
 </span></code></pre></div>
 <h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Anchor link to this section">&para;</a></h2>
 <p>The following secrets must be provided (for example, in <code>.env</code> or via your secret manager):</p>
@@ -2947,6 +3153,92 @@ SPDX-License-Identifier: Apache-2.0
 </ul>
 <p>Access the playground at <code>http://localhost:8000/playground/</code> (when running locally), then select <strong>Connectors</strong> → <strong>Salesforce</strong>:</p>
 <p><img alt="Playground CRM Synchronization panel for Salesforce leads, with the Smart Pipeline steps and Technical Audit log beside it" src="../images/playground-salesforce-crm.png" /></p>
+<h2 id="limiting-what-a-deployment-can-do">Limiting what a deployment can do<a class="headerlink" href="#limiting-what-a-deployment-can-do" title="Anchor link to this section">&para;</a></h2>
+<p>The connector has 150 actions, including password resets, bulk deletes and composite writes. The shipped <code>config/connectors.yaml</code> therefore
+has Salesforce <strong>disabled</strong> and on REST only. Before you turn on <code>grpc</code> or <code>mcp</code>, pick an <a href="../exposure/">exposure profile</a> with
+<code>NW_EXPOSE_PROFILE</code>; a hidden action is not listed and is refused if called. Profiles in <code>expose/salesforce/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Profile</th>
+<th>Actions</th>
+<th>What it allows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>salesforce-readonly</code></td>
+<td>101</td>
+<td>Every read (<code>GET</code>) plus five reads that use a request body, with no password actions. Nothing changes in the org</td>
+</tr>
+<tr>
+<td><code>salesforce-records</code></td>
+<td>37</td>
+<td>Create, read, update and delete records, query, search and describe, plus the 8 lead and contact actions. No bulk deletes, no passwords</td>
+</tr>
+<tr>
+<td><code>salesforce-leads-contacts</code></td>
+<td>8</td>
+<td>Only the original lead and contact actions</td>
+</tr>
+<tr>
+<td><code>salesforce-bulk</code></td>
+<td>17</td>
+<td>Only Bulk API 2.0</td>
+</tr>
+</tbody>
+</table>
+<p><code>NW_EXPOSE_PROFILE</code> is enforced on REST, gRPC and MCP alike (a hidden action is not listed and is refused if called), so the safe setting is
+not just a comment. It is one name for the whole server: a loaded connector with no file of that name exposes nothing. See
+<a href="../exposure/">Action exposure profiles</a>.</p>
+<p>Also use a Salesforce user with only the permissions the deployment needs: the connector can do whatever that user can.</p>
+<h3 id="upgrading-from-the-lead-and-contact-connector">Upgrading from the lead and contact connector<a class="headerlink" href="#upgrading-from-the-lead-and-contact-connector" title="Anchor link to this section">&para;</a></h3>
+<p>The shipped <code>config/connectors.yaml</code> used to enable Salesforce on REST, gRPC and MCP. It is now off and REST-only. To keep using it
+over gRPC or MCP as before, set this in your own <code>connectors.yaml</code>, and limit it to the original 8 actions:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="w">  </span><span class="nt">salesforce</span><span class="p">:</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">exposed_via</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"rest"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"grpc"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"mcp"</span><span class="p p-Indicator">]</span>
+</span></code></pre></div>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">NW_EXPOSE_PROFILE</span><span class="o">=</span>salesforce-leads-contacts
+</span></code></pre></div>
+<h2 id="errors">Errors<a class="headerlink" href="#errors" title="Anchor link to this section">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Answer</th>
+<th>Code</th>
+<th>Category</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>401</td>
+<td><code>SALESFORCE_AUTH_ERROR</code></td>
+<td>auth</td>
+</tr>
+<tr>
+<td>429</td>
+<td><code>SALESFORCE_RATE_LIMITED</code></td>
+<td>retryable</td>
+</tr>
+<tr>
+<td>502, 503, 504 on <code>GET</code> and <code>DELETE</code></td>
+<td><code>SALESFORCE_TRANSIENT_ERROR</code></td>
+<td>retryable</td>
+</tr>
+<tr>
+<td>any other 4xx or 5xx</td>
+<td><code>SALESFORCE_API_ERROR</code></td>
+<td>business</td>
+</tr>
+<tr>
+<td>timeout, connection failure</td>
+<td><code>SALESFORCE_TIMEOUT</code>, <code>SALESFORCE_CONNECT_ERROR</code></td>
+<td>retryable</td>
+</tr>
+</tbody>
+</table>
+<p>The message carries Salesforce's own <code>errorCode</code> and <code>message</code>. The 8 lead and contact actions use the same request path and rules as the rest, so a 503 on <code>create_lead</code> is <code>SALESFORCE_API_ERROR</code>, not retried (a write may already have run). Before this version any 5xx on them was retryable.</p>
 <h2 id="security-note">Security note<a class="headerlink" href="#security-note" title="Anchor link to this section">&para;</a></h2>
 <ul>
 <li><strong>OAuth2</strong>: Tokens are never logged or persisted to disk. <code>OAuth2AuthProvider</code> holds the resolved access token as a plain in-process value, scoped to the provider instance's lifetime — there is no additional encryption-at-rest or secure-memory mechanism.</li>

@@ -3103,6 +3103,12 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 </tr>
 <tr>
 <td><a href="#salesforce"><code>salesforce</code></a></td>
+<td>150 actions: leads and contacts, plus the REST API v68.0 (records, metadata, query, search, composite, process, knowledge, consent and more) and Bulk API 2.0</td>
+<td><code>oauth2</code> (<code>refresh_token</code>)</td>
+<td><a href="../salesforce_connector/">Salesforce</a></td>
+</tr>
+<tr>
+<td><a href="#salesforce"><code>salesforce</code></a></td>
 <td><code>create_lead</code>, <code>read_lead</code>, <code>update_lead</code>, <code>delete_lead</code>, <code>create_contact</code>, <code>read_contact</code>, <code>update_contact</code>, <code>delete_contact</code></td>
 <td><code>oauth2</code> (<code>refresh_token</code>)</td>
 <td><a href="../salesforce_connector/">Salesforce</a></td>
@@ -3191,8 +3197,12 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 <ul>
 <li><strong>Package:</strong> <code>node-wire-salesforce</code>, <code>src/node_wire_salesforce/</code>. MCP image <code>nw-salesforce</code>.</li>
 <li><strong>Secrets / settings:</strong> <code>SALESFORCE_INSTANCE_URL</code>, <code>SALESFORCE_TOKEN_URL</code>, <code>SALESFORCE_CLIENT_ID</code>,
-  <code>SALESFORCE_CLIENT_SECRET</code>, <code>SALESFORCE_REFRESH_TOKEN</code>.</li>
-<li><strong>Guide:</strong> <a href="../salesforce_connector/">Salesforce</a> covers configuration and examples.</li>
+  <code>SALESFORCE_CLIENT_SECRET</code>, <code>SALESFORCE_REFRESH_TOKEN</code>. <code>api_version</code> (default <code>v68.0</code>) can be set in <code>connectors.yaml</code>.</li>
+<li><strong>Actions:</strong> the 8 lead and contact actions, plus 142 for the REST API and Bulk API 2.0, listed by group in the guide.
+  The instance URL and token are server-side only; no action accepts them. The shipped config has it disabled and on REST only. Use an exposure profile
+  (<code>expose/salesforce/</code>: <code>salesforce-readonly</code>, <code>salesforce-records</code>, <code>salesforce-leads-contacts</code>, <code>salesforce-bulk</code>) to limit what a
+  deployment can do (it includes password resets and bulk deletes).</li>
+<li><strong>Guide:</strong> <a href="../salesforce_connector/">Salesforce</a> covers configuration, the action list and the error codes.</li>
 </ul>
 <h3 id="google_drive"><code>google_drive</code><a class="headerlink" href="#google_drive" title="Anchor link to this section">&para;</a></h3>
 <ul>
