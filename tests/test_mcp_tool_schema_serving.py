@@ -67,9 +67,11 @@ def test_tool_description_is_not_repeated_inside_the_input_schema(server: McpSer
 def test_list_tools_returns_copies_callers_cannot_use_to_corrupt_the_cache(
     server: McpServer,
 ) -> None:
-    first = server.list_tools()
-    first[0]["input_schema"]["properties"].clear()
-    assert server.list_tools()[0]["input_schema"]["properties"]
+    # Some tools (smtp ping, check_connection) take no arguments, so pick one that has properties.
+    tool = next(t for t in server.list_tools() if t["input_schema"]["properties"])
+    tool["input_schema"]["properties"].clear()
+    again = next(t for t in server.list_tools() if t["name"] == tool["name"])
+    assert again["input_schema"]["properties"]
 
 
 _NESTED: dict[str, Any] = {
