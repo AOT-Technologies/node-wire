@@ -1166,11 +1166,6 @@ textarea:focus {
     height: 2.25rem;
 }
 
-/* Epic: blue brand background with white E lettermark */
-.bg-epic {
-    background: #2B5BE0;
-}
-
 /* IT Ops / HTTP Connector: purple gradient with white lightning bolt */
 .bg-itops {
     background: linear-gradient(135deg, #6366f1, #4f46e5);
@@ -2279,7 +2274,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 .bg-agent { background: linear-gradient(135deg, #8B5CF6, #7C3AED); }
 .bg-connectors { background: linear-gradient(135deg, #2563EB, #1D4ED8); }
-.bg-epic { background: #2B5BE0; }
 .bg-itops { background: #6366F1; }
 .bg-slack { background: #4A154B; }
 .selection-details h3 {

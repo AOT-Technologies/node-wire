@@ -13,10 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/'/g, '&#39;');
     };
 
-    const form = document.getElementById('scenario-form');
-    const runBtn = document.getElementById('run-btn');
-    const spinner = runBtn.querySelector('.loading-spinner');
-    const btnText = runBtn.querySelector('.btn-lbl');
     const terminal = document.getElementById('log-terminal');
     const traceDisplay = document.getElementById('current-trace');
     const finalResult = document.getElementById('final-result');
@@ -29,6 +25,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const itopsSpinner = itopsRunBtn.querySelector('.loading-spinner');
     const itopsBtnText = itopsRunBtn.querySelector('.btn-lbl');
     const ehrPanel = document.getElementById('ehr-panel');
+    const cernerForm = document.getElementById('cerner-form');
+    const cernerRunBtn = document.getElementById('cerner-run-btn');
+    const cernerSpinner = cernerRunBtn.querySelector('.loading-spinner');
+    const cernerBtnText = cernerRunBtn.querySelector('.btn-lbl');
     const itopsPanel = document.getElementById('itops-panel');
     const slackForm = document.getElementById('slack-form');
     const slackRunBtn = document.getElementById('slack-run-btn');
@@ -132,12 +132,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'Tool calling may be limited on local Ollama models. If tool calls fail, switch back to Groq.';
 
     const pipelineLabels = {
-        ehr: [
-            "Identify Patient",
-            "Locate Medical Visit",
-            "Secure Sync to EHR",
-            "Verify EHR Update"
-        ],
         itops: [
             "Format Incident Payload",
             "Dispatch Webhook",
@@ -225,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetUI(pipelineLabelOverride = null) {
-        const baseLabels = pipelineLabels[currentMode] || pipelineLabels.ehr;
+        const baseLabels = pipelineLabels[currentMode] || pipelineLabels.cerner;
         const useOverride = Array.isArray(pipelineLabelOverride) && pipelineLabelOverride.length > 0;
         const rowLabels = useOverride ? pipelineLabelOverride : baseLabels;
         const visibleCount = rowLabels.length;
@@ -517,7 +511,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Hide all panels first
-        ehrPanel.classList.add('hidden');
         itopsPanel.classList.add('hidden');
         stripePanel.classList.add('hidden');
         salesforcePanel.classList.add('hidden');
@@ -528,14 +521,7 @@ document.addEventListener('DOMContentLoaded', () => {
             syncMultitenancyUi();
         }
 
-        if (mode === 'ehr') {
-
-            ehrPanel.classList.remove('hidden');
-            connectorStatus.textContent = 'Epic R4 Online';
-            tagline.textContent = 'Enterprise EHR Orchestration';
-            document.documentElement.style.setProperty('--brand-accent', '#2563eb');
-            log('Switched to EHR Automation mode (Epic FHIR R4)', 'system');
-        } else if (mode === 'itops') {
+        if (mode === 'itops') {
             itopsPanel.classList.remove('hidden');
             connectorStatus.textContent = 'HTTP Gateway Online';
             tagline.textContent = 'Intelligent Infrastructure Automation';
@@ -931,6 +917,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Map playground mode names to connector_id strings used by the config API.
     const _modeToConnectorId = {
         ehr: 'fhir_epic',
+        cerner: 'fhir_cerner',
         itops: 'http_generic',
         slack: 'slack',
         stripe: 'stripe',
@@ -950,6 +937,9 @@ document.addEventListener('DOMContentLoaded', () => {
         fhir_epic: {
             config: {
                 base_url: 'https://fhir.epic.sandbox/api/FHIR/R4',
+        fhir_cerner: {
+            config: {
+                base_url: 'https://fhir-ehr-code.cerner.com/r4/your-tenant-id',
             },
             auth: {
                 provider: 'oauth2',
@@ -959,6 +949,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 private_key_secret: 'EPIC_PRIVATE_KEY',
                 kid_secret: 'EPIC_KID',
                 algorithm: 'RS384',
+                token_url_secret: 'CERNER_TOKEN_URL',
+                client_id_secret: 'CERNER_CLIENT_ID',
+                private_key_secret: 'CERNER_PRIVATE_KEY',
+                kid_secret: 'CERNER_KID',
+                algorithm: 'RS384',
+                scopes_secret: 'CERNER_SCOPES',
+                scopes: [
+                    'system/Patient.read',
+                    'system/Encounter.read',
+                    'system/DocumentReference.read',
+                    'system/DocumentReference.write',
+                ],
             },
         },
         slack: {
@@ -997,6 +999,11 @@ document.addEventListener('DOMContentLoaded', () => {
             { key: 'EPIC_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
             { key: 'EPIC_PRIVATE_KEY', label: 'Private key (PEM)', type: 'textarea', required: true },
             { key: 'EPIC_KID', label: 'Key ID (kid)', type: 'text', required: true },
+        fhir_cerner: [
+            { key: 'CERNER_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
+            { key: 'CERNER_PRIVATE_KEY', label: 'Private key (PEM)', type: 'textarea', required: true },
+            { key: 'CERNER_KID', label: 'Key ID (kid)', type: 'text', required: true },
+            { key: 'CERNER_SCOPES', label: 'Scopes (space-separated)', type: 'text', required: false },
         ],
         slack: [
             { key: 'SLACK_BOT_TOKEN', label: 'Bot token', type: 'text', required: true },
@@ -1311,7 +1318,7 @@ document.addEventListener('DOMContentLoaded', () => {
                              bDiv.innerHTML = `
                                 <div class="beautiful-doc-card">
                                     <div class="doc-card-header">
-                                         <div class="doc-icon" style="background: ${currentMode === 'ehr' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(99, 102, 241, 0.15)'}; color: ${currentMode === 'ehr' ? '#10b981' : '#6366f1'}">
+                                         <div class="doc-icon" style="background: rgba(99, 102, 241, 0.15); color: #6366f1">
                                              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                  <path d="M9 12H15M9 16H15M19 6V18C19 19.1046 18.1046 20 17 20H7C5.89543 20 5 19.1046 5 18V6C5 4.89543 5.89543 4 7 4H13.5M19 6L13.5 4M19 6V4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                              </svg>
@@ -1327,15 +1334,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                      </div>
                                      <div class="doc-details">
                                          <div class="detail-col">
-                                             <span class="d-label">${currentMode === 'ehr' ? 'Patient' : 'Reported By'}</span>
+                                             <span class="d-label">Reported By</span>
                                              <span class="d-value">${escapeHTML(bData.patient_name)}</span>
                                          </div>
                                          <div class="detail-col">
-                                             <span class="d-label">${currentMode === 'ehr' ? 'Author' : 'Orchestrator'}</span>
+                                             <span class="d-label">Orchestrator</span>
                                              <span class="d-value">${escapeHTML(bData.author)}</span>
                                          </div>
                                          <div class="detail-col">
-                                             <span class="d-label">${currentMode === 'ehr' ? 'Category' : 'Component'}</span>
+                                             <span class="d-label">Component</span>
                                              <span class="d-value">${escapeHTML(bData.category)}</span>
                                          </div>
                                          <div class="detail-col">
@@ -1344,7 +1351,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                          </div>
                                      </div>
                                      <div class="doc-note-preview">
-                                         <span class="d-label">${currentMode === 'ehr' ? 'Clinical Content' : 'Incident Log'}</span>
+                                         <span class="d-label">Incident Log</span>
                                          <p>${escapeHTML(bData.content_text)}</p>
                                      </div>
                                 </div>
@@ -1411,13 +1418,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 3000);
         }
     }
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(form);
-        const payload = Object.fromEntries(formData.entries());
-        await handleSubmission(payload, '/scenarios/post-consultation', runBtn, btnText, spinner, 'Sync to Patient Chart');
-    });
 
     itopsForm.addEventListener('submit', async (e) => {
         e.preventDefault();

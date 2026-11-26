@@ -10,11 +10,17 @@
 // through the window.nwPlayground hook.
 (async () => {
     // Connectors that keep their own panels in app.js / index.html.
-    const COVERED = ['fhir_epic', 'google_drive', 'http_generic', 'slack', 'stripe'];
+    const COVERED = ['http_generic', 'slack', 'stripe'];
     // Salesforce keeps its Lead and Contact panel too, so this card is named to tell the two apart.
-    const NAMES = { github: 'GitHub', google_drive: 'Google Drive', salesforce: 'Salesforce', fhir_cerner: 'Cerner FHIR' };
+    const NAMES = {
+        github: 'GitHub',
+        google_drive: 'Google Drive',
+        salesforce: 'Salesforce',
+        fhir_epic: 'Epic FHIR',
+        fhir_cerner: 'Cerner FHIR',
+    };
     // A PEM key has line breaks, so it needs a textarea.
-    const TEXTAREA_SECRETS = ['CERNER_PRIVATE_KEY'];
+    const TEXTAREA_SECRETS = ['EPIC_PRIVATE_KEY', 'CERNER_PRIVATE_KEY'];
     // GitHub accepts either token kind as a bearer token, so both fill the same secret.
     const TOKEN_TYPES = {
         github: [
