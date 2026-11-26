@@ -15,7 +15,6 @@ from pathlib import Path
 from nw_cli.names import mcp_project_dir
 from nw_cli.prerequisites import require_docker
 from nw_cli.wheel_cache import (
-    WHEEL_STAMP_KEY,  # noqa: F401  # re-exported
     WheelState,
     package_source_hash,
     stamp_build,

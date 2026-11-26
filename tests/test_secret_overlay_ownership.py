@@ -15,6 +15,7 @@ from bindings.factory import ConnectorFactory
 from node_wire_runtime.secrets import OverlaySecretProvider, tenant_scoped_secret_key
 from node_wire_runtime.tenant_persistence import (
     clear_config_secrets,
+    list_secret_logical_keys,
     load_tenants,
     save_tenants,
     tenant_secret_store,
@@ -78,8 +79,6 @@ def test_upsert_is_durable_without_save() -> None:
 
 
 def test_failed_store_write_leaves_overlay_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
-    import node_wire_runtime.tenant_persistence as pt
-
     class _Broken:
         def load(self):  # pragma: no cover - not reached
             return {}
@@ -87,13 +86,15 @@ def test_failed_store_write_leaves_overlay_unchanged(monkeypatch: pytest.MonkeyP
         def save(self, mirror):
             raise OSError("disk full")
 
-    monkeypatch.setattr(pt, "tenant_secret_store", lambda: _Broken())
+    monkeypatch.setattr(
+        "node_wire_runtime.tenant_persistence.tenant_secret_store", lambda: _Broken()
+    )
     with pytest.raises(OSError):
         upsert_tenant_secrets(
             "acme", "google_drive", {"GOOGLE_DRIVE_ACCESS_TOKEN": _TOKEN}, config_name="test"
         )
     assert OverlaySecretProvider.instance().export() == {}
-    assert pt.list_secret_logical_keys("acme", "google_drive", "test") == []
+    assert list_secret_logical_keys("acme", "google_drive", "test") == []
 
 
 def test_concurrent_writers_do_not_lose_keys() -> None:
@@ -104,7 +105,7 @@ def test_concurrent_writers_do_not_lose_keys() -> None:
         try:
             for i in range(300):
                 overlay.replace_all({f"T{i % 7}": str(i)}, namespace="tenants")
-        except BaseException as exc:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover
             errors.append(exc)
 
     def tokens() -> None:

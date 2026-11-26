@@ -192,12 +192,12 @@ def test_falls_back_to_prance_for_other_shapes(node: dict[str, Any]) -> None:
 def test_valid_bundled_document_skips_inlined_validation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import nw_connector_builder.load as load
-
     def _inlined_validation(_resolved: dict[str, Any]) -> None:
         raise AssertionError("inlined validation should not run for a valid bundled document")
 
-    monkeypatch.setattr(load, "_validate_dropping_invalid_parts", _inlined_validation)
+    monkeypatch.setattr(
+        "nw_connector_builder.load._validate_dropping_invalid_parts", _inlined_validation
+    )
     resolved = resolve_and_validate(
         _shared_ref_spec(8), from_url=False, base_url=str(tmp_path / "spec.json")
     )

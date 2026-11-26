@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from unittest.mock import MagicMock, patch
 
 from grpc_health.v1 import health_pb2
@@ -84,10 +85,9 @@ def test_grpc_health_goes_serving_only_after_the_server_started():
 
         from bindings.grpc_server.server import serve
 
-        try:
+        # The fake server's wait_for_termination raises KeyboardInterrupt to end serve().
+        with contextlib.suppress(KeyboardInterrupt):
             serve(port=0)
-        except KeyboardInterrupt:
-            pass
 
     serving = f"set:{health_pb2.HealthCheckResponse.SERVING}"
     assert serving in events
