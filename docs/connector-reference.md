@@ -133,9 +133,8 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 | [`google_drive`](#google_drive) | 49 Drive v3 actions (48 generated, plus `drive_files_upload`) (`drive_files_list`, `drive_files_get`, `drive_files_create`, `drive_files_update`, `drive_files_delete`, `drive_permissions_create`, comments, revisions, shared drives and more); upload up to 5 MB, no download | `service_account` (or `upstream_bearer`) | [Google Drive](google_drive_connector.md) |
 | [`slack`](#slack) | `post_message`, `send_direct_message`, `upload_file` | `static_token` | [Slack](slack_connector.md) |
 | [`fhir_epic`](#fhir_epic) | 137 Epic R4 actions: `read_<resource>`, `search_<resource>`, `create_<resource>`, `update_<resource>` for Epic's public resources, `patient_match`, `patient_summary`, bulk export and more | `oauth2` (`private_key_jwt`) | — |
-| [`fhir_cerner`](#fhir_cerner) | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | `oauth2` (`private_key_jwt`) | — |
 | [`n8n`](#n8n) | 173 actions: every n8n 2.47.7 public API operation except 3 deprecated ones (workflows, executions, tags, variables, credentials, folders, data tables, evaluations, projects, roles, users, audit, insights, community packages, source control, instance settings, policies, promotions, n8n packages), plus `trigger_workflow` | `static_token` (`X-N8N-API-KEY`) | — |
-
+| [`fhir_cerner`](#fhir_cerner) | 129 actions: every R4 read, search, write and operation of Millennium, bulk export; the original five are `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | `oauth2` (`private_key_jwt`) | — |
 
 ### `http_generic`
 
@@ -232,13 +231,32 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 
 ### `fhir_cerner`
 
-- **Package:** `node-wire-fhir-cerner` (`src/node_wire_fhir_cerner/`, MCP image `nw-smartonfhir-cerner`). SMART on FHIR R4
-  backend services with Cerner-specific schemas.
+- **Package:** `node-wire-fhir-cerner` (`src/node_wire_fhir_cerner/`, MCP image `nw-smartonfhir-cerner`). Oracle Health
+  (Cerner) Millennium FHIR R4, SMART backend services.
 - **Secrets / settings:** `CERNER_FHIR_BASE_URL`, `CERNER_TOKEN_URL`, `CERNER_CLIENT_ID`, `CERNER_KID`, `CERNER_PRIVATE_KEY`,
   plus `CERNER_SCOPES`.
-- **Privacy:** logs record operation mode, HTTP status and counts, never request parameters or FHIR bodies.
-- **Arguments:** the same aliases as the original five Epic actions. Encounter search requires a patient filter before any
-  outbound call.
+- **Actions:** 129, in waves: the original five, clinical and other resources (read and search), writes (create, update
+  with PUT, patch with JSON Patch, and `delete_coverage`), and the operations (`$autogen-ccd-if`, `$docref`,
+  `$health-cards-issue`, the charge item operations, batch, group and patient bulk export, `fetch_next_page`). The full list, the
+  request rules, the scopes and the error codes are in `src/node_wire_fhir_cerner/README.md`.
+- **Scopes:** Cerner checks the scopes of the token request (`system/<Resource>.read` and `.write`), so set `CERNER_SCOPES`
+  (or `scopes` in `connectors.yaml`, which ships with four) for the resources you use.
+- **Writes:** updates, patches and deletes take `if_match`, the `etag` of the last read. A write that timed out after it was
+  sent is not retried. A 5xx other than a retried gateway error on a read is `CERNER_SERVER_ERROR` (fatal). Limit a
+  deployment with an [exposure profile](exposure.md); the connector can write to a patient chart.
+- **Privacy:** logs record the operation, the method, the URL path, the status and counts, never query values or FHIR bodies
+  ([Privacy](privacy.md)).
+- **Arguments:** the original five accept the same aliases as the Epic ones. Encounter search requires a patient filter
+  before any outbound call.
+
+The following table lists the main read and search actions:
+
+| Action | When to use | Example arguments |
+|--------|-------------|-------------------|
+| `read_patient` | You have a Patient ID | `{"resource_id": "12765407"}` |
+| `search_patients` | No ID, or name-based search | `{"given_name": "Nancy", "family_name": "Smart"}` |
+| `search_encounter` | Find medical visits | `{"patient_id": "12765407"}` |
+
 ### `n8n`
 
 - **Package:** `node-wire-n8n`, `src/node_wire_n8n/`. Versions: n8n public API v1 (spec 1.1.1), written against n8n 2.47.7.
@@ -249,20 +267,6 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
   profiles `n8n-readonly` and `n8n-workflows` are in `expose/n8n/`.
 - **Actions:** see `src/node_wire_n8n/README.md`. `trigger_workflow` calls a workflow's webhook without the API key, and only
   on the configured n8n host.
-
-
-The following table lists the main read and search actions:
-
-| Action | When to use | Example arguments |
-|--------|-------------|-------------------|
-| `read_patient` | You have a Patient ID | `{"resource_id": "12724066"}` |
-| `search_patients` | No ID, or name-based search | `{"given_name": "Nancy", "family_name": "Smart"}` |
-| `search_encounter` | Find medical visits | `{"patient_id": "12724066"}` |
-
---------|-------------|-------------------|
-| `read_patient` | You have a Patient ID | `{"resource_id": "12724066"}` |
-| `search_patients` | No ID, or name-based search | `{"given_name": "Nancy", "family_name": "Smart"}` |
-| `search_encounter` | Find medical visits | `{"patient_id": "12724066"}` |
 
 ---
 

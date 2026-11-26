@@ -892,7 +892,7 @@ async def test_fhir_cerner_search_document_reference_generic_error():
 
 
 @pytest.mark.asyncio
-async def test_fhir_cerner_searches_return_the_next_page_link():
+async def test_fhir_cerner_searches_return_the_next_page_url():
     from node_wire_fhir_cerner.schema import (
         FhirCernerDocumentReferenceSearchInput,
         FhirCernerEncounterSearchInput,
@@ -921,7 +921,7 @@ async def test_fhir_cerner_searches_return_the_next_page_link():
     ):
         with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=_bundle(nxt)):
             result = await _connector().internal_execute(params, trace_id="t")
-        assert result.next_link == nxt, params.action
+        assert result.next_url == nxt, params.action
         with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=_bundle(None)):
             result = await _connector().internal_execute(params, trace_id="t")
-        assert result.next_link is None
+        assert result.next_url is None

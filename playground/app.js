@@ -24,12 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const itopsRunBtn = document.getElementById('itops-run-btn');
     const itopsSpinner = itopsRunBtn.querySelector('.loading-spinner');
     const itopsBtnText = itopsRunBtn.querySelector('.btn-lbl');
-    const cernerForm = document.getElementById('cerner-form');
-    const cernerRunBtn = document.getElementById('cerner-run-btn');
-    const cernerSpinner = cernerRunBtn.querySelector('.loading-spinner');
-    const cernerBtnText = cernerRunBtn.querySelector('.btn-lbl');
     const itopsPanel = document.getElementById('itops-panel');
-    const cernerPanel = document.getElementById('cerner-panel');
     const slackForm = document.getElementById('slack-form');
     const slackRunBtn = document.getElementById('slack-run-btn');
     const slackSpinner = slackRunBtn?.querySelector('.loading-spinner');
@@ -138,12 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
             "Verify Ticket Creation",
             "Update Audit Log"
         ],
-        cerner: [
-            "Identify Patient",
-            "Locate Medical Visit",
-            "Secure Sync to Cerner",
-            "Verify EHR Update"
-        ],
         slack: [
             "Format Slack Payload",
             "Dispatch to Slack API",
@@ -225,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetUI(pipelineLabelOverride = null) {
-        const baseLabels = pipelineLabels[currentMode] || pipelineLabels.cerner;
+        const baseLabels = pipelineLabels[currentMode] || pipelineLabels.itops;
         const useOverride = Array.isArray(pipelineLabelOverride) && pipelineLabelOverride.length > 0;
         const rowLabels = useOverride ? pipelineLabelOverride : baseLabels;
         const visibleCount = rowLabels.length;
@@ -518,7 +507,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Hide all panels first
         itopsPanel.classList.add('hidden');
-        cernerPanel.classList.add('hidden');
         stripePanel.classList.add('hidden');
         salesforcePanel.classList.add('hidden');
         if (slackPanel) slackPanel.classList.add('hidden');
@@ -534,12 +522,6 @@ document.addEventListener('DOMContentLoaded', () => {
             tagline.textContent = 'Intelligent Infrastructure Automation';
             document.documentElement.style.setProperty('--brand-accent', '#6366f1');
             log('Switched to IT Ops Automation mode', 'system');
-        } else if (mode === 'cerner') {
-            cernerPanel.classList.remove('hidden');
-            connectorStatus.textContent = 'Cerner R4 Online';
-            tagline.textContent = 'Oracle Health Cerner Orchestration';
-            document.documentElement.style.setProperty('--brand-accent', '#0ea5e9');
-            log('Switched to Cerner FHIR R4 Orchestration mode', 'system');
         } else if (mode === 'stripe') {
             stripePanel.classList.remove('hidden');
             connectorStatus.textContent = 'Stripe Online';
@@ -929,7 +911,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Map playground mode names to connector_id strings used by the config API.
     const _modeToConnectorId = {
-        cerner: 'fhir_cerner',
         itops: 'http_generic',
         slack: 'slack',
         stripe: 'stripe',
@@ -945,27 +926,6 @@ document.addEventListener('DOMContentLoaded', () => {
         http_generic: {
             config: {},
             auth: {},
-        },
-        fhir_cerner: {
-            config: {
-                base_url: 'https://fhir-ehr-code.cerner.com/r4/your-tenant-id',
-            },
-            auth: {
-                provider: 'oauth2',
-                grant_method: 'private_key_jwt',
-                token_url_secret: 'CERNER_TOKEN_URL',
-                client_id_secret: 'CERNER_CLIENT_ID',
-                private_key_secret: 'CERNER_PRIVATE_KEY',
-                kid_secret: 'CERNER_KID',
-                algorithm: 'RS384',
-                scopes_secret: 'CERNER_SCOPES',
-                scopes: [
-                    'system/Patient.read',
-                    'system/Encounter.read',
-                    'system/DocumentReference.read',
-                    'system/DocumentReference.write',
-                ],
-            },
         },
         slack: {
             config: {},
@@ -999,12 +959,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Varying-only secret fields shown in Add config (shared env auto-copied server-side).
     // Format / required secret validation is server-side only (tenant_store).
     const _connectorSecretFields = {
-        fhir_cerner: [
-            { key: 'CERNER_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
-            { key: 'CERNER_PRIVATE_KEY', label: 'Private key (PEM)', type: 'textarea', required: true },
-            { key: 'CERNER_KID', label: 'Key ID (kid)', type: 'text', required: true },
-            { key: 'CERNER_SCOPES', label: 'Scopes (space-separated)', type: 'text', required: false },
-        ],
         slack: [
             { key: 'SLACK_BOT_TOKEN', label: 'Bot token', type: 'text', required: true },
         ],
@@ -1424,13 +1378,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData(itopsForm);
         const payload = Object.fromEntries(formData.entries());
         await handleSubmission(payload, '/scenarios/report-incident', itopsRunBtn, itopsBtnText, itopsSpinner, 'Submit IT Ticket');
-    });
-
-    cernerForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(cernerForm);
-        const payload = Object.fromEntries(formData.entries());
-        await handleSubmission(payload, '/scenarios/cerner-post-consultation', cernerRunBtn, cernerBtnText, cernerSpinner, 'Sync to Cerner Chart');
     });
 
     stripeForm.addEventListener('submit', async (e) => {
