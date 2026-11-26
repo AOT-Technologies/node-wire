@@ -231,4 +231,4 @@ python -m bindings_entrypoint
 ```
 
 3.  Open your browser to `http://localhost:8000/playground/` (or the configured port).
-4.  Switch between **EHR**, **IT Ops**, **Cerner**, **Google Drive**, **AI Agent**, **Slack**, **Stripe**, **Salesforce** and **External Patient Viewer** cards to explore the different workflows.
+4.  Open a connector card (**HTTP Connector**, **Epic FHIR**, **Cerner FHIR**, **Google Drive**, **Slack**, **Stripe**, **GitHub** and the rest) and run any of its actions, or switch to the **AI Agent** and **External Patient Viewer** workflows. Only the HTTP Connector keeps a fixed workflow.

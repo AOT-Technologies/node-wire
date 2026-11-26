@@ -9,13 +9,13 @@
 // Multitenancy: the tenant header, the config name and the Add config dialog come from app.js
 // through the window.nwPlayground hook.
 (async () => {
-    // Connectors that keep their own panels in app.js / index.html.
-    const COVERED = ['http_generic', 'slack', 'stripe'];
-    // Salesforce keeps its Lead and Contact panel too, so this card is named to tell the two apart.
+    // No generic card for these: http_generic keeps its IT-ops panel in app.js / index.html, and slack (3
+    // actions) is the older version of slack_api (174), which is shown as "Slack".
+    const COVERED = ['http_generic', 'slack'];
     const NAMES = {
         github: 'GitHub',
         google_drive: 'Google Drive',
-        salesforce: 'Salesforce',
+        slack_api: 'Slack',
         fhir_epic: 'Epic FHIR',
         fhir_cerner: 'Cerner FHIR',
     };
@@ -51,14 +51,28 @@
         return `hsl(${hash}, 55%, 42%)`;
     };
 
+    // A cold server needs a moment to list every action: show that more cards are coming, not an empty-looking grid.
+    const loading = el(
+        'div',
+        { className: 'connector-card connector-loading' },
+        el('div', { className: 'connector-icon', style: 'background: #64748b' }, el('div', { className: 'loading-spinner' })),
+        el('div', { className: 'connector-details' }, el('h3', { textContent: 'Loading connectors…' }), el('p', { textContent: 'Reading the actions of every connector.' }))
+    );
+    loading.setAttribute('aria-busy', 'true');
+    document.querySelector('#connectors-list-panel .connector-grid')?.append(loading);
+
     let data;
     try {
         const res = await fetch('/playground/connectors');
-        if (!res.ok) return;
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         data = await res.json();
     } catch (err) {
+        loading.querySelector('.connector-icon').replaceChildren();
+        loading.querySelector('h3').textContent = 'Could not load connectors';
+        loading.querySelector('p').textContent = `${err.message}. Reload the page to try again.`;
         return;
     }
+    loading.remove();
     // app.js sets the hook when the page has loaded; the fetch can finish first.
     if (!window.nwPlayground) await new Promise((resolve) => document.addEventListener('nw:ready', resolve, { once: true }));
     const ids = Object.keys(data).filter((id) => !COVERED.includes(id));

@@ -22,7 +22,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 # and the real config/connectors.yaml, so override those values here before any app
 # import occurs.
 os.environ["NW_ALLOWED_CONNECTORS"] = (
-    "http_generic,smtp,stripe,google_drive,fhir_epic,fhir_cerner,salesforce,slack"
+    "http_generic,smtp,stripe,google_drive,fhir_epic,fhir_cerner,salesforce,slack,slack_api"
 )
 os.environ["NW_CONFIG_PATH"] = str(_REPO_ROOT / "config" / "connectors.yaml")
 os.environ["NW_REST_LOAD_DOTENV"] = "true"

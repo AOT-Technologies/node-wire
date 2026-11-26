@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Dict, Optional
+import threading
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 import os
 import sys
@@ -108,6 +110,29 @@ def _http_method(connector_cls: Any, action: str) -> Optional[str]:
     return next(iter(found)) if len(found) == 1 else None
 
 
+# Simplified: building the schema of every action takes about 3 s for 2,400 of them, and the result only
+# changes with the set of connector classes, which is fixed for the life of the process. So it is built once
+# (per set) and reused; the lock keeps a request that arrives during the warm-up from building it again.
+_playground_manifest_cache: Dict[Any, List[Dict[str, Any]]] = {}
+_playground_manifest_lock = threading.Lock()
+
+
+def _playground_manifest(connectors: List[Any]) -> List[Dict[str, Any]]:
+    key = tuple((c.connector_id, type(c)) for c in connectors)
+    with _playground_manifest_lock:
+        found = _playground_manifest_cache.get(key)
+        if found is None:
+            found = _playground_manifest_cache[key] = build_manifest(connectors)
+        return found
+
+
+def _warm_playground_manifest() -> None:
+    try:
+        _playground_manifest(get_factory().list_for_protocol("rest"))
+    except Exception:  # noqa: BLE001  # a failed warm-up only means the first page load builds it
+        logger.warning("Playground connector list warm-up failed", exc_info=True)
+
+
 def _mount_playground(app: FastAPI) -> None:
     """Attach scenario API routes and static UI when playground is available."""
     if not _playground_enabled():
@@ -151,14 +176,14 @@ def _mount_playground(app: FastAPI) -> None:
 
     @app.get("/playground/connectors", tags=["playground"], include_in_schema=False)
     async def playground_connectors() -> Dict[str, Dict[str, Any]]:
-        # Simplified: every action's input schema in one response (about 1.4 MB for GitHub's
-        # 1,239 actions). Fine for a local-only tool, so no per-action route.
+        # Simplified: every action's input schema in one response (about 3 MB for 2,400 actions).
+        # Fine for a local-only tool, so no per-action route; the schemas are built once, off the loop.
         factory = get_factory()
         connectors: Dict[str, Dict[str, Any]] = {}
         rest = factory.list_for_protocol("rest")
         classes = {c.connector_id: type(c) for c in rest}
         exposure = get_exposure()
-        for entry in build_manifest(rest):
+        for entry in await asyncio.to_thread(_playground_manifest, rest):
             cid = entry["connector_id"]
             if not exposure.allows(cid, entry["action"]):
                 continue
@@ -185,6 +210,20 @@ def _mount_playground(app: FastAPI) -> None:
         StaticFiles(directory=str(playground_dir), html=True),
         name="playground",
     )
+
+    # Build the connector list in the background when the server starts, so the first page load is fast too.
+    server_lifespan = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def lifespan_with_warm_up(a: Any) -> AsyncIterator[Any]:
+        async with server_lifespan(a) as state:
+            warm_up = asyncio.get_running_loop().run_in_executor(None, _warm_playground_manifest)
+            try:
+                yield state
+            finally:
+                warm_up.cancel()
+
+    app.router.lifespan_context = lifespan_with_warm_up
     logger.info("REST playground mounted at /playground")
 
 

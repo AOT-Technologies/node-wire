@@ -120,16 +120,9 @@ If registered via MCP, the agent can call the advertised tool `salesforce_create
 
 ## Playground interface
 
-The Node Wire playground includes a **CRM Synchronization** panel specifically for Salesforce. This interface allows you to:
-
-- **Toggle between Lead and Contact management**: Use the action dropdown to switch contexts.
-- **Execute full CRUD operations**: The form dynamically adjusts based on whether you are creating, reading, updating, or deleting a record.
-- **Real-time pipeline visualization**: Watch the synchronization steps (Authentication → Fetch/Update → Verification) in real-time.
-- **Instant record validation**: See the exact Salesforce resource IDs and data returned by the API.
-
-Access the playground at `http://localhost:8000/playground/` (when running locally), then select **Connectors** → **Salesforce**:
-
-![Playground CRM Synchronization panel for Salesforce leads, with the Smart Pipeline steps and Technical Audit log beside it](images/playground-salesforce-crm.png)
+When the connector is enabled, the Node Wire playground shows a **Salesforce** card that lists every action of the connector (150).
+Pick an action, fill its fields and run it. Open the playground at `http://localhost:8000/playground/` (when running locally), then select
+**Connectors** → **Salesforce**. Salesforce is off in the shipped config, so set `enabled: true` first (see below).
 
 ## Limiting what a deployment can do
 
