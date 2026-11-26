@@ -10,9 +10,11 @@
 // through the window.nwPlayground hook.
 (async () => {
     // Connectors that keep their own panels in app.js / index.html.
-    const COVERED = ['fhir_epic', 'fhir_cerner', 'google_drive', 'http_generic', 'slack', 'stripe'];
+    const COVERED = ['fhir_cerner', 'http_generic', 'slack', 'stripe'];
     // Salesforce keeps its Lead and Contact panel too, so this card is named to tell the two apart.
-    const NAMES = { github: 'GitHub', google_drive: 'Google Drive', salesforce: 'Salesforce'};
+    const NAMES = { github: 'GitHub', google_drive: 'Google Drive', salesforce: 'Salesforce', fhir_epic: 'Epic FHIR' };
+    // A PEM key has line breaks, so it needs a textarea.
+    const TEXTAREA_SECRETS = ['EPIC_PRIVATE_KEY'];
     // GitHub accepts either token kind as a bearer token, so both fill the same secret.
     const TOKEN_TYPES = {
         github: [
@@ -282,7 +284,7 @@
             `dyn:${id}`,
             id,
             data[id].config_template,
-            data[id].secret_names.map((key) => ({ key, label: key, type: 'text', required: true, tokenTypes: TOKEN_TYPES[id] }))
+            data[id].secret_names.map((key) => ({ key, label: key, type: TEXTAREA_SECRETS.includes(key) ? 'textarea' : 'text', required: true, tokenTypes: TOKEN_TYPES[id] }))
         );
         const icon = el('div', { className: 'connector-icon', textContent: nameOf(id).slice(0, 2).toUpperCase(), style: `background: ${colorOf(id)}; font-weight: 700` });
         const details = el('div', { className: 'connector-details' }, el('h3', { textContent: nameOf(id) }), el('p', { textContent: `${data[id].actions.length} actions, discovered at runtime.` }));

@@ -41,7 +41,7 @@ fhir_cerner = "node_wire_fhir_cerner.logic"
 
 [project.urls]
 Homepage = "https://github.com/AOT-Technologies/node-wire"
-Documentation = "https://aot-technologies.github.io/node-wire/connector-reference/#fhir_epic-and-fhir_cerner"
+Documentation = "https://aot-technologies.github.io/node-wire/connector-reference/#fhir_cerner"
 Repository = "https://github.com/AOT-Technologies/node-wire"
 Issues = "https://github.com/AOT-Technologies/node-wire/issues"
 Changelog = "https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md"

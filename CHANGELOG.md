@@ -38,6 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `node-wire-fhir-epic` is rebuilt for Epic on FHIR R4 (November 2026): 137 actions, up from five. The five keep their names and
+  inputs. New: read and search for 55 more resource types (every Epic R4 search parameter is a field), create and update (the FHIR
+  resource as JSON, nine creates and seven updates), `patient_match`, `patient_summary`, `value_set_expand`, the group bulk
+  export calls and `fetch_next_page`. Errors now follow the runtime taxonomy (429 and gateway errors on reads retry, 401 and 403 are
+  auth errors) and a create or bulk kick-off that timed out after it was sent is not retried. The connector sets the `httpx`
+  logger to WARNING so request URLs (patient ids and names) are not logged. `search_patients` takes at most 50 ids. The package no
+  longer depends on `PyJWT` (the runtime signs the token) and needs `node-wire-runtime>=1.1.3`. DSTU2 and STU3 are not covered.
 - `node-wire-google-drive` is now generated from Google's Drive v3 API: 48 actions (plus the hand-written upload) named `drive_<resource>_<method>` (for example
   `drive_files_list`; they replace `files.list`, `files.get`, `files.create`, `files.update`, `files.delete`, `permissions.create` and
   `files.upload`). `drive_files_upload` (hand-written, up to 5 MB, `content` or `content_base64`) replaces `files.upload`; `drive_files_create` and `drive_files_update` take `name`, `mime_type`, `description` and `parents`, and `trashed: true` on update is the old soft delete. Shared drives stay on by default. **Not supported:** downloading content, replacing the content of an existing file, and uploads over 5 MB. `drive_files_get` cannot return content and binary responses are not returned.
