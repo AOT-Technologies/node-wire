@@ -18,10 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`node-wire-salesforce`** now has **150 actions**: the 8 lead and contact actions plus 142 for the REST API and Bulk API 2.0,
   written against API v68.0 (Winter '27). `api_version` can be set in `connectors.yaml` (default `v68.0`; it was a fixed `v58.0`).
   Four exposure profiles are in `expose/salesforce/`: `salesforce-readonly`, `salesforce-records`, `salesforce-leads-contacts`
-  and `salesforce-bulk`. The playground shows a generic "Salesforce (all actions)" card next to the Lead and Contact panel.
+  and `salesforce-bulk`. The playground shows a generic "Salesforce" card with every action (when the connector is enabled).
 
 ### Changed
 
+- The playground now builds the list of connectors and actions once per server process, in the background when the server starts, instead of on
+  every page load. With all connectors enabled (2,445 actions) the Connectors view no longer waits about 3 seconds each time (a request now takes
+  about 0.04 s), and a "Loading connectors…" card shows while the first build runs. A failed load is reported on that card.
 - **`node-wire-fhir-cerner` is rebuilt with 129 actions** (was 5): every R4 read, search, create, update, patch and delete that Oracle's
   Millennium FHIR R4 documentation lists, the CCD, `$docref`, health cards, charge item and batch operations, and the group and patient
   bulk exports. The five original actions keep their names, inputs and Cerner rules (CodeSet 72, charset, authenticator, context period).
@@ -42,6 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The package now requires `node-wire-runtime>=1.1.3`. Because it adds many actions and changes defaults, release it as a minor version.
 ### Removed
 
+- The playground's hand-coded Stripe, Slack and Salesforce panels, their `/scenarios/stripe-*`, `/scenarios/slack-messaging` and
+  `/scenarios/salesforce-*` routes, and their Playwright tests (`tests/playground/stripe/`, `slack/` and `salesforce/`). Each connector now
+  shows as the generic playground card with all of its actions: Stripe 650 (the old panel reached 5), Salesforce 150 (it reached 8). The
+  Slack card is the 174-action `slack_api` connector, shown as "Slack"; the older 3-action `slack` connector has no playground card. The
+  HTTP Connector keeps its IT-ops panel. Mock-based browser tests for the Stripe and Slack cards are in `tests/playground/generic_cards/`.
 - The playground's hand-coded "Google Drive & IAM Vault" panel, its `POST /scenarios/gdrive-archival` route and its Playwright tests
   (`tests/playground/gdrive/`). Google Drive now shows as the generic playground card, with every action of the connector.
 

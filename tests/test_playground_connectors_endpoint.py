@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -180,3 +181,37 @@ def test_not_listed_when_the_playground_is_disabled(monkeypatch: pytest.MonkeyPa
     rest_app._mount_playground(app)
 
     assert TestClient(app).get("/playground/connectors").status_code == 404
+
+
+def test_the_action_schemas_are_built_once_and_reused(monkeypatch: pytest.MonkeyPatch):
+    """Building them takes seconds for the full connector set, so a second page load must not repeat it."""
+    monkeypatch.setattr(rest_app, "_playground_manifest_cache", {})
+    builds: list[int] = []
+    real = rest_app.build_manifest
+
+    def counted(connectors, **kwargs):
+        builds.append(1)
+        return real(connectors, **kwargs)
+
+    monkeypatch.setattr(rest_app, "build_manifest", counted)
+    client = _mounted_client(monkeypatch, _factory_with(HttpGenericConnector()))
+
+    first = client.get("/playground/connectors").json()
+    second = client.get("/playground/connectors").json()
+
+    assert first == second and len(builds) == 1
+
+
+def test_the_server_builds_them_in_the_background_when_it_starts(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(rest_app, "_playground_manifest_cache", {})
+    monkeypatch.setattr(rest_app, "get_factory", lambda: _factory_with(HttpGenericConnector()))
+    monkeypatch.setenv("NW_REST_PLAYGROUND_ENABLED", "true")
+    monkeypatch.setenv("NW_REST_AUTH_DISABLED", "true")
+    app = FastAPI()
+    rest_app._mount_playground(app)
+
+    with TestClient(app):  # entering the context runs the startup
+        deadline = time.monotonic() + 10
+        while not rest_app._playground_manifest_cache and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert len(rest_app._playground_manifest_cache) == 1

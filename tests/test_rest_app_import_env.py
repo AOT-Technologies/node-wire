@@ -90,7 +90,7 @@ def test_playground_is_off_when_the_env_var_is_unset() -> None:
 
 def test_playground_mounts_only_when_explicitly_enabled() -> None:
     paths, _ = _import_app(NW_REST_PLAYGROUND_ENABLED="true")
-    assert "/scenarios/stripe-charge" in paths
+    assert "/scenarios/report-incident" in paths
     assert any(p.startswith("/playground") for p in paths)
 
 
@@ -107,7 +107,7 @@ def test_playground_mounts_with_auth_only_with_the_second_flag() -> None:
         NW_REST_API_KEY="x" * 32,
         NW_REST_PLAYGROUND_ALLOW_WITH_AUTH="true",
     )
-    assert "/scenarios/stripe-charge" in paths
+    assert "/scenarios/report-incident" in paths
 
 
 # --------------------------------------------------------------------------- #
@@ -165,14 +165,14 @@ def test_mount_playground_mounts_with_auth_only_with_the_second_flag(
         NW_REST_API_KEY="x" * 32,
         NW_REST_PLAYGROUND_ALLOW_WITH_AUTH="true",
     )
-    assert "/scenarios/stripe-charge" in mounted
+    assert "/scenarios/report-incident" in mounted
 
 
 def test_mount_playground_mounts_when_enabled_without_auth(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     mounted = _mounted_paths(monkeypatch, NW_REST_PLAYGROUND_ENABLED="true")
-    assert "/scenarios/stripe-charge" in mounted
+    assert "/scenarios/report-incident" in mounted
     assert "/playground/feature-flags" in mounted
 
 

@@ -25,52 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const itopsSpinner = itopsRunBtn.querySelector('.loading-spinner');
     const itopsBtnText = itopsRunBtn.querySelector('.btn-lbl');
     const itopsPanel = document.getElementById('itops-panel');
-    const slackForm = document.getElementById('slack-form');
-    const slackRunBtn = document.getElementById('slack-run-btn');
-    const slackSpinner = slackRunBtn?.querySelector('.loading-spinner');
-    const slackBtnText = slackRunBtn?.querySelector('.btn-lbl');
-    const slackPanel = document.getElementById('slack-panel');
-    const slackActionSelect = document.getElementById('slack-action-select');
-    const slackMessageSection = document.getElementById('slack-message-section');
-    const slackFileSection = document.getElementById('slack-file-section');
-    const slackFileInput = document.getElementById('slack-file');
-    const slackFileDropZone = document.getElementById('slack-file-drop-zone');
-    const slackFileChosenPreview = document.getElementById('slack-file-chosen-preview');
-    const slackPreviewName = slackFileChosenPreview?.querySelector('.preview-name');
-    const slackRemoveFileBtn = slackFileChosenPreview?.querySelector('.remove-file-btn');
-
-    const stripeForm = document.getElementById('stripe-form');
-    const stripeRunBtn = document.getElementById('stripe-run-btn');
-    const stripeSpinner = stripeRunBtn.querySelector('.loading-spinner');
-    const stripeBtnText = stripeRunBtn.querySelector('.btn-lbl');
-    const stripePanel = document.getElementById('stripe-panel');
-
-    const stripeActionSelect = document.getElementById('stripe-action-select');
-    const stripeSections = {
-        charge: document.getElementById('stripe-section-charge'),
-        payment_intent: document.getElementById('stripe-section-pi'),
-        subscription: document.getElementById('stripe-section-sub'),
-        cancel_subscription: document.getElementById('stripe-section-cancel'),
-        refund: document.getElementById('stripe-section-refund')
-    };
-    
-    const salesforceForm = document.getElementById('salesforce-form');
-    const salesforceRunBtn = document.getElementById('salesforce-run-btn');
-    const salesforceSpinner = salesforceRunBtn.querySelector('.loading-spinner');
-    const salesforceBtnText = salesforceRunBtn.querySelector('.btn-lbl');
-    const salesforcePanel = document.getElementById('salesforce-panel');
-    const salesforceActionSelect = document.getElementById('salesforce-action-select');
-    const salesforceSections = {
-        create_lead: document.getElementById('salesforce-section-lead'),
-        update_lead: document.getElementById('salesforce-section-lead'),
-        create_contact: document.getElementById('salesforce-section-contact'),
-        update_contact: document.getElementById('salesforce-section-contact'),
-        read_lead: document.getElementById('salesforce-section-id-only'),
-        delete_lead: document.getElementById('salesforce-section-id-only'),
-        read_contact: document.getElementById('salesforce-section-id-only'),
-        delete_contact: document.getElementById('salesforce-section-id-only')
-    };
-
     // External Patient Viewer
     const extViewerForm = document.getElementById('ext-viewer-form');
     const extViewerRunBtn = document.getElementById('ext-viewer-run-btn');
@@ -78,8 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const extViewerBtnText = extViewerRunBtn ? extViewerRunBtn.querySelector('.btn-lbl') : null;
     const extViewerPanel = document.getElementById('ext-patient-viewer-panel');
 
-    let currentStripeSubMode = 'charge';
-    let currentSalesforceSubMode = 'create_lead';
     const connectorStatus = document.getElementById('connector-status');
 
     const brandLabel = document.querySelector('.brand-text h1 span.accent');
@@ -132,62 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
             "Dispatch Webhook",
             "Verify Ticket Creation",
             "Update Audit Log"
-        ],
-        slack: [
-            "Format Slack Payload",
-            "Dispatch to Slack API",
-            "Verify Acknowledgment",
-            "Update Audit Trail",
-        ],
-        stripe_charge: [
-            "Initialize Payment",
-            "Process Charge",
-            "Verify Transaction",
-        ],
-        stripe_payment_intent: [
-            "Initialize Session",
-            "Create Payment Intent",
-            "Verify Allocation",
-        ],
-        stripe_subscription: [
-            "Validate Customer",
-            "Create Subscription",
-            "Verify Provisioning",
-        ],
-        stripe_cancel_subscription: [
-            "Locate Resource",
-            "Cancel Subscription",
-            "Verify Termination",
-        ],
-        stripe_refund: [
-            "Validate Charge",
-            "Process Refund",
-            "Verify Refund"
-        ],
-        salesforce_create_lead: [
-            "Initialize CRM Sync",
-            "Create Lead Record",
-            "Verify Lead Status"
-        ],
-        salesforce_create_contact: [
-            "Initialize CRM Sync",
-            "Create Contact Record",
-            "Verify Contact Status"
-        ],
-        salesforce_read: [
-            "Authenticate CRM",
-            "Fetch Record Metadata",
-            "Verify Data Integrity"
-        ],
-        salesforce_update: [
-            "Authenticate CRM",
-            "Apply Partial Update",
-            "Verify State Change"
-        ],
-        salesforce_delete: [
-            "Authenticate CRM",
-            "Execute Soft Delete",
-            "Verify Termination"
         ],
         ext_patient_viewer: [
             "Resolve Patient Identity",
@@ -425,69 +321,6 @@ document.addEventListener('DOMContentLoaded', () => {
         log('Agent chat reset', 'system');
     });
 
-    function stripePipelineLabelOverride() {
-        if (currentStripeSubMode === 'charge') return pipelineLabels.stripe_charge;
-        if (currentStripeSubMode === 'payment_intent') return pipelineLabels.stripe_payment_intent;
-        if (currentStripeSubMode === 'subscription') return pipelineLabels.stripe_subscription;
-        if (currentStripeSubMode === 'cancel_subscription') return pipelineLabels.stripe_cancel_subscription;
-        if (currentStripeSubMode === 'refund') return pipelineLabels.stripe_refund;
-        return pipelineLabels.stripe_charge;
-    }
-
-    function salesforcePipelineLabelOverride() {
-        if (currentSalesforceSubMode.startsWith('create')) return pipelineLabels.salesforce_create_lead;
-        if (currentSalesforceSubMode.startsWith('read')) return pipelineLabels.salesforce_read;
-        if (currentSalesforceSubMode.startsWith('update')) return pipelineLabels.salesforce_update;
-        if (currentSalesforceSubMode.startsWith('delete')) return pipelineLabels.salesforce_delete;
-        return pipelineLabels.salesforce_create_lead;
-    }
-
-    function syncSalesforceActionForm() {
-        Object.values(salesforceSections).forEach(sec => {
-            if (sec) sec.classList.add('hidden');
-        });
-        const activeSec = salesforceSections[currentSalesforceSubMode] || salesforceSections['create_lead'];
-        if (activeSec) activeSec.classList.remove('hidden');
-        
-        // Handle record ID field visibility in Lead/Contact sections
-        const idFields = document.querySelectorAll('#salesforce-form .id-field');
-        idFields.forEach(f => {
-            if (currentSalesforceSubMode.startsWith('update')) {
-                f.classList.remove('hidden');
-            } else {
-                f.classList.add('hidden');
-            }
-        });
-
-        // Handle generic ID label for read/delete
-        const idLabel = document.getElementById('sf-resource-id-label');
-        if (idLabel) {
-            if (currentSalesforceSubMode.includes('lead')) {
-                idLabel.textContent = 'Lead Record ID';
-            } else {
-                idLabel.textContent = 'Contact Record ID';
-            }
-        }
-
-        if (salesforceActionSelect) {
-            salesforceActionSelect.value = currentSalesforceSubMode;
-        }
-    }
-
-
-
-    function syncStripeActionForm() {
-        Object.values(stripeSections).forEach(sec => {
-            if (sec) sec.classList.add('hidden');
-        });
-        const activeSec = stripeSections[currentStripeSubMode] || stripeSections['charge'];
-        if (activeSec) activeSec.classList.remove('hidden');
-        
-        if (stripeActionSelect) {
-            stripeActionSelect.value = currentStripeSubMode;
-        }
-    }
-
     function setMode(mode) {
         currentMode = mode;
 
@@ -507,9 +340,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Hide all panels first
         itopsPanel.classList.add('hidden');
-        stripePanel.classList.add('hidden');
-        salesforcePanel.classList.add('hidden');
-        if (slackPanel) slackPanel.classList.add('hidden');
         if (extViewerPanel) extViewerPanel.classList.add('hidden');
 
         if (typeof syncMultitenancyUi === 'function') {
@@ -522,24 +352,6 @@ document.addEventListener('DOMContentLoaded', () => {
             tagline.textContent = 'Intelligent Infrastructure Automation';
             document.documentElement.style.setProperty('--brand-accent', '#6366f1');
             log('Switched to IT Ops Automation mode', 'system');
-        } else if (mode === 'stripe') {
-            stripePanel.classList.remove('hidden');
-            connectorStatus.textContent = 'Stripe Online';
-            tagline.textContent = 'Financial Infrastructure';
-            document.documentElement.style.setProperty('--brand-accent', '#635bff');
-            log('Switched to Stripe Payment Orchestration mode', 'system');
-        } else if (mode === 'salesforce') {
-            salesforcePanel.classList.remove('hidden');
-            connectorStatus.textContent = 'Salesforce Online';
-            tagline.textContent = 'CRM Orchestration';
-            document.documentElement.style.setProperty('--brand-accent', '#00A1E0');
-            log('Switched to Salesforce CRM Orchestration mode', 'system');
-        } else if (mode === 'slack') {
-            if (slackPanel) slackPanel.classList.remove('hidden');
-            connectorStatus.textContent = 'Slack Online';
-            tagline.textContent = 'Team Collaboration & Notifications';
-            document.documentElement.style.setProperty('--brand-accent', '#4A154B');
-            log('Switched to Slack Operations mode', 'system');
         } else if (mode === 'ext-patient-viewer') {
             if (extViewerPanel) extViewerPanel.classList.remove('hidden');
             connectorStatus.textContent = 'EHR Source ─ Read-Only';
@@ -547,13 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.documentElement.style.setProperty('--brand-accent', '#0d9488');
             log('Switched to External Patient Viewer mode (read-only)', 'system');
         }
-        if (mode === 'stripe') {
-            syncStripeActionForm();
-            resetUI(stripePipelineLabelOverride());
-        } else if (mode === 'salesforce') {
-            syncSalesforceActionForm();
-            resetUI(salesforcePipelineLabelOverride());
-        } else if (mode === 'ext-patient-viewer') {
+        if (mode === 'ext-patient-viewer') {
             resetUI(pipelineLabels.ext_patient_viewer);
         } else {
             resetUI();
@@ -912,9 +718,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Map playground mode names to connector_id strings used by the config API.
     const _modeToConnectorId = {
         itops: 'http_generic',
-        slack: 'slack',
-        stripe: 'stripe',
-        salesforce: 'salesforce',
     };
 
     function currentConnectorId() {
@@ -927,49 +730,11 @@ document.addEventListener('DOMContentLoaded', () => {
             config: {},
             auth: {},
         },
-        slack: {
-            config: {},
-            auth: {
-                provider: 'static_token',
-                secret_key: 'SLACK_BOT_TOKEN',
-            },
-        },
-        stripe: {
-            config: {},
-            auth: {
-                provider: 'static_token',
-                secret_key: 'STRIPE_BASIC_AUTH',
-                prefix: 'Basic',
-                encoding: 'base64',
-            },
-        },
-        salesforce: {
-            config: {},
-            auth: {
-                provider: 'oauth2',
-                grant_method: 'refresh_token',
-                token_url_secret: 'SALESFORCE_TOKEN_URL',
-                client_id_secret: 'SALESFORCE_CLIENT_ID',
-                client_secret_secret: 'SALESFORCE_CLIENT_SECRET',
-                refresh_token_secret: 'SALESFORCE_REFRESH_TOKEN',
-            },
-        },
     };
 
     // Varying-only secret fields shown in Add config (shared env auto-copied server-side).
     // Format / required secret validation is server-side only (tenant_store).
     const _connectorSecretFields = {
-        slack: [
-            { key: 'SLACK_BOT_TOKEN', label: 'Bot token', type: 'text', required: true },
-        ],
-        stripe: [
-            { key: 'STRIPE_BASIC_AUTH', label: 'Secret key + ":" (sk_test_...:)', type: 'text', required: true },
-        ],
-        salesforce: [
-            { key: 'SALESFORCE_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
-            { key: 'SALESFORCE_CLIENT_SECRET', label: 'Client secret', type: 'text', required: true },
-            { key: 'SALESFORCE_REFRESH_TOKEN', label: 'Refresh token', type: 'text', required: true },
-        ],
         http_generic: [],
     };
 
@@ -1380,138 +1145,6 @@ document.addEventListener('DOMContentLoaded', () => {
         await handleSubmission(payload, '/scenarios/report-incident', itopsRunBtn, itopsBtnText, itopsSpinner, 'Submit IT Ticket');
     });
 
-    stripeForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(stripeForm);
-        const payload = Object.fromEntries(formData.entries());
-        
-        let endpoint = '/scenarios/stripe-charge';
-        let submitPayload = {};
-        
-        if (currentStripeSubMode === 'charge' || !currentStripeSubMode) {
-            submitPayload = {
-                amount: parseInt(payload.charge_amount, 10),
-                currency: payload.charge_currency,
-                description: payload.charge_description
-            };
-            endpoint = '/scenarios/stripe-charge';
-        } else if (currentStripeSubMode === 'payment_intent') {
-            submitPayload = {
-                amount: parseInt(payload.pi_amount, 10),
-                currency: payload.pi_currency,
-                customer_id: payload.pi_customer || undefined,
-                payment_method: payload.pi_payment_method || undefined,
-                confirm: payload.pi_confirm === 'on'
-            };
-            endpoint = '/scenarios/stripe-payment-intent';
-        } else if (currentStripeSubMode === 'subscription') {
-            submitPayload = {
-                customer_id: payload.sub_customer,
-                price_id: payload.sub_price,
-                card_token: payload.sub_token || undefined
-            };
-            endpoint = '/scenarios/stripe-subscription';
-        } else if (currentStripeSubMode === 'cancel_subscription') {
-            submitPayload = {
-                subscription_id: payload.cancel_sub_id
-            };
-            endpoint = '/scenarios/stripe-cancel-subscription';
-        } else if (currentStripeSubMode === 'refund') {
-            const isPI = payload.refund_target_id.startsWith('pi_');
-            submitPayload = {
-                charge_id: !isPI && payload.refund_target_id ? payload.refund_target_id : undefined,
-                payment_intent_id: isPI ? payload.refund_target_id : undefined,
-                amount: payload.refund_amount ? parseInt(payload.refund_amount, 10) : undefined
-            };
-            endpoint = '/scenarios/stripe-refund';
-        }
-
-        await handleSubmission(submitPayload, endpoint, stripeRunBtn, stripeBtnText, stripeSpinner, 'Process Action');
-    });
-
-    salesforceForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(salesforceForm);
-        const payload = Object.fromEntries(formData.entries());
-        
-        let endpoint = '/scenarios/salesforce-create-lead';
-        let submitPayload = {};
-        
-        if (currentSalesforceSubMode === 'create_lead') {
-            submitPayload = {
-                first_name: payload.lead_first_name || undefined,
-                last_name: payload.lead_last_name,
-                company: payload.lead_company,
-                email: payload.lead_email || undefined
-            };
-            endpoint = '/scenarios/salesforce-create-lead';
-        } else if (currentSalesforceSubMode === 'update_lead') {
-            submitPayload = {
-                record_id: payload.lead_id,
-                first_name: payload.lead_first_name || undefined,
-                last_name: payload.lead_last_name || undefined,
-                company: payload.lead_company || undefined,
-                email: payload.lead_email || undefined
-            };
-            endpoint = '/scenarios/salesforce-update-lead';
-        } else if (currentSalesforceSubMode === 'read_lead') {
-            submitPayload = { record_id: payload.generic_record_id };
-            endpoint = '/scenarios/salesforce-read-lead';
-        } else if (currentSalesforceSubMode === 'delete_lead') {
-            submitPayload = { record_id: payload.generic_record_id };
-            endpoint = '/scenarios/salesforce-delete-lead';
-        } else if (currentSalesforceSubMode === 'create_contact') {
-            submitPayload = {
-                first_name: payload.contact_first_name || undefined,
-                last_name: payload.contact_last_name,
-                email: payload.contact_email || undefined,
-                account_id: payload.contact_account_id || undefined
-            };
-            endpoint = '/scenarios/salesforce-create-contact';
-        } else if (currentSalesforceSubMode === 'update_contact') {
-            submitPayload = {
-                record_id: payload.contact_id,
-                first_name: payload.contact_first_name || undefined,
-                last_name: payload.contact_last_name || undefined,
-                email: payload.contact_email || undefined,
-                account_id: payload.contact_account_id || undefined
-            };
-            endpoint = '/scenarios/salesforce-update-contact';
-        } else if (currentSalesforceSubMode === 'read_contact') {
-            submitPayload = { record_id: payload.generic_record_id };
-            endpoint = '/scenarios/salesforce-read-contact';
-        } else if (currentSalesforceSubMode === 'delete_contact') {
-            submitPayload = { record_id: payload.generic_record_id };
-            endpoint = '/scenarios/salesforce-delete-contact';
-        }
-
-        await handleSubmission(submitPayload, endpoint, salesforceRunBtn, salesforceBtnText, salesforceSpinner, 'Execute Action');
-    });
-
-
-    if (salesforceActionSelect) {
-        salesforceActionSelect.addEventListener('change', (e) => {
-            const mode = e.target.value;
-            if (mode === currentSalesforceSubMode) return;
-            currentSalesforceSubMode = mode;
-            syncSalesforceActionForm();
-            resetUI(salesforcePipelineLabelOverride());
-            log(`Switched to Salesforce mode [${currentSalesforceSubMode}]`);
-        });
-    }
-
-
-    if (stripeActionSelect) {
-        stripeActionSelect.addEventListener('change', (e) => {
-            const mode = e.target.value;
-            if (mode === currentStripeSubMode) return;
-            currentStripeSubMode = mode;
-            syncStripeActionForm();
-            resetUI(stripePipelineLabelOverride());
-            log(`Switched to Stripe mode [${currentStripeSubMode}]`);
-        });
-    }
-
     // --- Per-connector runtime config CRUD ---
     const addConfigBtn = document.getElementById('add-config-btn');
     const connectorAddConfigBtn = document.getElementById('connector-add-config-btn');
@@ -1640,107 +1273,6 @@ document.addEventListener('DOMContentLoaded', () => {
             log(`Config delete failed: ${err.message}`, 'error');
         }
     });
-
-    if (slackActionSelect) {
-        slackActionSelect.addEventListener('change', () => {
-            const action = slackActionSelect.value;
-            if (action === 'upload_file') {
-                if (slackMessageSection) slackMessageSection.classList.add('hidden');
-                if (slackFileSection) slackFileSection.classList.remove('hidden');
-            } else {
-                if (slackMessageSection) slackMessageSection.classList.remove('hidden');
-                if (slackFileSection) slackFileSection.classList.add('hidden');
-            }
-        });
-    }
-
-    if (slackFileInput && slackFileChosenPreview && slackPreviewName && slackFileDropZone) {
-        slackFileInput.addEventListener('change', () => {
-            if (slackFileInput.files.length > 0) {
-                const fileName = slackFileInput.files[0].name;
-                slackPreviewName.textContent = fileName;
-                slackFileChosenPreview.classList.remove('hidden');
-                slackFileDropZone.classList.add('hidden');
-            }
-        });
-    }
-
-    if (slackRemoveFileBtn && slackFileInput && slackFileChosenPreview && slackFileDropZone) {
-        slackRemoveFileBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            slackFileInput.value = '';
-            slackFileChosenPreview.classList.add('hidden');
-            slackFileDropZone.classList.remove('hidden');
-        });
-    }
-
-    if (slackFileDropZone) {
-        slackFileDropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            slackFileDropZone.style.borderColor = 'var(--brand-accent)';
-            slackFileDropZone.style.background = 'rgba(255, 255, 255, 0.08)';
-        });
-
-        slackFileDropZone.addEventListener('dragleave', () => {
-            slackFileDropZone.style.borderColor = '';
-            slackFileDropZone.style.background = '';
-        });
-
-        slackFileDropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            slackFileDropZone.style.borderColor = '';
-            slackFileDropZone.style.background = '';
-            if (slackFileInput && e.dataTransfer.files.length > 0) {
-                slackFileInput.files = e.dataTransfer.files;
-                slackFileInput.dispatchEvent(new Event('change'));
-            }
-        });
-    }
-
-    if (slackForm) {
-        slackForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(slackForm);
-            const payload = Object.fromEntries(formData.entries());
-            
-            if (payload.action === 'upload_file' && slackFileInput && slackFileInput.files.length > 0) {
-                const file = slackFileInput.files[0];
-                const reader = new FileReader();
-                
-                resetUI();
-                if (slackRunBtn) slackRunBtn.disabled = true;
-                if (slackSpinner) slackSpinner.classList.remove('hidden');
-                if (slackBtnText) slackBtnText.textContent = 'Formatting payload...';
-                
-                reader.onload = async (event) => {
-                    try {
-                        const base64Data = event.target.result.split(',')[1];
-                        payload.content_base64 = base64Data;
-                        // Always override filename with actual file name if uploaded directly
-                        payload.filename = file.name;
-                        
-                        await handleSubmission(payload, '/scenarios/slack-messaging', slackRunBtn, slackBtnText, slackSpinner, 'Send to Slack');
-                    } catch (error) {
-                        log(`File parsing error: ${error.message}`, 'error');
-                        if (slackBtnText) slackBtnText.textContent = 'System Error';
-                        if (slackRunBtn) slackRunBtn.disabled = false;
-                        if (slackSpinner) slackSpinner.classList.add('hidden');
-                    }
-                };
-                
-                reader.onerror = () => {
-                    log('Failed to read binary file from memory.', 'error');
-                    if (slackBtnText) slackBtnText.textContent = 'System Error';
-                    if (slackRunBtn) slackRunBtn.disabled = false;
-                    if (slackSpinner) slackSpinner.classList.add('hidden');
-                };
-                
-                reader.readAsDataURL(file);
-            } else {
-                await handleSubmission(payload, '/scenarios/slack-messaging', slackRunBtn, slackBtnText, slackSpinner, 'Send to Slack');
-            }
-        });
-    }
 
     // ======================================================
     // AI Agent Chat Logic

@@ -214,12 +214,8 @@ The MCP binding adds features that matter when the caller is a model:
 ### Try connectors in the playground
 
 The REST API ships a [playground](http://localhost:8000/playground/) with
-interactive demos for the shipped connectors:
-
-<p align="center">
-  <img src="./docs/images/playground-salesforce-crm.png" width="760"
-       alt="The playground's Salesforce CRM demo: a Create Lead form, a three-step pipeline, and a technical audit log.">
-</p>
+interactive demos for the shipped connectors: pick a connector, choose any of its actions, fill the form and run it,
+and watch the pipeline and the technical audit log.
 
 ## The `nw` CLI
 
