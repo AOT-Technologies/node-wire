@@ -98,7 +98,11 @@ def test_slack_post_message_sends_the_form_and_shows_an_error(playground_page: P
 
 def test_a_loading_card_shows_until_the_connector_list_arrives(playground_page: Page) -> None:
     held: list[Route] = []  # the answer is held back until the test lets it go
-    playground_page.route("**/playground/connectors", lambda route: held.append(route))
+
+    def hold(route: Route) -> None:
+        held.append(route)
+
+    playground_page.route("**/playground/connectors", hold)
     playground_page.reload()
     PlaygroundHomePage(playground_page).click_connectors()
 

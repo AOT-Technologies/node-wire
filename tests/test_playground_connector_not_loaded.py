@@ -28,7 +28,7 @@ class _Factory:
 async def test_a_connector_that_is_not_loaded_is_a_503_that_names_the_fix(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(scenarios, "get_playground_factory", lambda: _Factory())
+    monkeypatch.setattr(scenarios, "get_playground_factory", _Factory)
     monkeypatch.setattr("bindings.rest_api.auth.get_rest_caller_identity", lambda request: None)
     with pytest.raises(HTTPException) as caught:
         await scenarios.resolve_connector(Request({"type": "http", "headers": []}), "http_generic")
