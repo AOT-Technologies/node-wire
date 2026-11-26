@@ -1,0 +1,24 @@
+# Edit select/exclude, then run: nw expose resolve. The runtime reads only `actions`.
+connector: salesforce
+connector_version: 1.1.2
+profile: salesforce-bulk
+select:
+- path:/jobs/**
+actions:
+- abort_ingest_job
+- abort_query_job
+- complete_ingest_job
+- create_ingest_job
+- create_query_job
+- delete_ingest_job
+- delete_query_job
+- get_ingest_failed_results
+- get_ingest_job
+- get_ingest_successful_results
+- get_ingest_unprocessed_records
+- get_query_job
+- get_query_job_result_pages
+- get_query_job_results
+- list_ingest_jobs
+- list_query_jobs
+- upload_ingest_job_data
