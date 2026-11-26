@@ -33,7 +33,7 @@ from node_wire_runtime import (
     sdk_action,
 )
 from node_wire_runtime.log_sanitization import fhir_log_extra, log_http_status_error
-from node_wire_runtime.rest import _shared_client
+from node_wire_runtime.rest import _shared_client, assert_safe_destination
 
 from .normalizers import (
     assert_encounter_query_has_patient,
@@ -625,12 +625,16 @@ class FhirCernerConnector(BaseConnector):
             if not ids:
                 raise ValueError("resource_ids list is empty")
 
+            # At most 5 requests at a time, so 50 ids do not open 50 connections or trip Cerner's rate limit.
+            limit = asyncio.Semaphore(5)
+
             async def fetch(rid: str) -> tuple[str, Optional[Dict[str, Any]], Optional[str]]:
-                try:
-                    url = f"{base}/Patient/{quote(rid, safe='')}"
-                    return rid, (await self._send("GET", url, trace_id)).json(), None
-                except Exception as exc:
-                    return rid, None, str(exc)
+                async with limit:
+                    try:
+                        url = f"{base}/Patient/{quote(rid, safe='')}"
+                        return rid, (await self._send("GET", url, trace_id)).json(), None
+                    except Exception as exc:
+                        return rid, None, str(exc)
 
             results = await asyncio.gather(*[fetch(rid) for rid in ids])
             found = [r for _, r, _ in results if r is not None]
@@ -1019,6 +1023,9 @@ class FhirCernerConnector(BaseConnector):
             target = response.headers.get("Location", "")
             if urlsplit(target).scheme != "https":
                 raise ValueError("the file download link Cerner returned is not https")
+            # The link names a host of Cerner's choosing: refuse a private, loopback or link-local one, as the
+            # runtime does for every other outbound call.
+            await assert_safe_destination(target)
             response = await self._send(
                 "GET", target, trace_id, headers=ndjson, max_bytes=_MAX_BULK_FILE_BYTES, auth=False
             )

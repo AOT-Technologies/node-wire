@@ -38,7 +38,7 @@ both scopes. Bulk export needs the read scope of every type in `type`, and a JWT
 
 The token is only ever sent to the configured server: `fetch_next_page` and the bulk calls take a URL and refuse one whose
 scheme, host or port differ from `CERNER_FHIR_BASE_URL`. The one exception is the file download link Cerner answers with:
-`bulk_export_file` follows it (https only) **without** the token. The shipped config exposes the connector on REST, gRPC and
+`bulk_export_file` follows it **without** the token, and only if it is https and not a private, loopback or link-local address (the runtime's outbound check, which also honours `NW_REST_ALLOWED_HOSTS`). The shipped config exposes the connector on REST, gRPC and
 MCP; with 129 actions, many of them writes to a patient chart, limit what a deployment can do with an
 [exposure profile](../../docs/exposure.md) (`NW_EXPOSE_PROFILE`).
 
@@ -82,7 +82,7 @@ MCP; with 129 actions, many of them writes to a patient chart, limit what a depl
 
 `read_patient`, `search_patients`, `search_encounter`, `create_document_reference` and `search_document_reference` keep their
 names, inputs (including `search_params`, the name fields and the LLM-alias normalizers) and Cerner's rules. Differences:
-a search returns `next_url`, `search_patients` fetches at most 50 ids at once, and errors follow the table above.
+a search returns `next_url`, `search_patients` fetches at most 50 ids, five requests at a time, and errors follow the table above.
 
 `create_document_reference` fills in what Cerner's validation requires: it base64-encodes `text` when no `data` is given, adds
 `;charset=utf-8` to `text/*` content types, adds `docStatus`, `userSelected`, the type `text` and an `authenticator` (the first

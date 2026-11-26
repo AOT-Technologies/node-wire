@@ -204,7 +204,7 @@ class FhirCernerPatientSearchInput(BaseModel):
     action: Literal["search_patients"] = "search_patients"
     """Action discriminator (one endpoint, multiple actions pattern)."""
 
-    resource_ids: Optional[List[str]] = None
+    resource_ids: Optional[List[str]] = Field(None, max_length=50)
     """List of Cerner Patient IDs to fetch concurrently."""
 
     given_name: Optional[str] = None

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
@@ -331,6 +332,36 @@ def test_a_numeric_id_is_an_id_not_a_crash() -> None:
     patients = {"resource_ids": [12765407, "2"]}
     normalizers.normalize_fhir_search_patients(patients)
     assert patients["resource_ids"] == ["12765407", "2"]
+
+
+async def test_search_patients_by_id_runs_at_most_five_requests_at_a_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    running = peak = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal running, peak
+        running += 1
+        peak = max(peak, running)
+        await asyncio.sleep(0.01)
+        running -= 1
+        return httpx.Response(
+            200, json={"resourceType": "Patient", "id": request.url.path.split("/")[-1]}
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    monkeypatch.setattr(logic, "_shared_client", lambda trust_env: client)
+    ids = [str(i) for i in range(50)]
+    result = await make().run({"action": "search_patients", "resource_ids": ids})
+    assert result.success and result.data["total"] == 50 and result.data["errors"] == []
+    assert 1 < peak <= 5
+
+
+async def test_search_patients_refuses_more_than_fifty_ids(wire: Wire) -> None:
+    result = await make().run(
+        {"action": "search_patients", "resource_ids": [str(i) for i in range(51)]}
+    )
+    assert not result.success and not wire.requests
 
 
 # ---- writes ---------------------------------------------------------------------------------------
@@ -826,7 +857,14 @@ async def test_bulk_status_reports_progress_then_the_manifest(wire: Wire) -> Non
     assert done.data["resource"]["output"][0]["url"].endswith("/files/F1")
 
 
-async def test_bulk_file_follows_the_redirect_without_the_token(wire: Wire) -> None:
+async def _resolves(url: str) -> None:
+    """Stand-in for the runtime's DNS check: the test hosts do not exist."""
+
+
+async def test_bulk_file_follows_the_redirect_without_the_token(
+    wire: Wire, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(logic, "assert_safe_destination", _resolves)
     wire.queue = [
         (307, {"Location": "https://storage.test/f/1?sig=abc"}, b""),
         (200, {}, b'{"id":"1"}\n{"id":"2"}\n'),
@@ -841,6 +879,24 @@ async def test_bulk_file_follows_the_redirect_without_the_token(wire: Wire) -> N
     assert str(second.url) == "https://storage.test/f/1?sig=abc"
     assert "Authorization" not in second.headers
     assert result.data["content"] == '{"id":"1"}\n{"id":"2"}\n'
+
+
+@pytest.mark.parametrize(
+    "link",
+    [
+        "https://127.0.0.1/f/1",
+        "https://localhost/f/1",
+        "https://169.254.169.254/latest/meta-data",
+        "https://10.0.0.5/f/1",
+        "https://[::1]/f/1",
+    ],
+)
+async def test_bulk_file_refuses_a_download_link_to_an_internal_host(wire: Wire, link: str) -> None:
+    wire.queue = [(307, {"Location": link}, b"")]
+    result = await make().run(
+        {"action": "bulk_export_file", "file_url": f"{BASE}/bulk-export/files/F1"}
+    )
+    assert not result.success and len(wire.requests) == 1
 
 
 async def test_bulk_file_refuses_a_download_link_that_is_not_https(wire: Wire) -> None:
