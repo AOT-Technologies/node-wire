@@ -97,13 +97,30 @@ connectors:
     enabled: false
     exposed_via: [rest, grpc, mcp]
     # Non-sensitive SMTP server config — safe in YAML
+    # SMTP_HOST / SMTP_PORT / SMTP_USE_TLS in the environment take precedence over these three.
     host: "smtp.example.com"
     port: 587
+    use_tls: true
     from_email: "noreply@example.com"
     auth:
       provider: static_credentials
       username_secret: SMTP_USERNAME
       password_secret: SMTP_PASSWORD
+
+  postgres:
+    enabled: false
+    exposed_via: [rest, grpc, mcp]
+    # Non-sensitive connection target and limits — safe in YAML. Secrets POSTGRES_USERNAME
+    # and POSTGRES_PASSWORD come from the environment or a secrets backend.
+    host: "localhost"
+    port: 5432
+    database: "mydb"
+    sslmode: "require"
+    mode: read_only           # read_only | read_write | admin (default read_only)
+    statement_timeout_ms: 30000
+    max_rows: 1000
+    # allowed_schemas: [public]
+    # allowed_tables: [public.orders]
 
   stripe:
     enabled: false
@@ -113,6 +130,18 @@ connectors:
       secret_key: STRIPE_BASIC_AUTH
       prefix: Basic
       encoding: base64  # value is "<secret key>:"
+
+  n8n:
+    enabled: false
+    exposed_via: [rest, grpc, mcp]
+    # The n8n instance root (not /api/v1). Set by the operator only; no action accepts it.
+    # Named instance_url because the config store allows `base_url` only for REST connectors.
+    instance_url: "https://n8n.example.com"
+    auth:
+      provider: static_token
+      secret_key: N8N_API_KEY
+      header_name: X-N8N-API-KEY
+      prefix: ""         # n8n expects the raw key with no "Bearer" prefix
 
   http_generic:
     enabled: false

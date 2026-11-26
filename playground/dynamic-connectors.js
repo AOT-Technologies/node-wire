@@ -10,8 +10,17 @@
 // through the window.nwPlayground hook.
 (async () => {
     // Connectors that keep their own panels in app.js / index.html.
-    const COVERED = ['fhir_epic', 'fhir_cerner', 'http_generic', 'slack', 'stripe', 'salesforce'];
-    const NAMES = { github: 'GitHub', google_drive: 'Google Drive' };
+    const COVERED = ['http_generic', 'slack', 'stripe'];
+    // Salesforce keeps its Lead and Contact panel too, so this card is named to tell the two apart.
+    const NAMES = {
+        github: 'GitHub',
+        google_drive: 'Google Drive',
+        salesforce: 'Salesforce',
+        fhir_epic: 'Epic FHIR',
+        fhir_cerner: 'Cerner FHIR',
+    };
+    // A PEM key has line breaks, so it needs a textarea.
+    const TEXTAREA_SECRETS = ['EPIC_PRIVATE_KEY', 'CERNER_PRIVATE_KEY'];
     // GitHub accepts either token kind as a bearer token, so both fill the same secret.
     const TOKEN_TYPES = {
         github: [
@@ -121,20 +130,22 @@
     );
 
     function field(name, prop, required) {
+        // An optional field is {"anyOf": [{"type": "string"}, {"type": "null"}]}, so look past the null.
+        const type = prop.type || ((prop.anyOf || []).map((a) => a.type).find((t) => t && t !== 'null') || '');
         let input;
-        if (prop.enum || prop.type === 'boolean') {
+        if (prop.enum || type === 'boolean') {
             input = el('select', { name }, el('option', { value: '' }));
             for (const value of prop.enum || ['true', 'false']) input.append(el('option', { value: String(value), textContent: String(value) }));
-        } else if (prop.type === 'object' || prop.type === 'array') {
-            input = el('textarea', { name, placeholder: `JSON ${prop.type}` });
+        } else if (type === 'object' || type === 'array') {
+            input = el('textarea', { name, placeholder: `JSON ${type}` });
         } else {
             input = el('input', {
                 name,
-                type: prop.type === 'integer' || prop.type === 'number' ? 'number' : 'text',
-                placeholder: prop.type || 'text, number or JSON',
+                type: type === 'integer' || type === 'number' ? 'number' : 'text',
+                placeholder: type || 'text, number or JSON',
             });
         }
-        input.dataset.type = prop.type || '';
+        input.dataset.type = type;
         const group = el('div', { className: 'field-group' }, el('label', { textContent: name + (required ? ' *' : '') }), input);
         if (prop.description) group.append(el('span', { className: 'field-help', textContent: prop.description.slice(0, 140) }));
         if (input.tagName === 'TEXTAREA') group.style.gridColumn = '1 / -1';
@@ -281,7 +292,7 @@
             `dyn:${id}`,
             id,
             data[id].config_template,
-            data[id].secret_names.map((key) => ({ key, label: key, type: 'text', required: true, tokenTypes: TOKEN_TYPES[id] }))
+            data[id].secret_names.map((key) => ({ key, label: key, type: TEXTAREA_SECRETS.includes(key) ? 'textarea' : 'text', required: true, tokenTypes: TOKEN_TYPES[id] }))
         );
         const icon = el('div', { className: 'connector-icon', textContent: nameOf(id).slice(0, 2).toUpperCase(), style: `background: ${colorOf(id)}; font-weight: 700` });
         const details = el('div', { className: 'connector-details' }, el('h3', { textContent: nameOf(id) }), el('p', { textContent: `${data[id].actions.length} actions, discovered at runtime.` }));

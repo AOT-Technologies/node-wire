@@ -42,6 +42,8 @@ dependencies = [
   "google-auth>=2.0.0",
   "google-api-python-client>=2.100.0",
   "PyJWT[crypto]>=2.8.0",
+  "psycopg[binary]>=3.2,<4",
+  "psycopg-pool>=3.2,<4",
   "python-dotenv>=1.0.0",
   "opentelemetry-instrumentation-fastapi>=0.45b0",
   "opentelemetry-exporter-otlp>=1.24.0",
@@ -93,6 +95,8 @@ fhir_epic    = "node_wire_fhir_epic.logic"
 fhir_cerner  = "node_wire_fhir_cerner.logic"
 salesforce   = "node_wire_salesforce.logic"
 slack        = "node_wire_slack.logic"
+n8n          = "node_wire_n8n.logic"
+postgres     = "node_wire_postgres.logic"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -13,6 +13,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`node-wire-salesforce`** now has **150 actions**: the 8 lead and contact actions plus 142 for the REST API and Bulk API 2.0,
+  written against API v68.0 (Winter '27). `api_version` can be set in `connectors.yaml` (default `v68.0`; it was a fixed `v58.0`).
+  Four exposure profiles are in `expose/salesforce/`: `salesforce-readonly`, `salesforce-records`, `salesforce-leads-contacts`
+  and `salesforce-bulk`. The playground shows a generic "Salesforce (all actions)" card next to the Lead and Contact panel.
+
+### Changed
+
+- **`node-wire-fhir-cerner` is rebuilt with 129 actions** (was 5): every R4 read, search, create, update, patch and delete that Oracle's
+  Millennium FHIR R4 documentation lists, the CCD, `$docref`, health cards, charge item and batch operations, and the group and patient
+  bulk exports. The five original actions keep their names, inputs and Cerner rules (CodeSet 72, charset, authenticator, context period).
+  Search results now also return `next_url`; reads and writes return the resource version as `etag`, and updates, patches and deletes take
+  it as `if_match`. Errors follow the same policy as `fhir_epic`: a 5xx other than a retried gateway error on a read is the fatal
+  `CERNER_SERVER_ERROR` (before it was `CERNER_HTTP_ERROR`, business), and a timeout after a write was sent is not retried. Cerner checks the
+  scopes of the token request, so set `CERNER_SCOPES` for the resources you use. The package no longer depends on PyJWT or the httpx `http2`
+  extra and requires `node-wire-runtime>=1.1.3`. Release it as a minor version. All 129 actions, writes included, are exposed on REST, gRPC
+  and MCP until exposure profiles exist.
+- **Salesforce is off by default in the shipped `config/connectors.yaml`** (`enabled: false`, `exposed_via: ["rest"]`), because it now
+  includes password resets and bulk deletes. **Migration:** a deployment that used Salesforce over gRPC or MCP must set
+  `enabled: true` and `exposed_via: ["rest", "grpc", "mcp"]` in its own `connectors.yaml`, and should set `NW_EXPOSE_PROFILE` (for example
+  `salesforce-leads-contacts` for the original 8 actions) so it does not expose all 150. See `docs/salesforce_connector.md`.
+- Salesforce actions answer 401 as an auth error, 429 as retryable, and retry 502, 503 and 504 only for `GET` and `DELETE`.
+  A 503 on a write such as `create_lead` is no longer retried (the write may already have run); before, any 5xx on the 8 original actions
+  was retryable. Error messages carry only Salesforce's `errorCode` and `message` (at most 3, 200 characters each), never the raw body.
+- Salesforce requests are sent as JSON (CSV for Bulk API data) instead of the OAuth provider's FHIR media types, which Salesforce refuses.
+- The package now requires `node-wire-runtime>=1.1.3`. Because it adds many actions and changes defaults, release it as a minor version.
 ### Removed
 
 - The playground's hand-coded "Google Drive & IAM Vault" panel, its `POST /scenarios/gdrive-archival` route and its Playwright tests
@@ -20,6 +47,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `node-wire-fhir-epic` is rebuilt for Epic on FHIR R4 (November 2026): 137 actions, up from five. The five keep their names and
+  inputs. New: read and search for 55 more resource types (every Epic R4 search parameter is a field), create and update (the FHIR
+  resource as JSON, nine creates and seven updates), `patient_match`, `patient_summary`, `value_set_expand`, the group bulk
+  export calls and `fetch_next_page`. Errors now follow the runtime taxonomy (429 and gateway errors on reads retry, 401 and 403 are
+  auth errors) and a create or bulk kick-off that timed out after it was sent is not retried. The connector sets the `httpx`
+  logger to WARNING so request URLs (patient ids and names) are not logged. `search_patients` takes at most 50 ids. The package no
+  longer depends on `PyJWT` (the runtime signs the token) and needs `node-wire-runtime>=1.1.3`. DSTU2 and STU3 are not covered.
 - `node-wire-google-drive` is now generated from Google's Drive v3 API: 48 actions (plus the hand-written upload) named `drive_<resource>_<method>` (for example
   `drive_files_list`; they replace `files.list`, `files.get`, `files.create`, `files.update`, `files.delete`, `permissions.create` and
   `files.upload`). `drive_files_upload` (hand-written, up to 5 MB, `content` or `content_base64`) replaces `files.upload`; `drive_files_create` and `drive_files_update` take `name`, `mime_type`, `description` and `parents`, and `trashed: true` on update is the old soft delete. Shared drives stay on by default. **Not supported:** downloading content, replacing the content of an existing file, and uploads over 5 MB. `drive_files_get` cannot return content and binary responses are not returned.

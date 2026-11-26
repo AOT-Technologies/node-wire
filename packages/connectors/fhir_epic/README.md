@@ -6,8 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # node-wire-fhir-epic
 
-Epic FHIR R4 connector for Node Wire. Lets an agent or app read and search patients, search
-encounters, and create and search document references in an Epic EHR. It connects as a SMART on
+Epic FHIR R4 connector for Node Wire. Lets an agent or app read, search, create and update the
+resources Epic publishes (patients, encounters, observations, documents and more) and run its bulk export. It connects as a SMART on
 FHIR backend service (OAuth 2.0 client credentials with a signed JWT).
 
 Part of [Node Wire](https://github.com/AOT-Technologies/node-wire). Every call runs through the
@@ -30,19 +30,21 @@ OS and CPU.
 
 ## Actions
 
-The connector registers as `fhir_epic`. MCP tool names are `<connector_id>_<action>`, with
-dots replaced by underscores.
+The connector registers as `fhir_epic` and has **137 actions** for Epic on FHIR R4. MCP tool names are
+`<connector_id>_<action>`.
 
-| Action | MCP tool | What it does |
-|---|---|---|
-| `read_patient` | `fhir_epic_read_patient` | Reads one Patient by ID (`{"resource_id": "..."}`) |
-| `search_patients` | `fhir_epic_search_patients` | Finds Patients by ID list or by name and birth date |
-| `search_encounter` | `fhir_epic_search_encounter` | Finds a patient's Encounters, optionally filtered by status and date |
-| `create_document_reference` | `fhir_epic_create_document_reference` | Writes a clinical document (a DocumentReference with attachment) for a patient |
-| `search_document_reference` | `fhir_epic_search_document_reference` | Finds DocumentReferences with FHIR search parameters |
+| Group | Actions |
+|---|---|
+| Original five | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` |
+| Read and search (US Core and other resources) | `read_<resource>` and `search_<resource>`, for example `read_observation`, `search_condition`, `search_medication_request`; every Epic search parameter is a field |
+| Write | `create_<resource>` and `update_<resource>`, taking the FHIR resource as JSON |
+| Operations | `patient_match`, `patient_summary`, `value_set_expand`, `bulk_export_group`, `bulk_export_status`, `bulk_export_file`, `bulk_export_delete`, `fetch_next_page` |
 
-Arguments accept common aliases that language models produce, such as `patientId` for
-`resource_id`. `search_encounter` requires a patient filter and refuses to call Epic without one.
+The full list, request rules and error codes are in the
+[connector README](https://github.com/AOT-Technologies/node-wire/blob/main/src/node_wire_fhir_epic/README.md).
+The original five accept common aliases that language models produce, such as `patientId` for
+`resource_id`. `search_encounter` requires a patient filter and refuses to call Epic without one. Any search of a
+patient-scoped resource needs a patient, a subject or an id.
 
 ## Configuration
 
@@ -82,13 +84,13 @@ from the configuration above. See [Use a connector](https://aot-technologies.git
 
 ## Security notes
 
-Logs record the operation mode, HTTP status and result counts, never request parameters or FHIR
-resource bodies. See [Privacy](https://aot-technologies.github.io/node-wire/privacy/).
+Logs record the operation, the URL path, the HTTP status and result counts, never request parameters or FHIR
+resource bodies. The connector can write to a patient chart: limit a deployment with an exposure profile. See [Privacy](https://aot-technologies.github.io/node-wire/privacy/).
 
 ## Documentation
 
 - [Node Wire on GitHub](https://github.com/AOT-Technologies/node-wire): source, issues and full documentation
-- [Connector reference](https://aot-technologies.github.io/node-wire/connector-reference/#fhir_epic-and-fhir_cerner)
+- [Connector reference](https://aot-technologies.github.io/node-wire/connector-reference/#fhir_epic)
 - [Configuration](https://aot-technologies.github.io/node-wire/configuration/)
 - [Error codes](https://aot-technologies.github.io/node-wire/errors/)
 - [Changelog](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md)
