@@ -173,9 +173,10 @@ NW_EXPOSE_PROFILE=salesforce-leads-contacts
 | 429 | `SALESFORCE_RATE_LIMITED` | retryable |
 | 502, 503, 504 on `GET` and `DELETE` | `SALESFORCE_TRANSIENT_ERROR` | retryable |
 | any other 4xx or 5xx | `SALESFORCE_API_ERROR` | business |
-| timeout, connection failure | `SALESFORCE_TIMEOUT`, `SALESFORCE_CONNECT_ERROR` | retryable |
+| connection failure; timeout on a `GET`, a `DELETE`, `update_lead` or `update_contact` | `SALESFORCE_CONNECT_ERROR`, `SALESFORCE_TIMEOUT` | retryable |
+| timeout after any other write was sent (for example `create_lead`) | `OUTCOME_UNKNOWN` | fatal, not retried |
 
-The message carries Salesforce's own `errorCode` and `message`. The 8 lead and contact actions use the same request path and rules as the rest, so a 503 on `create_lead` is `SALESFORCE_API_ERROR`, not retried (a write may already have run). Before this version any 5xx on them was retryable.
+The message carries Salesforce's own `errorCode` and `message`. The 8 lead and contact actions use the same request path and rules as the rest, so a 503 on `create_lead` is `SALESFORCE_API_ERROR`, not retried (a write may already have run). Before this version any 5xx on them was retryable. A write that timed out may have run, so it returns `OUTCOME_UNKNOWN`: look the record up before you create it again. `update_lead` and `update_contact` set fields to given values, so they are retried after a timeout. The rules are in [Errors — Retries](errors.md#retries).
 
 ## Security note
 

@@ -44,3 +44,37 @@ def _plain_typer_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(rich_utils, "FORCE_TERMINAL", False)
     monkeypatch.setattr(rich_utils, "COLOR_SYSTEM", None)
     monkeypatch.setattr(rich_utils, "MAX_WIDTH", 200)
+
+
+def stamp_wheels(root, *packages: str) -> None:
+    """Stamp each package's single wheel in dist/ as built from its current sources."""
+    from nw_mcp_builder.wheel_cache import package_source_hash, stamp_build
+
+    for package in packages:
+        stamp_build(root, package, package_source_hash(root, package))
+
+
+@pytest.fixture(name="stamp_wheels")
+def _stamp_wheels_fixture():
+    return stamp_wheels
+
+
+def fake_wheel_builder(root):
+    """A ``run_logged_command`` stand-in that writes one pure wheel per package it builds."""
+    from pathlib import Path
+
+    def run(cmd, *, cwd=None, log=None, env=None, **_):
+        for package in cmd[2:]:
+            dist = root / package / "dist"
+            dist.mkdir(parents=True, exist_ok=True)
+            for old in dist.glob("*.whl"):
+                old.unlink()
+            (dist / f"{Path(package).name}-1.0-py3-none-any.whl").write_bytes(b"w")
+        return 0
+
+    return run
+
+
+@pytest.fixture(name="fake_wheel_builder")
+def _fake_wheel_builder_fixture():
+    return fake_wheel_builder

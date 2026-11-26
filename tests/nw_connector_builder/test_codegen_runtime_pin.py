@@ -31,7 +31,12 @@ def _runtime_requirement() -> Requirement:
 def test_generated_package_requires_the_runtime_that_serializes_every_style() -> None:
     """1.1.0 sends cookie / querystring parameters, every style, and ``headers:``."""
     assert not _runtime_requirement().specifier.contains("1.0.0")
-    assert _runtime_requirement().specifier.contains("1.1.0")
+
+
+def test_generated_package_requires_the_runtime_that_does_not_retry_unsafe_writes() -> None:
+    """1.2.0 reports a timed-out POST/PATCH as OUTCOME_UNKNOWN instead of retrying it."""
+    assert not _runtime_requirement().specifier.contains("1.1.2")
+    assert _runtime_requirement().specifier.contains("1.2.0")
 
 
 def test_required_runtime_is_not_newer_than_the_runtime_in_this_repo() -> None:

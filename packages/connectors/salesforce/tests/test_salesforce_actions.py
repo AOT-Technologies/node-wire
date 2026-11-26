@@ -2001,3 +2001,38 @@ async def test_a_single_error_object_is_read_too(wire: Wire) -> None:
         result.message
         == "Salesforce answered 404: NOT_FOUND: The requested resource does not exist"
     )
+
+
+# ---- writes whose outcome is unknown: not retried, OUTCOME_UNKNOWN ----------------------------
+
+
+@pytest.fixture
+def fast_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    from functools import partial
+
+    from node_wire_runtime.resilience import with_resilience
+
+    monkeypatch.setattr(
+        "node_wire_runtime.base_connector.with_resilience",
+        partial(with_resilience, base_wait=0.001, max_wait=0.002),
+    )
+
+
+async def test_a_create_that_timed_out_is_not_retried_and_reports_outcome_unknown(
+    wire: Wire, fast_retries: None
+) -> None:
+    wire.error = httpx.ReadTimeout("slow")
+    result = await make().run({"action": "create_lead", "LastName": "Doe", "Company": "X"})
+    assert [r.method for r in wire.requests] == ["POST"]
+    assert result.error_code == "OUTCOME_UNKNOWN"
+
+
+async def test_an_update_is_idempotent_and_retried_after_a_timeout(
+    wire: Wire, fast_retries: None
+) -> None:
+    wire.error = httpx.ReadTimeout("slow")
+    result = await make().run(
+        {"action": "update_lead", "record_id": LEAD, "fields": {"Company": "Y"}}
+    )
+    assert [r.method for r in wire.requests] == ["PATCH"] * 3
+    assert result.error_code == "SALESFORCE_TIMEOUT"

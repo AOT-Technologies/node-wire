@@ -209,10 +209,10 @@ def serve(port: int = 50051) -> None:
 
     health_servicer = grpc_health.HealthServicer()
     health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
+    # SERVING only once the server is accepting calls; until then the default is NOT_SERVING.
+    server.start()
     health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)
     health_servicer.set("aot.connectors.ConnectorService", health_pb2.HealthCheckResponse.SERVING)
-
-    server.start()
     server.wait_for_termination()
 
 

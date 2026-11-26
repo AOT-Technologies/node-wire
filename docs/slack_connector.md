@@ -112,6 +112,8 @@ Uploads a file to a Slack channel or DM. The content may be supplied two ways:
 
 Slack's external upload API needs a real conversation ID, so `channel` must be a channel ID or user ID, not a name such as `#general`. Uploads larger than `NW_SLACK_UPLOAD_LIMIT_MB` (default 50, maximum 100) are rejected with `SLACK_UPLOAD_ERROR`.
 
+The upload has three steps: reserve an upload URL, send the bytes, then complete and share the file. A failed step is retried on its own with the same file ID, so a retry doesn't start a second upload. Sending the bytes is retried on transport errors and rate limits; completing is retried on rate limits and connect errors only. If a step still fails, the action returns `SLACK_UPLOAD_ERROR` with the file ID.
+
 ### Error taxonomy
 
 | Category | Platform code | Cause |
@@ -120,7 +122,7 @@ Slack's external upload API needs a real conversation ID, so `channel` must be a
 | `AUTH` | `SLACK_PERMISSION_ERROR` | Missing OAuth scope |
 | `RETRYABLE` | `SLACK_RATE_LIMIT` | Slack rate limit (429) |
 | `BUSINESS` | `SLACK_MESSAGE_ERROR` | Channel not found or invalid payload |
-| `BUSINESS` | `SLACK_UPLOAD_ERROR` | File too large or bad content |
+| `BUSINESS` | `SLACK_UPLOAD_ERROR` | File too large, bad content, or an upload step that still failed after its retries (the message names the file ID) |
 
 ---
 

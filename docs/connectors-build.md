@@ -328,6 +328,17 @@ Internally it calls the scoped `ErrorMapper.register(connector_id, exc_type, cat
 
 The separate `ErrorMapper.register_global()` exists only for runtime-owned exceptions not tied to any connector (for example, `PolicyDenied`, `TenantMismatchError`) and is not meant for connector code either.
 
+### Optional: declare whether an action is idempotent
+
+A `RETRYABLE` failure is retried only when a retry can't apply a write twice. By default the runtime judges each failed HTTP request by its method and idempotency headers. If your action knows better, say so in the decorator:
+
+```python
+@nw_action("update_lead", idempotent=True)   # safe to repeat: retried after a timeout or 5xx
+@nw_action("create_lead", idempotent=False)  # never retried after a timeout or 5xx
+```
+
+An action that isn't retried for this reason fails with `OUTCOME_UNKNOWN`. The same argument exists on `@sdk_action` and on `action_specs` entries. The full rules are in [Errors — Retries](errors.md#retries).
+
 ---
 
 ### Single-action connector example

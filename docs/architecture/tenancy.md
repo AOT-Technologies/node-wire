@@ -175,9 +175,9 @@ and `nw-mcp-builder` hosts) adds these tools:
 | Tool | Does |
 |---|---|
 | `nw_list_tenants` `{connector_id?}` | Lists tenants with configs, plus `current_tenant_id` / `pinned_tenant_id`. `NW_MCP_ALLOWED_TENANTS` limits the list. |
-| `nw_select_tenant` `{tenant_id}` | Sets the session tenant for **every connector** on this process and returns its configs. On stdio it overrides the `NW_TENANT_ID` pin. On streamable-http the request's tenant still wins, so the selection does not change which tenant tool calls use. Rejected when `NW_MCP_TENANT_PIN_LOCKED=true`. Unknown tenants fail closed. |
+| `nw_select_tenant` `{tenant_id}` | Sets the session tenant for **every connector** and returns its configs. On stdio it overrides the `NW_TENANT_ID` pin. On streamable-http only the request's own tenant can be selected; any other fails with `TENANT_IDENTITY_MISMATCH` and lists nothing. Rejected when `NW_MCP_TENANT_PIN_LOCKED=true`. Unknown tenants fail closed, and a selected tenant that is later deleted fails the next call with `TENANT_NOT_ALLOWED`. Selecting a tenant drops a selected config that tenant does not have. |
 | `nw_list_configs` `{connector_id?, tenant_id?}` | Lists named configs for the selected or pinned tenant. |
-| `nw_select_config` `{config_name}` | Makes that name the default for **every connector** on this process. It returns `connectors_with_config` / `connectors_missing_config`. |
+| `nw_select_config` `{config_name}` | Makes that name the default for **every connector** in this session. It returns `connectors_with_config` / `connectors_missing_config`. |
 
 The dotted aliases (`nw.list_tenants`, …) still work. Every connector tool also accepts an optional
 per-call `config_name`, which overrides `nw_select_config` for that call only.
@@ -191,11 +191,21 @@ Things that surprise people:
   tenant (the caller's tenant or `X-Tenant-ID`), and that tenant outranks `nw_select_tenant`.
   A tool's `tenant_id` argument cannot leave the request tenant. To switch tenant over HTTP,
   send a different `X-Tenant-ID`.
+- **Where a selection lives depends on the transport.** On stdio the process has one client, so
+  the selection is process-wide. On streamable-http each caller session has its own selection,
+  keyed by the caller (principal), the request tenant and the `Mcp-Session-Id` header if the
+  client sends one. One caller's `nw_select_config` never changes another caller's calls. The
+  server keeps the 4096 most recently used HTTP selections; an older one is dropped and that
+  session falls back to the tenant default.
 - **Selections are per process.** Two images (Drive, Epic) are two processes, and selecting on one
   does not change the other. Run one MCP server with both connectors (`agents.mcp_entrypoint`) when
   one selection should cover both.
 - `nw gen-stacklok` servers fix the tenant at the ToolHive proxy and expose only the config tools
-  ([stacklok MCP servers](../stacklok-mcp-servers.md#what-the-generated-server-does)).
+  ([stacklok MCP servers](../stacklok-mcp-servers.md#what-the-generated-server-does)). Their
+  `nw_select_config` is kept per MCP session and tenant. They also keep at most 4096 selections;
+  when a session's selection was dropped, its next tool call fails once with `SELECTION_EXPIRED`
+  instead of silently using the default, and later calls use the default
+  until `nw_select_config` is called again.
 
 A typical session:
 

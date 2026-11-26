@@ -889,3 +889,39 @@ async def test_fhir_cerner_search_document_reference_generic_error():
     ):
         with pytest.raises(httpx.ConnectError):
             await c.internal_execute(params, trace_id="test-trace")
+
+
+@pytest.mark.asyncio
+async def test_fhir_cerner_searches_return_the_next_page_url():
+    from node_wire_fhir_cerner.schema import (
+        FhirCernerDocumentReferenceSearchInput,
+        FhirCernerEncounterSearchInput,
+        FhirCernerPatientSearchInput,
+    )
+
+    def _bundle(next_url):
+        resp = MagicMock()
+        resp.status_code = 200
+        links = [{"relation": "self", "url": "https://fhir.example/R4/X"}]
+        if next_url:
+            links.append({"relation": "next", "url": next_url})
+        resp.json.return_value = {
+            "resourceType": "Bundle",
+            "total": 40,
+            "link": links,
+            "entry": [{"resource": {"resourceType": "Encounter", "id": "e1"}}],
+        }
+        return resp
+
+    nxt = "https://fhir.example/R4/X?page=2"
+    for params in (
+        FhirCernerEncounterSearchInput(search_params={"patient": "p1"}),
+        FhirCernerDocumentReferenceSearchInput(search_params={"patient": "p1"}),
+        FhirCernerPatientSearchInput(family_name="Doe"),
+    ):
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=_bundle(nxt)):
+            result = await _connector().internal_execute(params, trace_id="t")
+        assert result.next_url == nxt, params.action
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=_bundle(None)):
+            result = await _connector().internal_execute(params, trace_id="t")
+        assert result.next_url is None

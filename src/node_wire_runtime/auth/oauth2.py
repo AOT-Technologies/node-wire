@@ -15,10 +15,12 @@ grant with two assertion methods:
 
 Security design:
   - Tokens are cached in memory using the ``expires_in`` value from the
-    token response, minus a configurable buffer (default 60 s).
+    token response, minus a configurable buffer (default 60 s, capped at
+    half of ``expires_in`` so short-lived tokens are still reused).
   - An ``asyncio.Lock`` serialises concurrent refresh calls to prevent
     the thundering-herd problem under high concurrency.
-  - ``refresh()`` clears the cache so callers can force re-issue after a 401.
+  - ``refresh()`` clears the cache so callers can force re-issue after a 401;
+    ``refresh(rejected_token)`` clears it only if that token is still cached.
   - Private keys, client IDs, and token URLs are resolved at call-time via
     :class:`~node_wire_runtime.secrets.SecretProvider` so they are never held
     in plain text in config files.
@@ -90,8 +92,8 @@ class OAuth2AuthProvider(AuthProvider):
         Additional fixed headers merged into the response (e.g. FHIR content-type).
         Default: ``{"Content-Type": "application/fhir+json", "Accept": "application/fhir+json"}``.
     buffer_secs:
-        Seconds before ``expires_in`` to treat the token as expired.
-        Default: 60.
+        Seconds before ``expires_in`` to treat the token as expired, capped at
+        half of ``expires_in``. Default: 60.
     jwt_ttl_secs:
         Lifetime of the JWT assertion in seconds. Default: 300.
     on_refresh_token_rotated:
@@ -158,6 +160,7 @@ class OAuth2AuthProvider(AuthProvider):
         # Cache state — protected by _lock.
         self._access_token: Optional[str] = None
         self._expires_at: float = 0.0
+        self._effective_buffer: float = float(buffer_secs)
         self._lock: asyncio.Lock = asyncio.Lock()
 
     # ------------------------------------------------------------------
@@ -178,14 +181,20 @@ class OAuth2AuthProvider(AuthProvider):
         headers.update(self._extra_headers)
         return headers
 
-    async def refresh(self) -> None:
+    async def refresh(self, rejected_token: Optional[str] = None) -> None:
         """
         Invalidate the cached token.
 
         Call this after receiving a 401/403 so the next :meth:`get_headers`
         call fetches a fresh token instead of reusing the (now-rejected) one.
+
+        Pass the token the upstream rejected as *rejected_token* to invalidate only
+        when it is still the cached one; a caller that raced another refresh then
+        keeps the newer token instead of throwing it away.
         """
         async with self._lock:
+            if rejected_token is not None and rejected_token != self._access_token:
+                return
             logger.debug("OAuth2AuthProvider: cache invalidated by refresh()")
             self._access_token = None
             self._expires_at = 0.0
@@ -198,7 +207,7 @@ class OAuth2AuthProvider(AuthProvider):
         """Return True if the cached token is still within its TTL window."""
         return (
             self._access_token is not None
-            and time.monotonic() < self._expires_at - self._buffer_secs
+            and time.monotonic() < self._expires_at - self._effective_buffer
         )
 
     async def _get_or_refresh_token(self) -> str:
@@ -235,6 +244,8 @@ class OAuth2AuthProvider(AuthProvider):
             expires_in = int(token_data.get("expires_in", _DEFAULT_TOKEN_TTL_SECS))
             self._access_token = access_token
             self._expires_at = time.monotonic() + expires_in
+            # A buffer longer than the token's lifetime would refetch on every call.
+            self._effective_buffer = min(self._buffer_secs, max(0, expires_in) / 2)
 
             logger.debug(
                 "OAuth2AuthProvider: token cached",
@@ -323,7 +334,14 @@ class OAuth2AuthProvider(AuthProvider):
             "OAuth2AuthProvider: refresh_token token request",
             extra={"token_url": token_url},
         )
-        token_data = await self._post_token(token_url, post_data)
+        try:
+            token_data = await self._post_token(token_url, post_data)
+        except ValueError:
+            if self._refresh_token_override == refresh_token:
+                # The IdP rejected the rotated token; stop replaying it and let the
+                # next attempt read the secret store, where it may have been re-seeded.
+                self._refresh_token_override = None
+            raise
 
         rotated = token_data.get("refresh_token")
         if rotated and rotated != refresh_token:

@@ -643,7 +643,8 @@ class FhirEpicConnector(BaseConnector):
         response = await self._send("GET", self._same_server(params.url), trace_id)
         return self._page(response)
 
-    @nw_action("patient_match", http_method="POST", http_path="/Patient/$match")
+    # $match only reads, so the runtime may retry it although it is a POST.
+    @nw_action("patient_match", http_method="POST", http_path="/Patient/$match", idempotent=True)
     async def patient_match(
         self, params: PatientMatchInput, *, trace_id: str
     ) -> FhirEpicOperationOutput:

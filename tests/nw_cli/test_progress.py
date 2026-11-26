@@ -23,7 +23,6 @@ def test_mark_skipped_sets_status() -> None:
     gp = _progress()
     gp.mark_skipped("wheel")
     wheel = next(s for s in gp.stages if s.key == "wheel")
-    assert wheel.skipped is True
     assert wheel.status == StageStatus.SKIPPED
 
 
@@ -134,3 +133,25 @@ def test_line_writer_emits_whole_lines_from_any_chunking() -> None:
     assert lines == ["partial line", "next", "", "xxx\rtail"]
     writer.flush()  # nothing pending: no empty line
     assert len(lines) == 4
+
+
+def test_stage_transitions_are_guarded() -> None:
+    from nw_cli.progress import InvalidStageTransition
+
+    gp = _progress()
+    with gp:
+        gp.run_stage("connector", lambda: None)
+        with pytest.raises(InvalidStageTransition, match="done -> skipped"):
+            gp.mark_skipped("connector")
+        with pytest.raises(InvalidStageTransition, match="pending -> stopped"):
+            gp.mark_stopped("wheel")
+        gp.mark_stopped("connector")
+        assert next(s for s in gp.stages if s.key == "connector").status == StageStatus.STOPPED
+
+
+def test_a_stage_can_be_skipped_while_the_bars_are_live() -> None:
+    gp = _progress()
+    with gp:
+        gp.mark_skipped("wheel")
+        assert gp.run_stage("wheel", lambda: 1) is None
+    assert "Wheel build (skipped)" in gp.console.file.getvalue()  # type: ignore[union-attr]

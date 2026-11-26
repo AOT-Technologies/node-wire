@@ -12,7 +12,7 @@ import os
 import threading
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from mcp.server.fastmcp.exceptions import ToolError
 
@@ -34,9 +34,11 @@ from node_wire_toolhive import request as _request
 from node_wire_toolhive.relay import relay_auth_provider_hook
 
 _PROTOCOL = "mcp"
-# Upper bound on sessions remembered by nw_select_config; the least recently used
-# session falls back to its default config when evicted.
+# Upper bound on sessions remembered by nw_select_config. The least recently used selection is
+# dropped; that session's next run reports the expiry once, then uses the tenant default.
 _MAX_TRACKED_SESSIONS = 4096
+# (session key, tenant id): a selection only ever applies to the tenant it was validated for.
+_SelectionKey = Tuple[str, str]
 
 logger = logging.getLogger("node_wire_toolhive")
 
@@ -101,9 +103,12 @@ class NodeWireClient:
         self._exposure: Optional[ActionExposure] = None
         self._ready = factory is not None
         self._lock = threading.Lock()
-        # LRU of session -> config name: sessions never announce their end, so an
+        # LRU of (session, tenant) -> config name: sessions never announce their end, so an
         # unbounded dict grows for the life of the server.
-        self._selected_config: OrderedDict[str, str] = OrderedDict()
+        self._selected_config: OrderedDict[_SelectionKey, str] = OrderedDict()
+        # Keys whose selection was evicted and not yet reported to the session (also bounded).
+        self._expired: OrderedDict[_SelectionKey, None] = OrderedDict()
+        self._selection_lock = threading.Lock()
 
     @property
     def connector_id(self) -> str:
@@ -172,18 +177,36 @@ class NodeWireClient:
                 ErrorCode.CONFIG_NOT_FOUND,
                 f"Unknown config {config_name!r} for tenant {tenant_id!r}",
             )
-        key = _request.session_key()
-        self._selected_config[key] = config_name
-        self._selected_config.move_to_end(key)
-        while len(self._selected_config) > _MAX_TRACKED_SESSIONS:
-            self._selected_config.popitem(last=False)
+        key = (_request.session_key(), tenant_id)
+        with self._selection_lock:
+            self._expired.pop(key, None)
+            self._selected_config[key] = config_name
+            self._selected_config.move_to_end(key)
+            while len(self._selected_config) > _MAX_TRACKED_SESSIONS:
+                evicted, _name = self._selected_config.popitem(last=False)
+                self._expired[evicted] = None
+                while len(self._expired) > _MAX_TRACKED_SESSIONS:
+                    self._expired.popitem(last=False)
         return tenant_id
 
-    def selected_config(self) -> Optional[str]:
-        key = _request.session_key()
-        name = self._selected_config.get(key)
-        if name is not None:
-            self._selected_config.move_to_end(key)
+    def selected_config(self, tenant_id: str, *, report_expired: bool = False) -> Optional[str]:
+        """The session's selected config for ``tenant_id`` (``None``: the tenant default).
+
+        With ``report_expired``, a selection dropped from the bounded map raises
+        ``SELECTION_EXPIRED`` once instead of silently running against the default config.
+        """
+        key = (_request.session_key(), tenant_id)
+        with self._selection_lock:
+            name = self._selected_config.get(key)
+            if name is not None:
+                self._selected_config.move_to_end(key)
+            elif report_expired and key in self._expired:
+                del self._expired[key]
+                raise NodeWireError(
+                    ErrorCode.SELECTION_EXPIRED,
+                    "The config selected for this session has expired (too many sessions); "
+                    "call nw_select_config again, or retry to use the tenant default.",
+                )
         return resolve_config_name(name)
 
     # ---- execution ------------------------------------------------------ #
@@ -210,7 +233,7 @@ class NodeWireClient:
                 payload=payload,
                 protocol=_PROTOCOL,
                 tenant_id=tenant_id,
-                config_name=self.selected_config(),
+                config_name=self.selected_config(tenant_id, report_expired=True),
                 exposure=self.exposure,
             )
         except Exception as exc:  # noqa: BLE001 — surface as a tool error, never a crash

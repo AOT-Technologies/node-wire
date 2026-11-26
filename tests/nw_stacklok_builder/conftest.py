@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict
@@ -35,6 +36,24 @@ class NodeWireCheckout:
         path.write_text(yaml.safe_dump(scope, sort_keys=False), encoding="utf-8")
         return path
 
+    def wheels(self, tmp_path: Path) -> Dict[str, Path]:
+        """Stand-in pure-Python wheels for every distribution the server installs."""
+        from nw_stacklok.project import distributions
+
+        found = {}
+        for dist in distributions(self.root, CONNECTOR_ID):
+            found[dist.name] = fake_wheel(tmp_path / "wheels-in", dist.name)
+        return found
+
+
+def fake_wheel(dist: Path, dist_name: str, tags: str = "py3-none-any") -> Path:
+    dist.mkdir(parents=True, exist_ok=True)
+    stem = dist_name.replace("-", "_")
+    wheel = dist / f"{stem}-1.1.0-{tags}.whl"
+    with zipfile.ZipFile(wheel, "w") as zf:
+        zf.writestr(f"{stem}-1.1.0.dist-info/METADATA", "")
+    return wheel
+
 
 @pytest.fixture(scope="module")
 def node_wire_checkout(tmp_path_factory: pytest.TempPathFactory) -> NodeWireCheckout:
@@ -54,5 +73,5 @@ def node_wire_checkout(tmp_path_factory: pytest.TempPathFactory) -> NodeWireChec
         base_url=PETSTORE_BASE_URL,
         report_path=root / "abort-report.json",
     )
-    assert code == 0
+    assert code.exit_code == 0
     return NodeWireCheckout(root)

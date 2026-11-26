@@ -29,6 +29,24 @@ from nw_cli.stacklok import (
 from nw_cli.stages import StageError
 
 runner = CliRunner()
+
+
+def _ok_build(**overrides):
+    """A successful ``run_build`` outcome (what the connector stage reads)."""
+    from nw_connector_builder.pipeline import BuildOutcome
+
+    fields = dict(
+        stage_reached="promoted",
+        promoted=True,
+        mcp=None,
+        wire=None,
+        report={"summary": {}},
+        report_path=Path("report.json"),
+    )
+    fields.update(overrides)
+    return BuildOutcome(**fields)
+
+
 FIXTURES = Path(__file__).resolve().parents[1] / "nw_stacklok_builder" / "fixtures" / "stacklok"
 
 
@@ -53,9 +71,9 @@ def fake_root(tmp_path: Path) -> Path:
 
 
 def _invoke(root: Path, args: list[str], calls: list[tuple[str, Any]]) -> Any:
-    def fake_run_build(**kwargs: Any) -> int:
+    def fake_run_build(**kwargs: Any) -> Any:
         calls.append(("connector", kwargs))
-        return 0
+        return _ok_build()
 
     def fake_wheels(*args: Any, **kwargs: Any) -> None:
         calls.append(("wheel", (args, kwargs)))
@@ -155,7 +173,7 @@ def test_stage_failure_is_a_clean_error(fake_root: Path, tmp_path: Path) -> None
     scope = _scope(tmp_path)
     with (
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
-        patch("nw_connector_builder.pipeline.run_build", return_value=0),
+        patch("nw_connector_builder.pipeline.run_build", return_value=_ok_build()),
         patch(
             "nw_cli.stacklok.run_stacklok_wheel_build",
             side_effect=StageError("Wheel build failed (exit 1)"),
@@ -232,9 +250,9 @@ def test_spec_preparation_keeps_openapi31_json_schema_forms(tmp_path: Path) -> N
     assert materialize_spec(str(spec), tmp_path / "work") == spec
 
 
-def test_wheel_build_targets_the_stacklok_packages(tmp_path: Path) -> None:
+def test_wheel_build_targets_the_stacklok_packages(tmp_path: Path, fake_wheel_builder) -> None:
     root = _wheel_root(tmp_path)
-    with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
+    with patch("nw_cli.stages.run_logged_command", side_effect=fake_wheel_builder(root)) as run:
         run_stacklok_wheel_build(root, "demo", log=lambda _: None)
     cmd = run.call_args.args[0]
     assert cmd == ["bash", "scripts/build-packages.sh", *stacklok_packages("demo")]
@@ -439,11 +457,23 @@ def test_declining_the_review_stops_before_generation(fake_root: Path, tmp_path:
     assert "(stopped)" in result.output
 
 
-def test_an_existing_scope_is_reused_unless_rescoped(fake_root: Path, tmp_path: Path) -> None:
-    existing = fake_root / "nw-stacklok-builder" / "scoping" / "demo" / "mcp-scope.yaml"
-    existing.parent.mkdir(parents=True)
+def _saved_scope(root: Path, spec: Path, *, recorded: bool = True, reviewed: bool = False) -> Path:
+    """A scope saved by an earlier run, for the spec ``--path spec`` prepares (when ``recorded``)."""
+    from nw_cli.scoping import record_scope
+    from nw_cli.stacklok import prepare_spec, prepared_spec_path
+
+    existing = root / "nw-stacklok-builder" / "scoping" / "demo" / "mcp-scope.yaml"
+    existing.parent.mkdir(parents=True, exist_ok=True)
     existing.write_text((FIXTURES / "petstore.yaml").read_text(), encoding="utf-8")
+    if recorded:
+        prepared = prepare_spec(str(spec), prepared_spec_path(root, "demo"))
+        record_scope(existing.parent, prepared, reviewed=reviewed)
+    return existing
+
+
+def test_an_existing_scope_is_reused_unless_rescoped(fake_root: Path, tmp_path: Path) -> None:
     spec = _swagger2(tmp_path)
+    _saved_scope(fake_root, spec)
 
     calls: list[tuple[str, Any]] = []
     result = _invoke_path(fake_root, spec, ["--connector-id", "demo"], calls, approve=True)
@@ -461,6 +491,79 @@ def test_an_existing_scope_is_reused_unless_rescoped(fake_root: Path, tmp_path: 
     kept = _invoke_path(fake_root, spec, ["--connector-id", "demo", "--force"], calls, approve=True)
     assert kept.exit_code == 0, kept.output
     assert [name for name, _ in calls] == ["phase3"]  # --force keeps the saved scope
+
+
+def test_a_scope_saved_for_another_spec_is_not_reused_silently(
+    fake_root: Path, tmp_path: Path
+) -> None:
+    spec = _swagger2(tmp_path)
+    _saved_scope(fake_root, spec, recorded=False)  # e.g. made before nw recorded its spec
+    calls: list[tuple[str, Any]] = []
+
+    result = _invoke_path(fake_root, spec, ["--connector-id", "demo"], calls)  # no terminal
+
+    assert result.exit_code == 1
+    assert "not made from this spec" in result.output and "--rescope" in result.output
+    assert calls == []
+
+
+@pytest.mark.parametrize(
+    ("redo", "expected"), [(True, ["scoping-interactive", "phase3"]), (False, ["phase3"])]
+)
+def test_with_a_terminal_a_changed_spec_asks_whether_to_rescope(
+    fake_root: Path, tmp_path: Path, redo: bool, expected: list[str]
+) -> None:
+    spec = _swagger2(tmp_path)
+    _saved_scope(fake_root, spec)
+    doc = json.loads(spec.read_text())
+    doc["info"]["title"] = "demo v2"
+    spec.write_text(json.dumps(doc), encoding="utf-8")
+    calls: list[tuple[str, Any]] = []
+
+    with patch("rich.prompt.Confirm.ask", return_value=redo):
+        result = _invoke_path(fake_root, spec, ["--connector-id", "demo"], calls, approve=True)
+
+    assert result.exit_code == 0, result.output
+    assert [name for name, _ in calls] == expected
+
+
+def test_a_reviewed_unchanged_scope_generates_without_a_terminal(
+    fake_root: Path, tmp_path: Path
+) -> None:
+    spec = _swagger2(tmp_path)
+    _saved_scope(fake_root, spec, reviewed=True)
+    calls: list[tuple[str, Any]] = []
+
+    result = _invoke_path(fake_root, spec, ["--connector-id", "demo"], calls)
+
+    assert result.exit_code == 0, result.output
+    assert [name for name, _ in calls] == ["phase3"]
+
+
+def test_editing_a_reviewed_scope_needs_a_new_review(fake_root: Path, tmp_path: Path) -> None:
+    spec = _swagger2(tmp_path)
+    existing = _saved_scope(fake_root, spec, reviewed=True)
+    existing.write_text(existing.read_text() + "\n# edited\n", encoding="utf-8")
+    calls: list[tuple[str, Any]] = []
+
+    result = _invoke_path(fake_root, spec, ["--connector-id", "demo"], calls)
+
+    assert result.exit_code == 0, result.output
+    assert calls == [] and "Stopped for review" in result.output
+
+
+def test_scoping_records_the_spec_and_the_review(fake_root: Path, tmp_path: Path) -> None:
+    from nw_cli.scoping import SavedScope, saved_scope, scope_reviewed
+    from nw_cli.stacklok import prepared_spec_path
+
+    calls: list[tuple[str, Any]] = []
+    result = _invoke_path(
+        fake_root, _swagger2(tmp_path), ["--connector-id", "demo"], calls, approve=True
+    )
+    assert result.exit_code == 0, result.output
+    work = fake_root / "nw-stacklok-builder" / "scoping" / "demo"
+    assert saved_scope(work, prepared_spec_path(fake_root, "demo")) is SavedScope.CURRENT
+    assert scope_reviewed(work)
 
 
 def test_without_workflows_the_ai_proposes_them(fake_root: Path, tmp_path: Path) -> None:
@@ -724,9 +827,14 @@ def test_prevalidated_scope_is_not_validated_or_parsed_again(tmp_path: Path) -> 
     scoped = read_scope(_scope(tmp_path), "pet_store")
     work = tmp_path / "work"
     validated = load_and_validate_stacklok_scope(scoped, work)
+
+    def generate(scope, spec, template, output_dir, **kwargs):
+        (output_dir / "petstore-mcp").mkdir()
+
     with (
         patch("nw_cli.stacklok.load_and_validate_stacklok_scope") as revalidate,
-        patch("mcp_builder.pipeline.run_pipeline", return_value=tmp_path / "p") as pipeline,
+        patch("nw_cli.stacklok.stacklok_wheels", return_value={}),
+        patch("mcp_builder.pipeline.run_pipeline", side_effect=generate) as pipeline,
     ):
         run_stacklok_generate(
             tmp_path, scoped, output_dir=tmp_path / "out", work_dir=work, validated=validated

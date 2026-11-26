@@ -32,7 +32,7 @@ def test_report_lists_each_action_with_method_and_path(tmp_path: Path) -> None:
             connector_id="demo_pets",
             node_wire_root=root,
             no_mcp=True,
-        )
+        ).exit_code
         == 0
     )
 

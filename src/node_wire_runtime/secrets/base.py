@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from abc import ABC, abstractmethod
 from typing import Any, Mapping
 
@@ -125,48 +126,76 @@ class OverlaySecretProvider(SecretProvider):
     Keys match :func:`tenant_scoped_secret_key` (
     ``NW_{TENANT}_{CONNECTOR}_{KEY}`` or ``NW_{TENANT}_{CONNECTOR}_{CONFIG}_{KEY}``).
     Process-wide singleton via :meth:`instance`.
+
+    Several writers share it (tenant secrets, MCP OAuth tokens, rotated refresh tokens).
+    A bulk writer names a ``namespace`` and :meth:`replace_all` only replaces the keys
+    written under that namespace, so reloading tenant secrets never drops another
+    writer's keys. Every read and write takes one lock.
     """
 
     _instance: "OverlaySecretProvider | None" = None
+    _instance_lock = threading.Lock()
 
     def __init__(self) -> None:
+        self._lock = threading.RLock()
         self._data: dict[str, str] = {}
+        # namespace -> keys written under it (see replace_all).
+        self._owned: dict[str, set[str]] = {}
 
     @classmethod
     def instance(cls) -> "OverlaySecretProvider":
         if cls._instance is None:
-            cls._instance = cls()
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = cls()
         return cls._instance
 
     def get_secret(self, key: str) -> str:
-        val = self._data.get(key)
-        if val is not None:
-            return val
-        val = self._data.get(key.upper())
+        with self._lock:
+            val = self._data.get(key)
+            if val is None:
+                val = self._data.get(key.upper())
         if val is not None:
             return val
         raise SecretNotFoundError(key)
 
     def set_secret(self, key: str, value: str) -> None:
-        self._data[key] = value
+        with self._lock:
+            self._data[key] = value
 
     def unset(self, key: str) -> None:
         """Remove a single key, if present. No-op if absent — callers never need to
         check existence first."""
-        self._data.pop(key, None)
+        with self._lock:
+            self._data.pop(key, None)
+            for keys in self._owned.values():
+                keys.discard(key)
 
-    def set_many(self, mapping: dict[str, str]) -> None:
-        for k, v in mapping.items():
-            self._data[str(k)] = str(v)
+    def set_many(self, mapping: dict[str, str], *, namespace: str | None = None) -> None:
+        """Set every key in ``mapping``; with ``namespace``, those keys join it."""
+        with self._lock:
+            for k, v in mapping.items():
+                self._data[str(k)] = str(v)
+            if namespace is not None:
+                self._owned.setdefault(namespace, set()).update(str(k) for k in mapping)
 
     def clear(self) -> None:
-        self._data.clear()
+        with self._lock:
+            self._data.clear()
+            self._owned.clear()
 
-    def replace_all(self, mapping: dict[str, str]) -> None:
-        self._data = {str(k): str(v) for k, v in mapping.items()}
+    def replace_all(self, mapping: dict[str, str], *, namespace: str) -> None:
+        """Make ``mapping`` the whole of ``namespace``: its previous keys that are not in
+        ``mapping`` are removed; keys outside the namespace are untouched."""
+        with self._lock:
+            for key in self._owned.get(namespace, set()) - set(map(str, mapping)):
+                self._data.pop(key, None)
+            self._owned[namespace] = set()
+            self.set_many(mapping, namespace=namespace)
 
     def export(self) -> dict[str, str]:
-        return dict(self._data)
+        with self._lock:
+            return dict(self._data)
 
     def logical_keys_for(
         self,
@@ -185,7 +214,9 @@ class OverlaySecretProvider(SecretProvider):
             parts.append(_sanitize_secret_segment(str(config_name).strip()))
         prefix = "_".join(parts) + "_"
         out: list[str] = []
-        for full in self._data:
+        with self._lock:
+            keys = list(self._data)
+        for full in keys:
             if not full.startswith(prefix):
                 continue
             logical = full[len(prefix) :]

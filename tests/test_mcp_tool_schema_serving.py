@@ -114,7 +114,7 @@ def test_advertised_schemas_match_uncached_rewrite(
     server: McpServer, monkeypatch: pytest.MonkeyPatch, multitenancy: bool
 ) -> None:
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true" if multitenancy else "false")
-    advertised = {t["name"]: t["input_schema"] for t in server._list_tools_impl(advertised=True)}
+    advertised = {t.name: t.inputSchema for t in server._advertised_tool_list(None)}
     raw = {t["name"]: t["input_schema"] for t in server._list_tools_impl()}
     assert advertised.keys() == raw.keys()
     for name, schema in raw.items():

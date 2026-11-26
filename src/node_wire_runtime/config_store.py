@@ -25,8 +25,9 @@ read surface (:meth:`get`, :meth:`list`). Only the factory's internal
 from __future__ import annotations
 
 import copy
+import itertools
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Dict, List, Optional
 
 DEFAULT_TENANT = "__default__"
@@ -71,6 +72,10 @@ class ConfigRecord:
     ``raw`` is the full config document (``config`` / ``auth`` blocks). ``exposed_via``
     carries protocol gating from the YAML bootstrap; it is internal and not part of
     the public config-document shape.
+
+    ``version`` is stamped by the store on every write that touches the record and only
+    ever grows, so a cached instance built from an older version can be detected. A write
+    replaces the record rather than mutating it.
     """
 
     tenant_id: str
@@ -79,6 +84,7 @@ class ConfigRecord:
     default: bool
     raw: Dict[str, Any]
     exposed_via: List[str] = field(default_factory=list)
+    version: int = 0
 
 
 def redact(doc: Any) -> Any:
@@ -229,6 +235,8 @@ class ConnectorConfigStore:
         self._data: Dict[str, Dict[str, Dict[str, ConfigRecord]]] = {}
         self._lock = threading.RLock()
         self._factory: Any = None
+        # Monotonic source of ConfigRecord.version (next() is atomic).
+        self._versions = itertools.count(1)
 
     def attach_factory(self, factory: Any) -> None:
         """Attach the factory that receives synchronous invalidation on writes."""
@@ -270,6 +278,7 @@ class ConnectorConfigStore:
                     for name in records:
                         previous.append((tenant_id, connector_id, name))
             self._data = new_data
+            self._check_all_defaults()
             for tenant_id, connector_id, name in previous:
                 self._invalidate(tenant_id, connector_id, [name])
 
@@ -302,6 +311,8 @@ class ConnectorConfigStore:
                 self._data[tenant_id] = tenant_map
             else:
                 self._data.pop(tenant_id, None)
+            for connector_id in tenant_map:
+                self._check_one_default(tenant_id, connector_id)
             for connector_id, name in previous:
                 self._invalidate(tenant_id, connector_id, [name])
 
@@ -333,6 +344,7 @@ class ConnectorConfigStore:
                 default=is_default,
                 raw=copy.deepcopy(doc),
                 exposed_via=list(doc.get("exposed_via", []) or []),
+                version=next(self._versions),
             )
         if records and default_seen is None:
             # First config becomes the default when none is explicitly marked.
@@ -361,11 +373,14 @@ class ConnectorConfigStore:
                 default=make_default,
                 raw=copy.deepcopy(doc),
                 exposed_via=list(doc.get("exposed_via", []) or []),
+                version=next(self._versions),
             )
             if make_default:
-                for other in scope.values():
-                    other.default = False
+                for other_name, other in list(scope.items()):
+                    if other.default:
+                        scope[other_name] = self._restamp(other, default=False)
             scope[name] = record
+            self._check_one_default(tenant_id, connector_id)
             self._invalidate(tenant_id, connector_id, [name])
             return record
 
@@ -381,10 +396,14 @@ class ConnectorConfigStore:
                 "(delete + create instead)"
             )
         with self._lock:
-            record = self._require(tenant_id, connector_id, name)
-            record.raw = copy.deepcopy(doc)
-            record.exposed_via = list(doc.get("exposed_via", []) or [])
+            previous = self._require(tenant_id, connector_id, name)
             # 'default' flag is managed via set_default/delete, not update.
+            record = self._restamp(
+                previous,
+                raw=copy.deepcopy(doc),
+                exposed_via=list(doc.get("exposed_via", []) or []),
+            )
+            self._scope(tenant_id, connector_id)[name] = record  # type: ignore[index]
             self._invalidate(tenant_id, connector_id, [name])
             return record
 
@@ -395,13 +414,14 @@ class ConnectorConfigStore:
             if scope is None or name not in scope:
                 raise ConfigNotFoundError(f"no config {name!r} for {tenant_id!r}/{connector_id!r}")
             changed: List[str] = []
-            for other_name, other in scope.items():
+            for other_name, other in list(scope.items()):
                 should_be = other_name == name
                 if other.default != should_be:
-                    other.default = should_be
+                    scope[other_name] = self._restamp(other, default=should_be)
                     changed.append(other_name)
             # Moving the default reroutes which concrete key default calls resolve
             # to; invalidate the previous default so cached default routing refreshes.
+            self._check_one_default(tenant_id, connector_id)
             if changed:
                 self._invalidate(tenant_id, connector_id, changed)
 
@@ -445,8 +465,11 @@ class ConnectorConfigStore:
                 if not self._data[tenant_id]:
                     del self._data[tenant_id]
             elif record.default:
-                scope[new_default].default = True  # type: ignore[index]
-                invalidated.append(new_default)  # type: ignore[arg-type]
+                # Checked above: a deleted default always names an existing new_default.
+                assert new_default is not None
+                scope[new_default] = self._restamp(scope[new_default], default=True)
+                invalidated.append(new_default)
+            self._check_one_default(tenant_id, connector_id)
             self._invalidate(tenant_id, connector_id, invalidated)
 
     # ---- read path (redacted) ------------------------------------------
@@ -503,7 +526,11 @@ class ConnectorConfigStore:
             for tenant_id, connectors in self._data.items():
                 cid_map: Dict[str, List[Dict[str, Any]]] = {}
                 for connector_id, records in connectors.items():
-                    cid_map[connector_id] = [dict(rec.raw) for rec in records.values()]
+                    # The record's flag is the truth; raw["default"] is only what the doc
+                    # said when it was created (set_default/delete do not rewrite it).
+                    cid_map[connector_id] = [
+                        {**rec.raw, "default": rec.default} for rec in records.values()
+                    ]
                 out[tenant_id] = cid_map
             return out
 
@@ -538,6 +565,27 @@ class ConnectorConfigStore:
         if tenant_map is None:
             return None
         return tenant_map.get(connector_id)
+
+    def _check_one_default(self, tenant_id: str, connector_id: str) -> None:
+        """Invariant after every write: a non-empty scope has exactly one default."""
+        scope = self._scope(tenant_id, connector_id)
+        if not scope:
+            return
+        defaults = [name for name, record in scope.items() if record.default]
+        if len(defaults) != 1:
+            raise ConfigStoreError(
+                f"invariant broken: {tenant_id!r}/{connector_id!r} has "
+                f"{len(defaults)} default configs {defaults!r}"
+            )
+
+    def _check_all_defaults(self) -> None:
+        for tenant_id, connectors in self._data.items():
+            for connector_id in connectors:
+                self._check_one_default(tenant_id, connector_id)
+
+    def _restamp(self, record: ConfigRecord, **changes: Any) -> ConfigRecord:
+        """``record`` with ``changes`` applied and a new version (never mutated in place)."""
+        return replace(record, version=next(self._versions), **changes)
 
     def _require(self, tenant_id: str, connector_id: str, name: str) -> ConfigRecord:
         scope = self._scope(tenant_id, connector_id)

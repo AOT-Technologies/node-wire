@@ -19,9 +19,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   written against API v68.0 (Winter '27). `api_version` can be set in `connectors.yaml` (default `v68.0`; it was a fixed `v58.0`).
   Four exposure profiles are in `expose/salesforce/`: `salesforce-readonly`, `salesforce-records`, `salesforce-leads-contacts`
   and `salesforce-bulk`. The playground shows a generic "Salesforce (all actions)" card next to the Lead and Contact panel.
+- `nw wire <id>`: the idempotent wiring step (`connectors.yaml`, `sample.env`, `ALL_PACKAGES`)
+  on its own; `gen-all` rerun hints are now computed from what is on disk.
 
 ### Changed
 
+- **MCP tenant selection on streamable-http is per caller.** `nw_select_config` and
+  `nw_select_tenant` are kept per caller session (principal, request tenant, `Mcp-Session-Id`)
+  instead of once per process, so one client's selection no longer changes another's. On HTTP,
+  `nw_select_tenant` for a tenant other than the request's tenant fails with
+  `TENANT_IDENTITY_MISMATCH` and lists no configs. stdio keeps one process-wide selection.
+  Changing tenant drops a selected config the new tenant lacks; a selected tenant that has since
+  been deleted fails with `TENANT_NOT_ALLOWED`. See `docs/architecture/tenancy.md`.
+- **Generated nw-mcp-builder hosts run with MCP auth on by default.** Local-dev mode (auth off,
+  scope policy `allow`) is now opt-in with `NW_MCP_LOCAL_DEV=true`, which the generated
+  `.env.example` sets; detecting a container no longer decides auth. Regenerate existing hosts.
+- stacklok servers keep `nw_select_config` per MCP session and tenant; a selection dropped from
+  the bounded map fails once with the new `SELECTION_EXPIRED` code instead of silently using the
+  tenant default.
+- `OverlaySecretProvider.replace_all` takes a required `namespace=` and replaces only the keys it
+  wrote under that namespace; all overlay reads and writes are locked.
+- MCP client: `insufficient_scope` on a 401 or 403 re-authorizes with the new scopes; an expired
+  MCP session (404) is re-initialized and the request retried once; calls after `aclose()` raise
+  `McpSessionClosedError`; a callback with an unknown or expired `state` raises
+  `McpOAuthSecurityError`.
+- ToolHiveAgent: `run()` and `run_events()` share one loop (`AgentRunResult.outcome`); tool errors
+  passed to the LLM no longer contain raw exception text, and tool results are no longer logged.
+  `MultiMcpClient` sends `nw_select_*` to every server.
+- `nw-cli` / builders: `gen-mcp`, `docker-build` and `gen-all --no-wheel` use source-hash wheel
+  freshness (a regenerated connector's old wheel is rebuilt, never bundled), and hosts receive the
+  exact wheels that were built. Generated projects are written to a temporary directory and swapped
+  in only when complete; the output name comes from the fixture's `server.name`. `nw-connector-builder`
+  returns a typed build outcome and recovers an interrupted promote. `gen-stacklok` reuses a saved
+  scope only when the spec hash matches. stacklok generation validates the scope, fails on a
+  missing template patch anchor, and defaults to locking.
+- **`node-wire-runtime` 1.2.0: writes whose outcome is unknown are no longer retried.** A
+  `RETRYABLE` failure after a `POST` or `PATCH` may have reached the upstream (a timeout, a dropped
+  connection, a 5xx), so the call is now reported as the new `OUTCOME_UNKNOWN` code (`FATAL`)
+  instead of being retried. Connect errors and `429`s are still retried for every method, and so
+  is a write sent with an `Idempotency-Key` or `If-None-Exist` header or an action declared
+  `@nw_action(..., idempotent=True)`. Generated REST connectors get this by HTTP method without
+  regeneration; regenerated ones require runtime 1.2.0. See `docs/errors.md#retries`.
+- A nested `call_action` on the same connector instance leaves the circuit breaker to its outer
+  call: repeated nested upstream failures now open the breaker, and a half-open trial whose nested
+  call failed (or never reached the upstream) no longer closes it. The outer call reports the
+  nested call's code and category. An unmapped `FATAL` error no longer resets the breaker's
+  failure count or closes a half-open trial.
+- `smtp`: send failures raise typed errors instead of `ValueError`: `SMTP_AUTH_ERROR` (`AUTH`),
+  `SMTP_CONNECT_ERROR` (`RETRYABLE`), `SMTP_TIMEOUT` and the new `SMTP_DISCONNECTED` (`FATAL`, not
+  retried, because the message may have been sent).
+- `slack`: `upload_file` retries a failed upload or completion step on its own instead of starting
+  a new upload; a completion that still fails is `SLACK_UPLOAD_ERROR` naming the file id.
+- `salesforce`: `update_lead` and `update_contact` are declared idempotent (retried after a
+  timeout); a create that timed out returns `OUTCOME_UNKNOWN` instead.
 - **`node-wire-fhir-cerner` is rebuilt with 129 actions** (was 5): every R4 read, search, create, update, patch and delete that Oracle's
   Millennium FHIR R4 documentation lists, the CCD, `$docref`, health cards, charge item and batch operations, and the group and patient
   bulk exports. The five original actions keep their names, inputs and Cerner rules (CodeSet 72, charset, authenticator, context period).
@@ -29,7 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it as `if_match`. Errors follow the same policy as `fhir_epic`: a 5xx other than a retried gateway error on a read is the fatal
   `CERNER_SERVER_ERROR` (before it was `CERNER_HTTP_ERROR`, business), and a timeout after a write was sent is not retried. Cerner checks the
   scopes of the token request, so set `CERNER_SCOPES` for the resources you use. The package no longer depends on PyJWT or the httpx `http2`
-  extra and requires `node-wire-runtime>=1.1.3`. Release it as a minor version. All 129 actions, writes included, are exposed on REST, gRPC
+  extra and requires `node-wire-runtime>=1.2.0`. Release it as a minor version. All 129 actions, writes included, are exposed on REST, gRPC
   and MCP until exposure profiles exist.
 - **Salesforce is off by default in the shipped `config/connectors.yaml`** (`enabled: false`, `exposed_via: ["rest"]`), because it now
   includes password resets and bulk deletes. **Migration:** a deployment that used Salesforce over gRPC or MCP must set
@@ -39,21 +89,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A 503 on a write such as `create_lead` is no longer retried (the write may already have run); before, any 5xx on the 8 original actions
   was retryable. Error messages carry only Salesforce's `errorCode` and `message` (at most 3, 200 characters each), never the raw body.
 - Salesforce requests are sent as JSON (CSV for Bulk API data) instead of the OAuth provider's FHIR media types, which Salesforce refuses.
-- The package now requires `node-wire-runtime>=1.1.3`. Because it adds many actions and changes defaults, release it as a minor version.
-### Removed
-
-- The playground's hand-coded "Google Drive & IAM Vault" panel, its `POST /scenarios/gdrive-archival` route and its Playwright tests
-  (`tests/playground/gdrive/`). Google Drive now shows as the generic playground card, with every action of the connector.
-
-### Changed
-
+- The package now requires `node-wire-runtime>=1.2.0`. Because it adds many actions and changes defaults, release it as a minor version.
 - `node-wire-fhir-epic` is rebuilt for Epic on FHIR R4 (November 2026): 137 actions, up from five. The five keep their names and
   inputs. New: read and search for 55 more resource types (every Epic R4 search parameter is a field), create and update (the FHIR
   resource as JSON, nine creates and seven updates), `patient_match`, `patient_summary`, `value_set_expand`, the group bulk
   export calls and `fetch_next_page`. Errors now follow the runtime taxonomy (429 and gateway errors on reads retry, 401 and 403 are
   auth errors) and a create or bulk kick-off that timed out after it was sent is not retried. The connector sets the `httpx`
   logger to WARNING so request URLs (patient ids and names) are not logged. `search_patients` takes at most 50 ids. The package no
-  longer depends on `PyJWT` (the runtime signs the token) and needs `node-wire-runtime>=1.1.3`. DSTU2 and STU3 are not covered.
+  longer depends on `PyJWT` (the runtime signs the token) and needs `node-wire-runtime>=1.2.0`. DSTU2 and STU3 are not covered.
 - `node-wire-google-drive` is now generated from Google's Drive v3 API: 48 actions (plus the hand-written upload) named `drive_<resource>_<method>` (for example
   `drive_files_list`; they replace `files.list`, `files.get`, `files.create`, `files.update`, `files.delete`, `permissions.create` and
   `files.upload`). `drive_files_upload` (hand-written, up to 5 MB, `content` or `content_base64`) replaces `files.upload`; `drive_files_create` and `drive_files_update` take `name`, `mime_type`, `description` and `parents`, and `trashed: true` on update is the old soft delete. Shared drives stay on by default. **Not supported:** downloading content, replacing the content of an existing file, and uploads over 5 MB. `drive_files_get` cannot return content and binary responses are not returned.
@@ -62,6 +105,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `GOOGLE_DRIVE_SA_JSON` as a declared Google Drive secret. For a REST connector `ServiceAccountAuthProvider(bearer_header=True)`
   returns `Authorization: Bearer <access token>`, fetched from Google and refreshed when it expires; the default (no headers, for
   SDK connectors) is unchanged.
+
+### Removed
+
+- The playground's hand-coded "Google Drive & IAM Vault" panel, its `POST /scenarios/gdrive-archival` route and its Playwright tests
+  (`tests/playground/gdrive/`). Google Drive now shows as the generic playground card, with every action of the connector.
+
+### Fixed
+
+- A default config set with `set_default` (for example via REST) is kept across a restart; the
+  config store enforces exactly one default per scope.
+- Loading tenants no longer wipes stored MCP OAuth tokens from the secret overlay.
+- A cached connector instance is rebuilt when its config record changes, including the default
+  instance, which is now bounded by the cache size.
+- MCP client OAuth: an expired token is refreshed after a restart (the client registration is
+  stored with the tokens) instead of forcing a browser login; a token with the wrong audience is
+  never stored; pending authorizations are keyed by `state` with a TTL; discovery is cached.
+- The loopback redirect listener no longer closes on a browser preconnect or malformed request.
+- `OAuth2AuthProvider`: tokens shorter-lived than the expiry buffer are reused, and a rejected
+  refresh-token override is cleared.
+- REST: the lazy connector factory is published only after it has loaded. gRPC: a dead background
+  loop fails calls immediately, and health reports `SERVING` only after the server has started.
+- `init_observability` is serialised by a lock, and a failure after it started configuring
+  providers no longer leads a second call to install duplicate handlers and exporters.
+- `BufferedStreamIterator` yields buffered items before re-raising an upstream error, and logs a
+  cancelled stream as cancelled rather than completed.
 
 ## [1.1.2] - 2026-11-06
 

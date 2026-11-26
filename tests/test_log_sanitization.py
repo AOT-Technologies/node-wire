@@ -129,6 +129,15 @@ def test_redact_credentials_leaves_plain_text_alone() -> None:
     assert redact_credentials("Connection refused") == "Connection refused"
 
 
+def test_redact_credentials_long_token_without_url_is_fast() -> None:
+    import time
+
+    token = "a" * 200_000
+    start = time.perf_counter()
+    assert redact_credentials(token) == token
+    assert time.perf_counter() - start < 1.0
+
+
 def test_install_sanitizing_log_filter_is_idempotent() -> None:
     root = logging.getLogger()
     original_filters = list(root.filters)

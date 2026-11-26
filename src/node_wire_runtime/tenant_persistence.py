@@ -51,6 +51,10 @@ from node_wire_runtime.secrets.local_file import LocalEncryptedFileStore, write_
 
 logger = logging.getLogger("runtime.tenant_persistence")
 
+# libyaml when PyYAML was built with it: several times faster on a large tenants file.
+_YAML_DUMPER = getattr(yaml, "CSafeDumper", yaml.SafeDumper)
+_YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_TENANTS_PATH = _REPO_ROOT / "config" / "tenants.yaml"
 _LEGACY_TENANTS_PATH = _REPO_ROOT / "config" / "playground_tenants.yaml"
@@ -512,6 +516,9 @@ def validate_secret_formats(connector_id: str, logical_secrets: Mapping[str, str
 
 
 _lock = threading.RLock()
+# The overlay namespace tenant secrets are written under: load_tenants replaces only these
+# keys, so other overlay writers (MCP OAuth tokens, rotated refresh tokens) keep theirs.
+TENANT_SECRETS_NAMESPACE = "tenant_secrets"  # nosec B105 - namespace name, not a credential
 # Faithful nested secrets: tenant → connector → config_name → logical_key → value.
 _nested_secrets_mirror: Dict[str, Dict[str, Dict[str, Dict[str, str]]]] = {}
 
@@ -620,8 +627,12 @@ def save_tenants(store: ConnectorConfigStore) -> None:
             secrets = mirror
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"tenants": tenants, "secrets": secrets}
-        text = yaml.safe_dump(
-            payload, default_flow_style=False, allow_unicode=True, sort_keys=False
+        text = yaml.dump(
+            payload,
+            Dumper=_YAML_DUMPER,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
         )
         write_private_file(path, text.encode("utf-8"))
     logger.info("Wrote tenants file", extra={"path": str(path)})
@@ -687,21 +698,30 @@ def upsert_tenant_secrets(
             tenant_scoped_secret_key(tenant_id, connector_id, logical_key, config_name=name): value
             for logical_key, value in merged.items()
         }
-        # Fail closed before anything is mutated: no store means no new secret is ever kept.
-        if flat and tenant_secret_store() is None:
-            raise SecretStoreNotConfiguredError(
-                "no secret store is configured, so tenant secrets cannot be saved. "
-                f"For development set {LOCAL_SECRET_FILE_ENABLE_ENV}=true with "
-                f"{LOCAL_SECRET_KEY_ENV} and {LOCAL_SECRET_FILE_ENV}; otherwise supply the "
-                "secrets through environment variables or a cloud secret backend"
-            )
+        if flat:
+            # Fail closed before anything is mutated: no store means no new secret is ever kept.
+            secret_store = tenant_secret_store()
+            if secret_store is None:
+                raise SecretStoreNotConfiguredError(
+                    "no secret store is configured, so tenant secrets cannot be saved. "
+                    f"For development set {LOCAL_SECRET_FILE_ENABLE_ENV}=true with "
+                    f"{LOCAL_SECRET_KEY_ENV} and {LOCAL_SECRET_FILE_ENV}; otherwise supply the "
+                    "secrets through environment variables or a cloud secret backend"
+                )
+            # Durable first: write the store, then the in-memory mirror and overlay, so a
+            # failed or interrupted write never leaves a secret that a restart would lose.
+            updated = _export_secrets_mirror()
+            updated.setdefault(tenant_id, {}).setdefault(connector_id, {}).setdefault(
+                name, {}
+            ).update(merged)
+            secret_store.save(updated)
         for logical_key, value in merged.items():
             _nested_secrets_mirror.setdefault(tenant_id, {}).setdefault(
                 connector_id, {}
             ).setdefault(name, {})[logical_key] = value
 
         if flat:
-            overlay.set_many(flat)
+            overlay.set_many(flat, namespace=TENANT_SECRETS_NAMESPACE)
         return sorted(
             (_nested_secrets_mirror.get(tenant_id) or {}).get(connector_id, {}).get(name, {}).keys()
         )
@@ -722,7 +742,7 @@ def load_tenants(store: ConnectorConfigStore) -> None:
         return
     with _lock:
         with open(path, encoding="utf-8") as f:
-            raw = yaml.safe_load(f) or {}
+            raw = yaml.load(f, Loader=_YAML_LOADER) or {}  # nosec B506 - a safe loader
         if not isinstance(raw, dict):
             logger.warning("Ignoring invalid tenants file", extra={"path": str(path)})
             return
@@ -744,6 +764,9 @@ def load_tenants(store: ConnectorConfigStore) -> None:
                                 store.create(tenant_id, connector_id, doc)
                             except ConfigNameConflictError:
                                 store.update(tenant_id, connector_id, name, doc)
+                                # update() leaves the default alone; the file is the truth.
+                                if doc.get("default"):
+                                    store.set_default(tenant_id, connector_id, name)
                         except ConfigStoreError:
                             # Fail closed for this one config (e.g. a doc persisted
                             # before secret-ref / base_url validation existed) rather
@@ -815,7 +838,7 @@ def load_tenants(store: ConnectorConfigStore) -> None:
             for cfg, logical_map in configs.items()
             for logical, value in logical_map.items()
         }
-        OverlaySecretProvider.instance().replace_all(flat)
+        OverlaySecretProvider.instance().replace_all(flat, namespace=TENANT_SECRETS_NAMESPACE)
         if unresolved_refs:
             logger.warning(
                 "%d secret reference(s) in the tenants file have no value in the secret store",
@@ -880,16 +903,13 @@ def clear_config_secrets(tenant_id: str, connector_id: str, config_name: str) ->
             del _nested_secrets_mirror[tenant_id]
 
         overlay = OverlaySecretProvider.instance()
-        data = overlay.export()
         keys_to_drop = set(logical_map.keys()) | set(
             overlay.logical_keys_for(tenant_id, connector_id, config_name=name)
         )
         for logical_key in keys_to_drop:
-            data.pop(
-                tenant_scoped_secret_key(tenant_id, connector_id, logical_key, config_name=name),
-                None,
+            overlay.unset(
+                tenant_scoped_secret_key(tenant_id, connector_id, logical_key, config_name=name)
             )
-        overlay.replace_all(data)
 
 
 def clear_tenant_connector_secrets(tenant_id: str, connector_id: str) -> None:
@@ -900,18 +920,15 @@ def clear_tenant_connector_secrets(tenant_id: str, connector_id: str) -> None:
             del _nested_secrets_mirror[tenant_id]
 
         overlay = OverlaySecretProvider.instance()
-        data = overlay.export()
         for config_name, logical_map in configs.items():
             for logical_key in set(logical_map.keys()) | set(
                 overlay.logical_keys_for(tenant_id, connector_id, config_name=config_name)
             ):
-                data.pop(
+                overlay.unset(
                     tenant_scoped_secret_key(
                         tenant_id,
                         connector_id,
                         logical_key,
                         config_name=config_name,
-                    ),
-                    None,
+                    )
                 )
-        overlay.replace_all(data)

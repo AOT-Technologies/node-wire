@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import enum
 import json
 import logging
 import os
@@ -71,6 +72,7 @@ import re
 from dotenv import load_dotenv
 from node_wire_runtime import __version__
 from node_wire_runtime.log_sanitization import connector_id_from_tool_name
+from node_wire_runtime.mcp_client.session import McpHttpSession
 
 # llm_base is the dependency-free leaf of the agents package (unlike
 # agents.llm_factory, which is imported lazily below to avoid a cycle).
@@ -234,15 +236,37 @@ def _chunk_agent_text(text: str, chunk_size: int = 180) -> List[str]:
     return chunks
 
 
+def _pagination_hint(tool_result: str, tool_name: str) -> str:
+    """Text telling the LLM how to fetch the next page, or ``""`` when there is none."""
+    try:
+        result_data = json.loads(tool_result)
+        pagination_meta = result_data.get("data", {}).get("_server_pagination_metadata", {})
+        next_token = pagination_meta.get("next_page_token")
+    except (json.JSONDecodeError, KeyError, AttributeError) as e:
+        logger.debug("Could not parse pagination metadata: %s", e)
+        return ""
+    if not next_token:
+        return ""
+    logger.debug("Added pagination info for tool %s", tool_name)
+    return (
+        f"\n\n[PAGINATION INFO]\n"
+        f"Items returned: {pagination_meta.get('items_returned')}\n"
+        f"Was truncated: {pagination_meta.get('was_truncated_by_server', False)}\n"
+        f"Next page token available: {next_token}\n"
+        f"To get next page, call the same tool with page_token='{next_token}'"
+    )
+
+
 def _stream_done_event(
     trace_id: str,
     *,
     success: bool,
     usage: Optional[Dict[str, Any]] = None,
+    action: str = "run_events",
 ) -> Dict[str, Any]:
     from node_wire_runtime.streaming import stream_completion_log
 
-    stream_completion_log(trace_id, success, connector_id="agent", action="run_events")
+    stream_completion_log(trace_id, success, connector_id="agent", action=action)
     return {
         "type": "done",
         "trace_id": trace_id,
@@ -266,6 +290,29 @@ class AgentStep:
     llm_thought: Optional[str]
 
 
+class AgentOutcome(str, enum.Enum):
+    """How an agent run ended."""
+
+    FINISHED = "finished"  # the LLM gave a final answer
+    ABORTED = "aborted"  # one tool failed max_tool_failures times
+    LLM_FAILED = "llm_failed"  # the LLM call raised
+    LIST_FAILED = "list_failed"  # tools/list failed before the first step
+    EXHAUSTED = "exhausted"  # max_steps reached without a final answer
+    ERROR = "error"  # unexpected exception inside the loop
+
+
+@dataclass
+class _RunState:
+    """What one pass of the ReAct loop produced; folded into :class:`AgentRunResult`."""
+
+    outcome: Optional[AgentOutcome] = None
+    steps: List["AgentStep"] = field(default_factory=list)
+    final_text: Optional[str] = None
+    error: Optional[str] = None
+    usage: Optional[TokenUsage] = None
+    steps_used: int = 0
+
+
 @dataclass
 class AgentRunResult:
     success: bool
@@ -277,6 +324,7 @@ class AgentRunResult:
     # ReAct loop re-sends the whole history plus all tool schemas each step.
     usage: Optional["TokenUsage"] = None
     steps_used: int = 0
+    outcome: Optional[AgentOutcome] = None
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +353,9 @@ class ToolHiveMcpClient:
     Newer ToolHive deployments use the MCP Streamable HTTP transport, which
     requires an ``initialize`` / ``notifications/initialized`` handshake before
     any other request.  The session ID returned in the ``Mcp-Session-Id``
-    response header must be forwarded in all subsequent requests.
+    response header must be forwarded in all subsequent requests; see
+    :class:`~node_wire_runtime.mcp_client.session.McpHttpSession` for the
+    handshake, expired-session and closed-client rules.
     """
 
     def __init__(
@@ -315,8 +365,7 @@ class ToolHiveMcpClient:
         extra_headers: Optional[Mapping[str, str]] = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
-        self._session_id: Optional[str] = None
-        self._initialized: bool = False
+        self._session = McpHttpSession()
         self._auth_token: Optional[str] = os.environ.get(
             "TOOLHIVE_MCP_BEARER_TOKEN"
         ) or os.environ.get("TOOLHIVE_MCP_API_KEY")
@@ -332,6 +381,7 @@ class ToolHiveMcpClient:
         return self._http
 
     async def aclose(self) -> None:
+        self._session.close()
         if self._http is not None:
             await self._http.aclose()
             self._http = None
@@ -348,8 +398,8 @@ class ToolHiveMcpClient:
             "Accept": "application/json, text/event-stream",
         }
         headers.update(self._extra_headers)
-        if self._session_id:
-            headers["Mcp-Session-Id"] = self._session_id
+        if self._session.session_id:
+            headers["Mcp-Session-Id"] = self._session.session_id
         # For MCP auth-gated servers, send both forms for compatibility.
         if self._auth_token:
             headers["Authorization"] = f"Bearer {self._auth_token}"
@@ -397,7 +447,7 @@ class ToolHiveMcpClient:
         resp.raise_for_status()
         session_id = resp.headers.get("Mcp-Session-Id")
         if session_id:
-            self._session_id = session_id
+            self._session.session_id = session_id
         data = resp.json()
         if "error" in data:
             raise RuntimeError(f"MCP initialize error: {data['error']}")
@@ -410,12 +460,7 @@ class ToolHiveMcpClient:
             # Notifications have no response; ignore transport errors.
             logger.debug("MCP initialized notification failed: %s", exc)
 
-        self._initialized = True
-
     async def _rpc(self, method: str, params: Dict[str, Any]) -> Any:
-        if not self._initialized:
-            await self._initialize()
-
         payload: Dict[str, Any] = {
             "jsonrpc": "2.0",
             "id": str(uuid.uuid4()),
@@ -426,8 +471,12 @@ class ToolHiveMcpClient:
         if params or self._auth_token:
             payload["params"] = self._inject_auth_meta(params)
 
-        url = self._base_url
-        resp = await self._client().post(url, json=payload, headers=self._build_request_headers())
+        async def _send() -> Any:
+            return await self._client().post(
+                self._base_url, json=payload, headers=self._build_request_headers()
+            )
+
+        resp = await self._session.send(_send, self._initialize)
         resp.raise_for_status()
         data = resp.json()
         if "error" in data:
@@ -452,13 +501,20 @@ class MultiMcpClient:
     """
     Fan-out MCP client that merges tools from multiple MCP servers and routes
     tool calls to the correct upstream based on tool name.
+
+    Tenant/config selection tools (``nw_select_*``) are sent to every server that
+    lists them (every server if none was listed), so the selection applies to all
+    connectors and not just the first server.
     """
+
+    _BROADCAST_PREFIX = "nw_select_"
 
     def __init__(self, clients: List[McpClient]) -> None:
         if not clients:
             raise ValueError("MultiMcpClient requires at least one client")
         self._clients = clients
         self._tool_to_client_idx: Dict[str, int] = {}
+        self._tool_to_all_idx: Dict[str, List[int]] = {}
 
     async def aclose(self) -> None:
         for c in self._clients:
@@ -477,6 +533,7 @@ class MultiMcpClient:
         results = await asyncio.gather(
             *(c.list_tools() for c in self._clients), return_exceptions=True
         )
+        tool_to_all: Dict[str, List[int]] = {}
         for idx, tools in enumerate(results):
             if isinstance(tools, BaseException):
                 if not isinstance(tools, Exception):
@@ -489,6 +546,7 @@ class MultiMcpClient:
                 name = t.get("name")
                 if not name:
                     continue
+                tool_to_all.setdefault(name, []).append(idx)
                 # First-writer wins on collisions (but collisions are unexpected).
                 if name in tool_to_idx:
                     continue
@@ -502,9 +560,32 @@ class MultiMcpClient:
             len(merged),
         )
         self._tool_to_client_idx = tool_to_idx
+        self._tool_to_all_idx = tool_to_all
         return merged
 
+    async def _broadcast(self, name: str, arguments: Dict[str, Any]) -> str:
+        indexes = self._tool_to_all_idx.get(name) or list(range(len(self._clients)))
+        results = await asyncio.gather(
+            *(self._clients[i].call_tool(name, arguments) for i in indexes),
+            return_exceptions=True,
+        )
+        failures = [(i, r) for i, r in zip(indexes, results) if isinstance(r, BaseException)]
+        for _, r in failures:
+            if not isinstance(r, Exception):
+                raise r
+        if failures:
+            for i, r in failures:
+                logger.warning("MultiMcpClient: %s failed on client %d: %s", name, i, r)
+            raise RuntimeError(
+                f"{name} failed on {len(failures)} of {len(indexes)} MCP servers"
+            ) from failures[0][1]
+        texts = [str(r) for r in results]
+        # Identical answers collapse to one; otherwise the LLM sees each server's.
+        return texts[0] if len(set(texts)) == 1 else "\n".join(texts)
+
     async def call_tool(self, name: str, arguments: Dict[str, Any]) -> str:
+        if name.startswith(self._BROADCAST_PREFIX):
+            return await self._broadcast(name, arguments)
         idx = self._tool_to_client_idx.get(name)
         if idx is None:
             # Fallback: probe sequentially (best-effort) so callers can call
@@ -713,197 +794,19 @@ class ToolHiveAgent:
 
     async def run(self, task: str) -> AgentRunResult:
         trace_id = str(uuid.uuid4())
-        logger.info("Agent run started | trace_id=%s", trace_id)
-        logger.info("Task received (%d chars); content withheld from logs", len(task))
-
-        # Import here to avoid circular dependency in tests
-        from agents.llm_factory import LLMMessage
-
-        result = AgentRunResult(success=False, trace_id=trace_id)
-
-        # 1. Discover available tools
-        try:
-            tools = await self._mcp.list_tools()
-            logger.info("Discovered %d MCP tools", len(tools))
-        except Exception as exc:
-            result.error = f"Failed to list MCP tools: {exc}"
-            logger.error(result.error)
-            return result
-
-        # 2. Initialise conversation
-        messages: List[LLMMessage] = [
-            LLMMessage(
-                role="system",
-                content=self._system_prompt,
-            ),
-            LLMMessage(role="user", content=task),
-        ]
-
-        # 3. ReAct loop
-        tool_failures: Dict[str, int] = {}
-        abort_after_tool_failures = False
-
-        for step_num in range(1, self._max_steps + 1):
-            result.steps_used = step_num
-            logger.info("Agent step %d / %d", step_num, self._max_steps)
-
-            model = _llm_model_name(self._llm)
-            # Inline replace so CodeQL treats newline stripping as a sanitizer.
-            llm_logger.info(
-                "LLM request | trace_id=%s | provider=%s | model=%s | step=%d "
-                "| messages=%d | tools=%d",
-                trace_id,
-                type(self._llm).__name__,
-                model.replace("\r", " ").replace("\n", " "),
-                step_num,
-                len(messages),
-                len(tools),
-            )
-            started = time.perf_counter()
-
-            try:
-                llm_resp = await asyncio.to_thread(self._llm.chat_with_tools, messages, tools)
-            except Exception as exc:
-                result.error = f"LLM error at step {step_num}: {exc}"
-                logger.error(result.error)
-                return result
-
-            if llm_resp.usage is not None:
-                result.usage = (
-                    llm_resp.usage if result.usage is None else result.usage + llm_resp.usage
-                )
-
-            # Inline replace so CodeQL treats newline stripping as a sanitizer.
-            llm_logger.info(
-                "LLM response | trace_id=%s | model=%s | step=%d | elapsed_ms=%.0f "
-                "| stop_reason=%s | tool_calls=%d | content_chars=%d "
-                "| prompt_tokens=%s | completion_tokens=%s",
-                trace_id,
-                model.replace("\r", " ").replace("\n", " "),
-                step_num,
-                (time.perf_counter() - started) * 1000,
-                llm_resp.stop_reason,
-                len(llm_resp.tool_calls),
-                len(llm_resp.content or ""),
-                llm_resp.usage.prompt_tokens if llm_resp.usage else "n/a",
-                llm_resp.usage.completion_tokens if llm_resp.usage else "n/a",
-            )
-
-            # Track the assistant turn
-            messages.append(
-                LLMMessage(
-                    role="assistant",
-                    content=llm_resp.content,
-                    tool_calls=llm_resp.tool_calls,
-                )
-            )
-
-            if not llm_resp.wants_tool_call:
-                # LLM finished
-                result.final_answer = llm_resp.content
-                result.success = True
-                logger.info("Agent finished after %d steps", step_num)
-                break
-
-            # Execute each tool call
-            for tc in llm_resp.tool_calls:
-                scrubbed_args = _redact_tool_args_for_log(tc.name, tc.arguments)
-                logger.info(
-                    "Calling tool: %s | args=%s",
-                    tc.name,
-                    scrubbed_args,
-                    extra=_tool_log_extra(tc.name),
-                )
-                agent_step = AgentStep(
-                    step=step_num,
-                    tool_called=tc.name,
-                    tool_args=tc.arguments,
-                    tool_result=None,
-                    llm_thought=llm_resp.content,
-                )
-
-                try:
-                    tool_result_str = await self._mcp.call_tool(
-                        tc.name, omit_null_tool_args(tc.arguments)
-                    )
-                    logger.info(
-                        "Tool %s returned response of length: %d chars",
-                        tc.name,
-                        len(tool_result_str),
-                        extra=_tool_log_extra(tc.name),
-                    )
-
-                    # --- AUTOMATIC PAGINATION TOKEN HANDLING ---
-                    try:
-                        result_data = json.loads(tool_result_str)
-                        pagination_meta = result_data.get("data", {}).get(
-                            "_server_pagination_metadata", {}
-                        )
-                        next_token = pagination_meta.get("next_page_token")
-
-                        if next_token:
-                            # Add pagination info to tool result for LLM to see
-                            pagination_info = (
-                                f"\n\n[PAGINATION INFO]\n"
-                                f"Items returned: {pagination_meta.get('items_returned')}\n"
-                                f"Was truncated: {pagination_meta.get('was_truncated_by_server', False)}\n"
-                                f"Next page token available: {next_token}\n"
-                                f"To get next page, call the same tool with page_token='{next_token}'"
-                            )
-                            tool_result_str += pagination_info
-                            logger.debug("Added pagination info for tool %s", tc.name)
-                    except (json.JSONDecodeError, KeyError) as e:
-                        logger.debug("Could not parse pagination metadata: %s", e)
-
-                except Exception as exc:
-                    tool_result_str = f"ERROR: {exc}"
-                    logger.error("Tool %s failed: %s", tc.name, exc, extra=_tool_log_extra(tc.name))
-
-                agent_step.tool_result = tool_result_str
-                result.steps.append(agent_step)
-
-                llm_tool_content = truncate_tool_result_for_llm(tool_result_str)
-                if len(llm_tool_content) < len(tool_result_str):
-                    logger.info(
-                        "Tool %s result truncated for LLM: %d -> %d chars",
-                        tc.name,
-                        len(tool_result_str),
-                        len(llm_tool_content),
-                        extra=_tool_log_extra(tc.name),
-                    )
-
-                messages.append(
-                    LLMMessage(
-                        role="tool",
-                        content=llm_tool_content,
-                        tool_call_id=tc.id,
-                        name=tc.name,
-                    )
-                )
-
-                if _is_tool_failure(tool_result_str):
-                    tool_failures[tc.name] = tool_failures.get(tc.name, 0) + 1
-                    if tool_failures[tc.name] >= self._max_tool_failures:
-                        msg = _tool_failure_abort_message(tc.name, self._max_tool_failures)
-                        result.error = msg
-                        result.final_answer = msg
-                        logger.warning("Stopping agent: %s", msg)
-                        abort_after_tool_failures = True
-                        break
-
-            if abort_after_tool_failures:
-                break
-        else:
-            # Hit max_steps without a final answer
-            result.error = (
-                f"Agent reached max_steps ({self._max_steps}) without completing the task."
-            )
-            logger.warning(result.error)
-
-        from node_wire_runtime.streaming import stream_completion_log
-
-        stream_completion_log(trace_id, result.success, connector_id="agent", action="run")
-        return result
+        state = _RunState()
+        async for _event in self._run_events_inner(task, trace_id, state=state, action="run"):
+            pass
+        return AgentRunResult(
+            success=state.outcome is AgentOutcome.FINISHED,
+            trace_id=trace_id,
+            steps=state.steps,
+            final_answer=state.final_text if state.outcome is not AgentOutcome.EXHAUSTED else None,
+            error=state.error,
+            usage=state.usage,
+            steps_used=state.steps_used,
+            outcome=state.outcome,
+        )
 
     async def run_events(self, task: str) -> AsyncIterator[Dict[str, Any]]:
         trace_id = str(uuid.uuid4())
@@ -921,56 +824,93 @@ class ToolHiveAgent:
             async for item in iterator:
                 yield item
 
-    async def _run_events_inner(self, task: str, trace_id: str) -> AsyncIterator[Dict[str, Any]]:
+    async def _run_events_inner(
+        self,
+        task: str,
+        trace_id: str,
+        *,
+        state: Optional[_RunState] = None,
+        action: str = "run_events",
+    ) -> AsyncIterator[Dict[str, Any]]:
         """
-        Stream agent progress events for web clients.
+        Run the agent and stream its progress; :meth:`run` folds the same events.
 
         Contract:
         - ``meta``: emitted once with ``trace_id``.
         - ``status``: informational progress text.
         - ``step``: emitted after each MCP tool call completes.
-        - ``final_chunk``: chunks of the final assistant answer.
+        - ``final_chunk``: chunks of the final assistant answer (or of the abort /
+          max-steps message).
         - ``error``: recoverable terminal error text.
         - ``done``: always emitted at terminal completion; clients should stop
           loaders when this event arrives.
-        Stream agent progress events as the ReAct loop runs.
 
         The LLM providers currently return complete assistant messages, so final
         answer chunks begin after the final LLM call completes. Tool-step events
         are emitted immediately after each MCP tool call completes.
         """
-        logger.info("Streaming agent run started | trace_id=%s", trace_id)
+        state = state if state is not None else _RunState()
+        logger.info("Agent run started | trace_id=%s | mode=%s", trace_id, action)
         logger.info("Task received (%d chars); content withheld from logs", len(task))
-
-        from agents.llm_factory import LLMMessage
-
         yield {"type": "meta", "trace_id": trace_id}
 
         try:
+            async for event in self._react_loop(task, trace_id, state):
+                yield event
+        except Exception as exc:
+            logger.error("Agent run failed: %s", exc, exc_info=True)
+            state.outcome = AgentOutcome.ERROR
+            state.error = f"Agent run failed unexpectedly. trace_id={trace_id}"
+
+        # Terminal events, one place for every outcome.
+        if state.outcome in (
+            AgentOutcome.LIST_FAILED,
+            AgentOutcome.LLM_FAILED,
+            AgentOutcome.ERROR,
+        ):
+            yield {"type": "error", "trace_id": trace_id, "message": state.error}
+        else:
+            for chunk in _chunk_agent_text(state.final_text or ""):
+                yield {"type": "final_chunk", "content": chunk}
+        usage = None
+        if state.outcome is not AgentOutcome.LIST_FAILED:
+            usage = _usage_as_dict(state.usage, state.steps_used)
+        yield _stream_done_event(
+            trace_id,
+            success=state.outcome is AgentOutcome.FINISHED,
+            usage=usage,
+            action=action,
+        )
+
+    async def _react_loop(
+        self, task: str, trace_id: str, state: _RunState
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """The ReAct loop. Yields ``status`` and ``step`` events and always leaves
+        ``state.outcome`` set when it returns normally."""
+        from agents.llm_factory import LLMMessage
+
+        try:
             tools = await self._mcp.list_tools()
-            logger.info("Discovered %d MCP tools", len(tools))
-            yield {"type": "status", "message": f"Discovered {len(tools)} MCP tools"}
         except Exception as exc:
             logger.error("Failed to list MCP tools: %s", exc, exc_info=True)
-            error = (
+            state.outcome = AgentOutcome.LIST_FAILED
+            state.error = (
                 "Failed to list MCP tools. Please check the server configuration "
                 f"and try again. trace_id={trace_id}"
             )
-            yield {"type": "error", "trace_id": trace_id, "message": error}
-            yield _stream_done_event(trace_id, success=False)
             return
+        logger.info("Discovered %d MCP tools", len(tools))
+        yield {"type": "status", "message": f"Discovered {len(tools)} MCP tools"}
 
         messages: List[LLMMessage] = [
             LLMMessage(role="system", content=self._system_prompt),
             LLMMessage(role="user", content=task),
         ]
         tool_failures: Dict[str, int] = {}
-        turn_usage: Optional[TokenUsage] = None
-        steps_used = 0
 
         for step_num in range(1, self._max_steps + 1):
-            steps_used = step_num
-            logger.info("Streaming agent step %d / %d", step_num, self._max_steps)
+            state.steps_used = step_num
+            logger.info("Agent step %d / %d", step_num, self._max_steps)
             yield {"type": "status", "message": f"Agent reasoning step {step_num}"}
 
             model = _llm_model_name(self._llm)
@@ -991,18 +931,17 @@ class ToolHiveAgent:
                 llm_resp = await asyncio.to_thread(self._llm.chat_with_tools, messages, tools)
             except Exception as exc:
                 logger.error("LLM error at step %d: %s", step_num, exc, exc_info=True)
-                error = (
+                state.outcome = AgentOutcome.LLM_FAILED
+                state.error = (
                     f"LLM error at step {step_num}. Please check the server configuration "
                     f"and try again. trace_id={trace_id}"
-                )
-                yield {"type": "error", "trace_id": trace_id, "message": error}
-                yield _stream_done_event(
-                    trace_id, success=False, usage=_usage_as_dict(turn_usage, steps_used)
                 )
                 return
 
             if llm_resp.usage is not None:
-                turn_usage = llm_resp.usage if turn_usage is None else turn_usage + llm_resp.usage
+                state.usage = (
+                    llm_resp.usage if state.usage is None else state.usage + llm_resp.usage
+                )
 
             # Inline replace so CodeQL treats newline stripping as a sanitizer.
             llm_logger.info(
@@ -1029,43 +968,22 @@ class ToolHiveAgent:
             )
 
             if not llm_resp.wants_tool_call:
-                for chunk in _chunk_agent_text(llm_resp.content or ""):
-                    yield {"type": "final_chunk", "content": chunk}
-                yield _stream_done_event(
-                    trace_id, success=True, usage=_usage_as_dict(turn_usage, steps_used)
-                )
+                state.outcome = AgentOutcome.FINISHED
+                state.final_text = llm_resp.content
+                logger.info("Agent finished after %d steps", step_num)
                 return
 
-            abort_message: Optional[str] = None
             for tc in llm_resp.tool_calls:
-                scrubbed_args = _redact_tool_args_for_log(tc.name, tc.arguments)
-                logger.info(
-                    "Calling tool: %s | args=%s",
-                    tc.name,
-                    scrubbed_args,
-                    extra=_tool_log_extra(tc.name),
+                tool_result_str = await self._call_tool(tc, trace_id)
+                state.steps.append(
+                    AgentStep(
+                        step=step_num,
+                        tool_called=tc.name,
+                        tool_args=tc.arguments,
+                        tool_result=tool_result_str,
+                        llm_thought=llm_resp.content,
+                    )
                 )
-
-                try:
-                    tool_result_str = await self._mcp.call_tool(
-                        tc.name, omit_null_tool_args(tc.arguments)
-                    )
-                    logger.info(
-                        "Tool %s returned: %.200s",
-                        tc.name,
-                        tool_result_str,
-                        extra=_tool_log_extra(tc.name),
-                    )
-                except Exception as exc:
-                    logger.error(
-                        "Tool %s failed: %s",
-                        tc.name,
-                        exc,
-                        exc_info=True,
-                        extra=_tool_log_extra(tc.name),
-                    )
-                    tool_result_str = f'ERROR: Tool "{tc.name}" failed. trace_id={trace_id}'
-
                 yield {
                     "type": "step",
                     "step": step_num,
@@ -1074,10 +992,19 @@ class ToolHiveAgent:
                     "result": tool_result_str,
                 }
 
+                llm_tool_content = truncate_tool_result_for_llm(tool_result_str)
+                if len(llm_tool_content) < len(tool_result_str):
+                    logger.info(
+                        "Tool %s result truncated for LLM: %d -> %d chars",
+                        tc.name,
+                        len(tool_result_str),
+                        len(llm_tool_content),
+                        extra=_tool_log_extra(tc.name),
+                    )
                 messages.append(
                     LLMMessage(
                         role="tool",
-                        content=truncate_tool_result_for_llm(tool_result_str),
+                        content=llm_tool_content,
                         tool_call_id=tc.id,
                         name=tc.name,
                     )
@@ -1086,27 +1013,45 @@ class ToolHiveAgent:
                 if _is_tool_failure(tool_result_str):
                     tool_failures[tc.name] = tool_failures.get(tc.name, 0) + 1
                     if tool_failures[tc.name] >= self._max_tool_failures:
-                        abort_message = _tool_failure_abort_message(
-                            tc.name, self._max_tool_failures
-                        )
-                        logger.warning("Stopping streaming agent: %s", abort_message)
-                        break
+                        msg = _tool_failure_abort_message(tc.name, self._max_tool_failures)
+                        logger.warning("Stopping agent: %s", msg)
+                        state.outcome = AgentOutcome.ABORTED
+                        state.error = msg
+                        state.final_text = msg
+                        return
 
-            if abort_message:
-                for chunk in _chunk_agent_text(abort_message):
-                    yield {"type": "final_chunk", "content": chunk}
-                yield _stream_done_event(
-                    trace_id, success=False, usage=_usage_as_dict(turn_usage, steps_used)
-                )
-                return
+        state.outcome = AgentOutcome.EXHAUSTED
+        state.error = f"Agent reached max_steps ({self._max_steps}) without completing the task."
+        state.final_text = state.error
+        logger.warning(state.error)
 
-        error = f"Agent reached max_steps ({self._max_steps}) without completing the task."
-        logger.warning(error)
-        for chunk in _chunk_agent_text(error):
-            yield {"type": "final_chunk", "content": chunk}
-        yield _stream_done_event(
-            trace_id, success=False, usage=_usage_as_dict(turn_usage, steps_used)
+    async def _call_tool(self, tc: Any, trace_id: str) -> str:
+        """Invoke one tool call; failures become a sanitised ``ERROR:`` result."""
+        scrubbed_args = _redact_tool_args_for_log(tc.name, tc.arguments)
+        logger.info(
+            "Calling tool: %s | args=%s",
+            tc.name,
+            scrubbed_args,
+            extra=_tool_log_extra(tc.name),
         )
+        try:
+            tool_result_str = await self._mcp.call_tool(tc.name, omit_null_tool_args(tc.arguments))
+        except Exception as exc:
+            logger.error(
+                "Tool %s failed: %s",
+                tc.name,
+                exc,
+                exc_info=True,
+                extra=_tool_log_extra(tc.name),
+            )
+            return f'ERROR: Tool "{tc.name}" failed. trace_id={trace_id}'
+        logger.info(
+            "Tool %s returned response of length: %d chars",
+            tc.name,
+            len(tool_result_str),
+            extra=_tool_log_extra(tc.name),
+        )
+        return tool_result_str + _pagination_hint(tool_result_str, tc.name)
 
 
 # ---------------------------------------------------------------------------

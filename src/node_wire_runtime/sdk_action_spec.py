@@ -162,6 +162,8 @@ class SdkActionSpec:
     scopes: Optional[List[str]] = None
     rate_limit: Optional[Dict[str, Any]] = None
     deprecated: bool = False
+    # Whether running the action twice has the effect of once; see ``sdk_action(idempotent=)``.
+    idempotent: Optional[bool] = None
 
     def __post_init__(self) -> None:
         # call_segments and invoke are independent axes: flipping call_segments

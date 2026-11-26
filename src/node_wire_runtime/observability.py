@@ -7,6 +7,7 @@ from __future__ import annotations
 import copy
 import logging
 import os
+import threading
 from collections.abc import Mapping, MutableMapping
 from typing import Optional, cast
 
@@ -37,6 +38,8 @@ logger = logging.getLogger("runtime.observability")
 # Mutable holder so init_observability can flip the flag without rebinding a
 # module global (tests reset it via _STATE["initialized"] = False).
 _STATE: dict[str, bool] = {"initialized": False}
+# Serialises init_observability: bindings may start on several threads at once.
+_INIT_LOCK = threading.Lock()
 
 
 class _OtelContextFilter(logging.Filter):
@@ -175,11 +178,29 @@ def init_observability(app_name: str = "node_wire") -> None:
     Initialize OpenTelemetry + OpenLLMetry/Traceloop for the process.
 
     This is intended to be called once at process startup (e.g. from the
-    bindings_entrypoint main()) and is safe to call multiple times.
-    """
-    if _STATE["initialized"]:
-        return
+    bindings_entrypoint main()) and is safe to call multiple times, from any thread.
 
+    Configuration errors found before any global provider or handler is installed (a malformed
+    ``OTEL_EXPORTER_OTLP_HEADERS``) raise and leave nothing configured, so a corrected retry
+    works. A failure after that point still marks the process initialized: a second call must
+    not install a second set of handlers and exporters over the first.
+    """
+    with _INIT_LOCK:
+        if _STATE["initialized"]:
+            return
+        _init_observability_locked(app_name)
+
+
+def _init_observability_locked(app_name: str) -> None:
+    otlp_headers_raw: Optional[str] = os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
+    otlp_headers: Optional[dict[str, str]] = (
+        dict(header.split("=", 1) for header in otlp_headers_raw.split(","))
+        if otlp_headers_raw
+        else None
+    )
+
+    # Every step from here changes process-wide state.
+    _STATE["initialized"] = True
     install_sanitizing_log_filter()
 
     # Sampling ratio can be tuned per environment. Default to full sampling in dev-like setups.
@@ -203,13 +224,9 @@ def init_observability(app_name: str = "node_wire") -> None:
         resource=resource,
     )
 
-    otlp_headers: Optional[str] = os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
-
     span_exporter = SanitizingSpanExporter(
         OTLPSpanExporter(
-            headers=dict(header.split("=", 1) for header in otlp_headers.split(","))
-            if otlp_headers
-            else None,
+            headers=otlp_headers,
         )
     )
 
@@ -223,9 +240,7 @@ def init_observability(app_name: str = "node_wire") -> None:
         cast(
             LogExporter,
             OTLPLogExporter(
-                headers=dict(header.split("=", 1) for header in otlp_headers.split(","))
-                if otlp_headers
-                else None,
+                headers=otlp_headers,
             ),
         )
     )
@@ -254,9 +269,7 @@ def init_observability(app_name: str = "node_wire") -> None:
 
     metric_exporter = SanitizingMetricExporter(
         OTLPMetricExporter(
-            headers=dict(header.split("=", 1) for header in otlp_headers.split(","))
-            if otlp_headers
-            else None,
+            headers=otlp_headers,
         )
     )
     metric_reader = PeriodicExportingMetricReader(
@@ -279,5 +292,4 @@ def init_observability(app_name: str = "node_wire") -> None:
         except Exception as exc:  # pragma: no cover - defensive; should not fail app startup
             logger.warning("Failed to initialize Traceloop/OpenLLMetry: %s", exc)
 
-    _STATE["initialized"] = True
     logger.info("Observability initialized for app %s", app_name)

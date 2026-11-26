@@ -15,7 +15,9 @@
 # Prerequisites: uv (uses `uv build`), or python3 with `pip install build`.
 #
 # Each wheel is checked to be pure Python (py3-none-any, no compiled .so/.pyd) before "PASS";
-# a failed check exits 1.
+# a wheel that fails the check is removed, and the script exits 1. `nw` stamps each package that
+# passed (dist/.nw-source-py3-none-any.sha256); a wheel built by this script alone has no stamp,
+# so `nw` treats it as stale and rebuilds it.
 
 set -euo pipefail
 
@@ -149,12 +151,15 @@ for PKG in "${PACKAGES[@]}"; do
   shopt -u nullglob
   if [[ ${#WHEELS[@]} -ne 1 ]]; then
     echo "ERROR: expected one wheel in $PKG/dist, found ${#WHEELS[@]}" >&2
+    rm -f "$PKG"/dist/*.whl
     FAILED+=("$PKG (no wheel)")
     continue
   fi
 
   if ! verify_pure_wheel "${WHEELS[0]}"; then
-    echo "ERROR: ${WHEELS[0]} is not a pure-Python wheel" >&2
+    echo "ERROR: ${WHEELS[0]} is not a pure-Python wheel; removed" >&2
+    # Never leave a wheel that failed the check where a generator could bundle it.
+    rm -f "${WHEELS[0]}"
     FAILED+=("$PKG (not pure Python)")
     continue
   fi

@@ -13,6 +13,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 
+from node_wire_runtime.mcp_client.session import SessionState
 from agents.toolhive import (
     ToolHiveMcpClient,
     resolve_max_tool_failures,
@@ -113,9 +114,9 @@ def test_toolhive_mcp_client_initialize_survives_notification_transport_error() 
     async def _run() -> None:
         with patch("httpx.AsyncClient", side_effect=make_client):
             client = ToolHiveMcpClient("http://127.0.0.1:9/mcp")
-            await client._initialize()
-            assert client._initialized is True
-            assert client._session_id == "sess-abc"
+            await client._session.ensure_ready(client._initialize)
+            assert client._session.state is SessionState.READY
+            assert client._session.session_id == "sess-abc"
 
     asyncio.run(_run())
 

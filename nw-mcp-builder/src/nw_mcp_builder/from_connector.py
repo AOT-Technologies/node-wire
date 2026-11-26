@@ -9,28 +9,35 @@ Steps:
   2. Build ``node-wire-runtime`` + ``node-wire-bindings`` + ``node-wire-<connector>``
      wheels into dist/
   3. Ensure a connector-mode scope fixture exists (create/update from logic.py)
-  4. Run ``run_connector_pipeline`` → ``out/<server>-mcp/``
-  5. Write ``.env.example`` with secret env names from connectors.yaml / sample.env
+  4. Run ``run_connector_pipeline`` → ``out/<server>-mcp/`` (``server.name`` from the fixture),
+     with the ``.env.example`` written into the project before it replaces the old one
 """
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import os
 import re
 import subprocess  # nosec B404  # local build tool; all calls below use arg lists, no shell=True
 import textwrap
-import time
 from pathlib import Path
 
 import yaml
 
 from nw_mcp_builder.connector_class import load_connector_class
-from nw_mcp_builder.generate.connector_project import connector_dist_package_name
+from nw_mcp_builder.generate.connector_project import (
+    connector_dist_package_name,
+    host_wheel_packages,
+)
 from nw_mcp_builder.pipeline import run_connector_pipeline
 from nw_mcp_builder.schema.models import MCP_TOOL_NAME_LIMIT
-from nw_mcp_builder.wheel_cache import is_fresh, record_build, stamped_wheels
+from nw_mcp_builder.wheel_cache import (
+    WheelState,
+    fresh_wheels,
+    package_source_hash,
+    stamp_build,
+    wheel_state,
+)
 from nw_mcp_builder.tool_listing import (
     DEFAULT_MAX_TOOL_LISTING_KB,
     ChooseToolMode,
@@ -80,8 +87,6 @@ def run_from_connector(
     Returns:
         Path to the generated project directory.
     """
-    import shutil
-
     connector_id = connector_id.strip()
     if not re.fullmatch(r"[a-z][a-z0-9_]*", connector_id):
         raise ValueError(
@@ -107,9 +112,11 @@ def run_from_connector(
     logger.info("Host tool mode for %s: %s", connector_id, decision.mode)
 
     if not skip_build_wheels:
-        build_connector_wheels(node_wire_root, connector_id, python=python)
+        wheels = build_connector_wheels(node_wire_root, connector_id, python=python)
     else:
-        _require_wheels(node_wire_root, connector_id)
+        # Only wheels stamped as built from the current sources; never "whatever is in dist/".
+        found = fresh_wheels(node_wire_root, host_wheel_packages(connector_id))
+        wheels = tuple(found[p] for p in host_wheel_packages(connector_id))
 
     fixture_path = ensure_connector_fixture(
         connector_id,
@@ -119,24 +126,17 @@ def run_from_connector(
     )
     logger.info("Using scope fixture %s", fixture_path)
 
-    # Predict project dir name (server.name = {id with _→-}-nw)
-    server_name = connector_id.replace("_", "-") + "-nw"
-    project_dir_pre = output_dir / f"{server_name}-mcp"
-    if project_dir_pre.exists():
-        if force_output:
-            shutil.rmtree(project_dir_pre)
-        else:
-            raise FileExistsError(
-                f"Output project already exists: {project_dir_pre}. "
-                "Pass --force-output to replace it."
-            )
-
-    project_dir = run_connector_pipeline(
-        fixture_path, node_wire_root, output_dir, tool_mode=decision.mode
+    return run_connector_pipeline(
+        fixture_path,
+        node_wire_root,
+        output_dir,
+        wheels=wheels,  # type: ignore[arg-type]
+        tool_mode=decision.mode,
+        replace=force_output,
+        finish=lambda project: logger.info(
+            "Wrote %s", write_env_example(project, connector_id, node_wire_root)
+        ),
     )
-    env_example = write_env_example(project_dir, connector_id, node_wire_root)
-    logger.info("Wrote %s", env_example)
-    return project_dir
 
 
 def _validate_node_wire_layout(node_wire_root: Path, connector_id: str) -> None:
@@ -159,35 +159,33 @@ def build_connector_wheels(
     *,
     python: str | None = None,
 ) -> tuple[Path, Path, Path]:
-    """Build runtime + bindings + connector wheels into each package's ``dist/``.
+    """Runtime, bindings and connector wheels built from their current sources.
 
-    The runtime and bindings wheels are reused while their sources are unchanged (a source
-    stamp per interpreter, see :mod:`nw_mcp_builder.wheel_cache`); the connector, just
-    regenerated, is always rebuilt.
+    A package whose wheel is already ``FRESH`` (see :mod:`nw_mcp_builder.wheel_cache`) is
+    reused; the others are built and stamped one by one, so a failure keeps the ones done.
     """
-    connector_pkg = node_wire_root / "packages" / "connectors" / connector_id
-    runtime_whl = _build_wheel_unless_fresh(node_wire_root, "packages/runtime", python=python)
-    bindings_whl = _build_wheel_unless_fresh(node_wire_root, "packages/bindings", python=python)
-    connector_whl = _build_wheel(connector_pkg, python=python)
-    return runtime_whl, bindings_whl, connector_whl
+    built = [
+        _build_wheel_unless_fresh(node_wire_root, package, python=python)
+        for package in host_wheel_packages(connector_id)
+    ]
+    return built[0], built[1], built[2]
 
 
 def _build_wheel_unless_fresh(node_wire_root: Path, package: str, *, python: str | None) -> Path:
-    interpreter = hashlib.sha256((python or "default").encode()).hexdigest()[:12]
-    key = f"mcp-host-{interpreter}"
-    if is_fresh(node_wire_root, package, key):
-        wheel = max(stamped_wheels(node_wire_root, package, key), key=lambda p: p.stat().st_mtime)
+    if wheel_state(node_wire_root, package) is WheelState.FRESH:
+        wheel = fresh_wheels(node_wire_root, [package])[package]
         logger.info("Reusing %s (sources unchanged)", wheel.name)
         return wheel
-    started = time.time()
-    wheel = _build_wheel(node_wire_root / package, python=python)
-    record_build(node_wire_root, package, key, since=started)
-    return wheel
+    digest = package_source_hash(node_wire_root, package)  # before the build, see wheel_cache
+    _build_wheel(node_wire_root / package, python=python)
+    return stamp_build(node_wire_root, package, digest)
 
 
 def _build_wheel(package_dir: Path, *, python: str | None = None) -> Path:
     dist = package_dir / "dist"
     dist.mkdir(parents=True, exist_ok=True)
+    for old in dist.glob("*.whl"):  # the build must leave exactly the one it writes
+        old.unlink()
     cmd = [
         "uvx",
         "--from",
@@ -230,29 +228,11 @@ def _build_wheel(package_dir: Path, *, python: str | None = None) -> Path:
         detail = (exc.stderr or exc.stdout or "").strip()
         raise RuntimeError(f"Wheel build failed in {package_dir}:\n{detail}") from exc
 
-    wheels = sorted(dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    wheels = sorted(dist.glob("*.whl"))
     if not wheels:
         raise FileNotFoundError(f"No .whl produced in {dist}")
     logger.info("Built %s", wheels[0].name)
     return wheels[0]
-
-
-def _require_wheels(node_wire_root: Path, connector_id: str) -> None:
-    runtime_dist = node_wire_root / "packages" / "runtime" / "dist"
-    bindings_dist = node_wire_root / "packages" / "bindings" / "dist"
-    connector_dist = node_wire_root / "packages" / "connectors" / connector_id / "dist"
-    if not list(runtime_dist.glob("*.whl")):
-        raise FileNotFoundError(
-            f"Missing runtime wheel in {runtime_dist} (omit --skip-build-wheels)"
-        )
-    if not list(bindings_dist.glob("*.whl")):
-        raise FileNotFoundError(
-            f"Missing bindings wheel in {bindings_dist} (omit --skip-build-wheels)"
-        )
-    if not list(connector_dist.glob("*.whl")):
-        raise FileNotFoundError(
-            f"Missing connector wheel in {connector_dist} (omit --skip-build-wheels)"
-        )
 
 
 def discover_actions(logic_py: Path) -> list[str]:
@@ -328,16 +308,25 @@ def ensure_connector_fixture(
     fixtures_dir: Path,
     force: bool = False,
 ) -> Path:
-    """Write ``fixtures/<connector_id>_nw.yaml`` if missing (or force)."""
+    """Write ``fixtures/<connector_id>_nw.yaml``, keeping an existing one that still matches.
+
+    The connector's actions are always discovered and name-checked (collisions, MCP length
+    limit). An existing fixture is kept (with any hand edits) only while it lists exactly the
+    connector's current tools; otherwise, or with ``force``, it is regenerated.
+    """
     fixtures_dir.mkdir(parents=True, exist_ok=True)
     path = fixtures_dir / f"{connector_id}_nw.yaml"
-    if path.is_file() and not force:
-        logger.info("Fixture already exists (use --force-fixture to regenerate): %s", path)
-        return path
 
     logic = node_wire_root / "src" / f"node_wire_{connector_id}" / "logic.py"
     actions = discover_actions(logic)
     tool_names = actions_to_tool_names(actions)
+
+    if path.is_file() and not force:
+        if _fixture_tools(path) == {tool_names[a]: a for a in actions}:
+            logger.info("Fixture matches the connector's actions, kept: %s", path)
+            return path
+        logger.info("Connector actions changed; regenerating fixture %s", path)
+
     server_name = connector_id.replace("_", "-") + "-nw"
     if len(server_name) > 63:
         server_name = server_name[:63].rstrip("-")
@@ -420,6 +409,26 @@ def ensure_connector_fixture(
     return path
 
 
+def _fixture_tools(path: Path) -> dict[str, str] | None:
+    """``{tool_name: action}`` listed by an existing fixture (None when it cannot be read)."""
+    try:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return None
+    found: dict[str, str] = {}
+    connector_id = (
+        ((doc.get("runtime") or {}).get("connector_id")) if isinstance(doc, dict) else None
+    )
+    prefix = f"POST /connectors/{connector_id}/"
+    for group in (doc.get("groups") or []) if isinstance(doc, dict) else []:
+        for tool in (group or {}).get("tools") or []:
+            endpoint = str((tool or {}).get("endpoint") or "")
+            if not endpoint.startswith(prefix):
+                return None
+            found[str(tool.get("tool_name"))] = endpoint[len(prefix) :]
+    return found
+
+
 def discover_secret_env_names(connector_id: str, node_wire_root: Path) -> list[str]:
     """Collect env var names for connector secrets from YAML + sample.env."""
     names: list[str] = []
@@ -476,8 +485,11 @@ def write_env_example(project_dir: Path, connector_id: str, node_wire_root: Path
         "# Values are empty on purpose. Never commit a filled .env.",
         "# Docker: pass secrets at runtime (`docker run --env-file` / -e / orchestrator).",
         "# Do not COPY .env or this file into an image.",
-        "NW_MCP_AUTH_DISABLED=true",
-        "NW_MCP_SCOPE_POLICY_DEFAULT=allow",
+        "#",
+        "# Local development only: MCP auth off and scope policy allow, for MCP Inspector on",
+        "# your own machine. Remove this line for anything you deploy (and never pass this file",
+        "# to `docker run --env-file`); without it the host runs in server mode (auth on).",
+        "NW_MCP_LOCAL_DEV=true",
         f"NW_ALLOWED_CONNECTORS={connector_id}",
         "",
     ]

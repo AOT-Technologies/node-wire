@@ -8,7 +8,7 @@ import asyncio
 import logging
 import time
 from functools import wraps
-from typing import Any, Awaitable, Callable, Coroutine, TypeVar
+from typing import Any, Awaitable, Callable, Coroutine, Mapping, Optional, TypeVar
 
 import httpx
 from opentelemetry import metrics
@@ -19,7 +19,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from .errors import ErrorMapper
+from .errors import ErrorMapper, NestedConnectorActionError, OutcomeUnknownError
 from .models import ErrorCategory
 
 logger = logging.getLogger("runtime.resilience")
@@ -169,6 +169,62 @@ def _resolve_breaker(
     return breaker() if callable(breaker) else breaker
 
 
+# Methods whose repeat has the same effect as one call (RFC 9110 9.2.2).
+IDEMPOTENT_METHODS = frozenset({"GET", "HEAD", "PUT", "DELETE", "OPTIONS", "TRACE"})
+# A request carrying one of these is safe to resend: the upstream deduplicates it
+# (``Idempotency-Key``) or creates only if absent (FHIR conditional create, ``If-None-Exist``).
+IDEMPOTENCY_HEADERS = ("idempotency-key", "if-none-exist")
+# The request never left: retrying cannot apply it twice.
+_NOT_SENT_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)
+
+
+def request_is_idempotent(method: str, headers: Optional[Mapping[str, str]] = None) -> bool:
+    """Whether resending this HTTP request cannot apply its effect twice."""
+    if method.upper() in IDEMPOTENT_METHODS:
+        return True
+    names = {name.lower() for name in (headers or {})}
+    return any(header in names for header in IDEMPOTENCY_HEADERS)
+
+
+def _http_request(exc: BaseException) -> Optional[httpx.Request]:
+    if not isinstance(exc, (httpx.RequestError, httpx.HTTPStatusError)):
+        return None
+    try:
+        return exc.request
+    except RuntimeError:  # an httpx error raised without its request
+        return None
+
+
+def _retry_is_safe(exc: BaseException, idempotent: Optional[bool]) -> bool:
+    """Whether retrying after ``exc`` cannot apply a write twice.
+
+    A request that was never sent, and a 429, are always safe. Otherwise the action's declared
+    ``idempotent`` decides; an action that declares nothing is judged by the failed HTTP request
+    (its method and idempotency headers). A failure with no HTTP request behind it, in an action
+    that declares nothing, keeps the old behaviour and is retried.
+    """
+    if isinstance(exc, _NOT_SENT_ERRORS):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
+        return True
+    if idempotent is not None:
+        return idempotent
+    request = _http_request(exc)
+    if request is None:
+        return True
+    return request_is_idempotent(request.method, request.headers)
+
+
+def _outcome_unknown(exc: Exception, action: str) -> OutcomeUnknownError:
+    request = _http_request(exc)
+    what = f"{request.method} request" if request is not None else "call"
+    return OutcomeUnknownError(
+        f"The {what} for action {action or '(unknown)'!r} failed after it may have reached the "
+        f"upstream ({type(exc).__name__}: {exc}). It was not retried because it is not "
+        "idempotent; check whether it took effect before trying again."
+    )
+
+
 # Transport-level failures: the upstream or the network to it is unhealthy. A connector may map
 # these to FATAL (e.g. http_generic maps ``httpx.RequestError``), so the category alone is not enough.
 _TRANSPORT_ERRORS = (OSError, httpx.TransportError)
@@ -181,18 +237,23 @@ def _counts_against_breaker(exc: Exception, category: ErrorCategory) -> bool:
     answered; any other FATAL is a bug or input no connector mapped. None of those may trip the
     breaker, or one caller's bad input would take the connector down for everyone sharing it.
     """
+    if isinstance(exc, NestedConnectorActionError):
+        return exc.counts_against_breaker
+    if isinstance(exc, OutcomeUnknownError):
+        return True
     if category is ErrorCategory.RETRYABLE:
         return True
     return category is ErrorCategory.FATAL and isinstance(exc, _TRANSPORT_ERRORS)
 
 
 def with_resilience(
-    breaker: CircuitBreaker | Callable[[], CircuitBreaker],
+    breaker: CircuitBreaker | Callable[[], CircuitBreaker] | None,
     max_attempts: int = 3,
     base_wait: float = 0.5,
     max_wait: float = 5.0,
     connector_id: str = "",
     action: str = "",
+    idempotent: Optional[bool] = None,
 ) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Coroutine[Any, Any, T]]]:
     """
     Decorator that applies retry (Tenacity) and a circuit breaker
@@ -200,6 +261,12 @@ def with_resilience(
 
     The breaker sees one invocation, not each retry: it is asked once up front, and told once
     at the end whether the upstream looked healthy (see :func:`_counts_against_breaker`).
+    ``breaker=None`` retries without a breaker (a nested call whose outer call owns it).
+
+    A RETRYABLE failure is retried only when that cannot apply a write twice (see
+    :func:`_retry_is_safe`; ``idempotent`` is the action's own declaration, ``None`` if it
+    makes none). Otherwise it is raised as :class:`OutcomeUnknownError` (``OUTCOME_UNKNOWN``).
+    A :class:`NestedConnectorActionError` is never retried: the nested call already retried.
 
     ``connector_id`` and ``action`` are low-cardinality labels attached to the
     retry and circuit-breaker metrics; they carry no request-specific identity.
@@ -220,7 +287,25 @@ def with_resilience(
                             return await fn(*args, **kwargs)
                         except Exception as exc:  # noqa: BLE001
                             mapped = ErrorMapper.resolve(exc, connector_id=connector_id)
-                            if mapped.category is not ErrorCategory.RETRYABLE:
+                            nested = isinstance(exc, NestedConnectorActionError)
+                            if (
+                                mapped.category is ErrorCategory.RETRYABLE
+                                and not nested
+                                and not _retry_is_safe(exc, idempotent)
+                            ):
+                                logger.warning(
+                                    "Retryable error on a non-idempotent call; not retrying",
+                                    extra={
+                                        "trace_id": trace_id,
+                                        "error_code": mapped.code,
+                                        "error_type": type(exc).__name__,
+                                        "error_message": str(exc),
+                                    },
+                                )
+                                unknown = _outcome_unknown(exc, action)
+                                unknown.__cause__ = exc
+                                raise _AbortRetry(unknown)
+                            if mapped.category is not ErrorCategory.RETRYABLE or nested:
                                 # Non-retryable: escape the retry loop entirely. The failure is
                                 # logged once, at error level, by BaseConnector.run (with its
                                 # invocation_failure audit line); this is only the retry decision.
@@ -261,6 +346,8 @@ def with_resilience(
         @wraps(fn)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             trace_id: str = kwargs.get("trace_id", "unknown-trace")
+            if breaker is None:
+                return await _with_retries(trace_id, args, kwargs)
             current_breaker = _resolve_breaker(breaker)
             try:
                 generation = current_breaker.allow()
@@ -290,11 +377,15 @@ def with_resilience(
                 category = ErrorMapper.resolve(exc, connector_id=connector_id).category
                 if _counts_against_breaker(exc, category):
                     current_breaker.record_failure(generation)
-                else:
-                    # Simplified: an error that does not count is reported as a success. The
-                    # upstream answered, so it resets the consecutive-failure count and resolves
-                    # a half-open trial (the same as pybreaker's ``exclude=`` did).
+                elif category in (ErrorCategory.BUSINESS, ErrorCategory.AUTH):
+                    # The upstream answered, so this resets the consecutive-failure count and
+                    # resolves a half-open trial (the same as pybreaker's ``exclude=`` did).
                     current_breaker.record_success(generation)
+                else:
+                    # Any other FATAL (a bug, unmapped input) says nothing about the upstream:
+                    # it neither counts nor closes the breaker. A half-open trial gives up its
+                    # slot, like a cancelled one.
+                    current_breaker.release(generation)
                 raise
             current_breaker.record_success(generation)
             return result

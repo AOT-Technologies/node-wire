@@ -10,6 +10,7 @@ import base64
 import hashlib
 import logging
 import secrets
+import time
 import webbrowser
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
@@ -31,6 +32,11 @@ from .storage import ClientRegistration, RegistrationStore
 logger = logging.getLogger("runtime.mcp_client.oauth_flow")
 
 _PKCE_UNRESERVED = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+
+# How long a started authorization waits for its callback, and how many may be in
+# flight at once per flow (oldest dropped first).
+PENDING_SESSION_TTL_SECONDS = 600.0
+_MAX_PENDING_SESSIONS = 32
 
 
 @dataclass(frozen=True)
@@ -119,11 +125,45 @@ class AuthorizationCodeFlow:
         self._discovery = discovery
         self._registration = registration
         self._registration_store = registration_store
-        self._pending_session: Optional[AuthorizationSession] = None
+        # In-flight authorizations keyed by ``state``, each with its creation time.
+        self._pending: Dict[str, Tuple[AuthorizationSession, float]] = {}
+
+    @property
+    def config(self) -> McpClientConfig:
+        return self._config
+
+    def request_scopes(self, scopes: str) -> None:
+        """Use *scopes* for every later authorization request (scope step-up)."""
+        self._config = self._config.model_copy(
+            update={"auth": self._config.auth.model_copy(update={"scopes": scopes})}
+        )
+
+    @property
+    def registration(self) -> Optional[ClientRegistration]:
+        return self._registration
 
     @property
     def pending_session(self) -> Optional[AuthorizationSession]:
-        return self._pending_session
+        """Most recently started authorization that has not completed or expired."""
+        self._prune_pending()
+        if not self._pending:
+            return None
+        return next(reversed(self._pending.values()))[0]
+
+    def _prune_pending(self) -> None:
+        cutoff = time.monotonic() - PENDING_SESSION_TTL_SECONDS
+        for state in [s for s, (_, created) in self._pending.items() if created < cutoff]:
+            del self._pending[state]
+
+    def _take_pending(self, state: Optional[str]) -> AuthorizationSession:
+        self._prune_pending()
+        entry = self._pending.pop(state, None) if state else None
+        if entry is None:
+            raise McpOAuthSecurityError(
+                "OAuth state does not match a pending authorization (unknown, already "
+                "used or expired); call start_authorization first"
+            )
+        return entry[0]
 
     async def ensure_discovery(self, *, www_authenticate: Optional[str] = None) -> DiscoveryResult:
         if self._discovery is not None:
@@ -161,7 +201,10 @@ class AuthorizationCodeFlow:
             redirect_uri=redirect_uri,
             resource=self._config.canonical_server_url,
         )
-        self._pending_session = session
+        self._prune_pending()
+        while len(self._pending) >= _MAX_PENDING_SESSIONS:
+            del self._pending[next(iter(self._pending))]
+        self._pending[state] = (session, time.monotonic())
         url = build_authorization_url(
             authorization_endpoint=discovery.authorization_server.authorization_endpoint,
             client_id=registration.client_id,
@@ -277,7 +320,10 @@ class AuthorizationCodeFlow:
             else:
                 logger.info("Open this URL to authorize: %s", authorize_url)
 
-            callback = await listener.wait_for_callback(timeout=timeout)
+            try:
+                callback = await listener.wait_for_callback(timeout=timeout)
+            finally:
+                self._pending.pop(session.state, None)
             code = self.validate_callback(callback, expected_state=session.state)
             return await self.exchange_code(code, session=session)
         finally:
@@ -309,14 +355,15 @@ class AuthorizationCodeFlow:
         self,
         callback_url: str,
     ) -> OAuthTokenSet:
-        """Complete flow from full redirect URL (configured-url deployments)."""
-        session = self._pending_session
-        if session is None:
-            raise McpOAuthConfigurationError(
-                "No pending authorization session; call start_authorization first"
-            )
+        """Complete flow from full redirect URL (configured-url deployments).
 
+        The callback's ``state`` selects which pending authorization it completes;
+        each one is consumed by its callback and expires after
+        ``PENDING_SESSION_TTL_SECONDS``.
+        """
         parsed = urlsplit(callback_url.strip())
+        qs = parse_qs(parsed.query)
+        session = self._take_pending(_qs_first(qs, "state"))
         if parsed.scheme and parsed.netloc:
             redirect_base = urlsplit(session.redirect_uri)
             if (
@@ -326,7 +373,6 @@ class AuthorizationCodeFlow:
             ):
                 raise McpOAuthSecurityError("Callback URL does not match registered redirect_uri")
 
-        qs = parse_qs(parsed.query)
         callback = AuthorizationCallback(
             code=_qs_first(qs, "code"),
             state=_qs_first(qs, "state"),
@@ -334,9 +380,7 @@ class AuthorizationCodeFlow:
             error_description=_qs_first(qs, "error_description"),
         )
         code = self.validate_callback(callback, expected_state=session.state)
-        tokens = await self.exchange_code(code, session=session)
-        self._pending_session = None
-        return tokens
+        return await self.exchange_code(code, session=session)
 
 
 def _qs_first(qs: dict, key: str) -> Optional[str]:

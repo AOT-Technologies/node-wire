@@ -72,3 +72,22 @@ def test_runner_times_out_and_cancels(monkeypatch) -> None:
 
     assert runner.run(_ok()) == 7
     assert cancelled == [True]
+
+
+def test_runner_reports_a_dead_loop_thread_instead_of_hanging(monkeypatch) -> None:
+    import pytest
+
+    monkeypatch.setenv("NW_GRPC_CALL_TIMEOUT_SECONDS", "2")
+    runner = BackgroundAsyncRunner()
+    runner.start()
+    assert runner._loop is not None and runner._thread is not None
+    runner._loop.call_soon_threadsafe(runner._loop.stop)
+    runner._thread.join(timeout=2)
+
+    async def _noop() -> int:
+        return 1
+
+    coro = _noop()
+    with pytest.raises(RuntimeError, match="not running"):
+        runner.run(coro)
+    coro.close()

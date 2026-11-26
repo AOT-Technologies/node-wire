@@ -304,10 +304,11 @@ async def test_timeout_comes_from_nw_timeout(wire: Wire, monkeypatch: pytest.Mon
     ("error", "code", "category"),
     [
         (SMTPConnectError("refused"), "SMTP_CONNECT_ERROR", "RETRYABLE"),
-        (SMTPTimeoutError("slow"), "SMTP_TIMEOUT", "RETRYABLE"),
+        # Not retried: the message may already have been sent.
+        (SMTPTimeoutError("slow"), "SMTP_TIMEOUT", "FATAL"),
         (SMTPAuthenticationError(535, "bad login"), "SMTP_AUTH_ERROR", "AUTH"),
         (SMTPRecipientsRefused([]), "SMTP_ERROR", "BUSINESS"),
-        (SMTPServerDisconnected("gone"), "SMTP_ERROR", "BUSINESS"),
+        (SMTPServerDisconnected("gone"), "SMTP_DISCONNECTED", "FATAL"),
     ],
 )
 async def test_errors_are_classified(

@@ -14,6 +14,7 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess  # nosec B404  # fixed `uv lock` argv, no shell
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
@@ -56,37 +57,56 @@ class WheelsMissingError(FileNotFoundError):
 @dataclass(frozen=True)
 class Distribution:
     name: str  # distribution name, e.g. node-wire-runtime
-    dist_dir: Path
+    package: str  # package folder relative to the node-wire root, e.g. packages/runtime
 
 
 def distributions(node_wire_root: Path, connector_id: str) -> List[Distribution]:
     """The node-wire wheels a stacklok server installs, in dependency order."""
-    packages = node_wire_root / "packages"
     return [
-        Distribution("node-wire-runtime", packages / "runtime" / "dist"),
-        Distribution("node-wire-bindings", packages / "bindings" / "dist"),
-        Distribution("node-wire-toolhive", packages / "toolhive" / "dist"),
+        Distribution("node-wire-runtime", "packages/runtime"),
+        Distribution("node-wire-bindings", "packages/bindings"),
+        Distribution("node-wire-toolhive", "packages/toolhive"),
         Distribution(
-            f"node-wire-{connector_id.replace('_', '-')}",
-            packages / "connectors" / connector_id / "dist",
+            f"node-wire-{connector_id.replace('_', '-')}", f"packages/connectors/{connector_id}"
         ),
     ]
 
 
-def finish_project(project_dir: Path, plan: ServerPlan, *, wheels: bool, lock: bool) -> None:
+def _is_pure_wheel(wheel: Path) -> bool:
+    return wheel.name.endswith("-py3-none-any.whl")
+
+
+def check_wheels(node_wire_root: Path, connector_id: str, wheels: Mapping[str, Path]) -> None:
+    """Every distribution has a py3-none-any wheel on disk among ``wheels``."""
+    problems: List[str] = []
+    for dist in distributions(node_wire_root, connector_id):
+        wheel = wheels.get(dist.name)
+        if wheel is None or not Path(wheel).is_file():
+            problems.append(f"{dist.name} (none given)" if wheel is None else f"{wheel} (missing)")
+        elif not _is_pure_wheel(Path(wheel)):
+            problems.append(f"{wheel} (not py3-none-any)")
+    if problems:
+        raise WheelsMissingError(
+            "No py3-none-any wheel for: "
+            + ", ".join(problems)
+            + ". nw gen-stacklok builds them (or: nw gen-whl)."
+        )
+
+
+def finish_project(
+    project_dir: Path, plan: ServerPlan, *, wheels: Mapping[str, Path], lock: bool
+) -> None:
+    """Turn the scaffolded stacklok project into a node-wire one; ``uv lock`` comes last."""
     assert plan.node_wire is not None
     node_wire_root = Path(plan.node_wire.node_wire_root)
     connector_id = plan.node_wire.connector_id
 
-    sources: Dict[str, str] = {}
-    if wheels:
-        sources = _copy_wheels(project_dir, node_wire_root, connector_id)
+    check_wheels(node_wire_root, connector_id, wheels)
+    sources = _copy_wheels(project_dir, node_wire_root, connector_id, wheels)
     _update_pyproject(project_dir / "pyproject.toml", node_wire_root, connector_id, sources)
     _write_config(project_dir, node_wire_root, connector_id)
     with_profiles = _copy_profiles(project_dir, node_wire_root, connector_id)
-    _update_dockerfile(
-        project_dir / "Dockerfile", connector_id, wheels=wheels, profiles=with_profiles
-    )
+    _update_dockerfile(project_dir / "Dockerfile", connector_id, profiles=with_profiles)
     _update_dockerignore(project_dir / ".dockerignore")
     _update_env_example(project_dir / ".env.example", connector_id)
     _patch_sources(project_dir / "src" / plan.module_name)
@@ -104,30 +124,17 @@ def _lock(project_dir: Path) -> None:
         raise RuntimeError(f"`uv lock` failed in {project_dir}: {exc}") from exc
 
 
-def _pure_wheel(dist_dir: Path) -> Path | None:
-    """Newest ``py3-none-any`` wheel in ``dist_dir``; compiled leftovers from older builds are skipped."""
-    wheels = sorted(dist_dir.glob("*-py3-none-any.whl"), key=lambda p: p.stat().st_mtime)
-    return wheels[-1] if wheels else None
-
-
-def _copy_wheels(project_dir: Path, node_wire_root: Path, connector_id: str) -> Dict[str, str]:
+def _copy_wheels(
+    project_dir: Path, node_wire_root: Path, connector_id: str, wheels: Mapping[str, Path]
+) -> Dict[str, str]:
+    """Copy the handed-over wheels (never a scan of dist/) and return their uv sources."""
     target = project_dir / "wheels"
     target.mkdir(exist_ok=True)
     found: Dict[str, str] = {}
-    missing: List[str] = []
     for dist in distributions(node_wire_root, connector_id):
-        wheel = _pure_wheel(dist.dist_dir)
-        if wheel is None:
-            missing.append(f"{dist.name} (in {dist.dist_dir})")
-            continue
+        wheel = Path(wheels[dist.name])
         shutil.copy2(wheel, target / wheel.name)
         found[dist.name] = f"wheels/{wheel.name}"
-    if missing:
-        raise WheelsMissingError(
-            "No py3-none-any wheel for: "
-            + ", ".join(missing)
-            + ". nw gen-stacklok builds them (or: scripts/build-packages.sh <packages>)."
-        )
     return found
 
 
@@ -151,7 +158,8 @@ def _update_pyproject(
     path.write_text(text, encoding="utf-8")
 
 
-def _connector_entry(node_wire_root: Path, connector_id: str) -> Dict[str, object]:
+def connector_entry(node_wire_root: Path, connector_id: str) -> Dict[str, object]:
+    """The connector's ``connectors.yaml`` entry, enabled and exposed over MCP."""
     config = node_wire_root / "config" / "connectors.yaml"
     raw = yaml.safe_load(config.read_text(encoding="utf-8")) or {}
     entry = (raw.get("connectors") or {}).get(connector_id)
@@ -167,7 +175,7 @@ def _connector_entry(node_wire_root: Path, connector_id: str) -> Dict[str, objec
 
 
 def _write_config(project_dir: Path, node_wire_root: Path, connector_id: str) -> None:
-    entry = _connector_entry(node_wire_root, connector_id)
+    entry = connector_entry(node_wire_root, connector_id)
     config_dir = project_dir / "config"
     config_dir.mkdir(exist_ok=True)
     (config_dir / "connectors.yaml").write_text(
@@ -211,17 +219,14 @@ def _copy_profiles(project_dir: Path, node_wire_root: Path, connector_id: str) -
     return True
 
 
-def _update_dockerfile(
-    path: Path, connector_id: str, *, wheels: bool, profiles: bool = False
-) -> None:
+def _update_dockerfile(path: Path, connector_id: str, *, profiles: bool = False) -> None:
     text = path.read_text(encoding="utf-8")
-    if wheels:
-        text = _replace_once(
-            text,
-            "COPY pyproject.toml uv.lock* README.md ./\n",
-            "COPY wheels/ ./wheels/\nCOPY pyproject.toml uv.lock* README.md ./\n",
-            where=path.name,
-        )
+    text = _replace_once(
+        text,
+        "COPY pyproject.toml uv.lock* README.md ./\n",
+        "COPY wheels/ ./wheels/\nCOPY pyproject.toml uv.lock* README.md ./\n",
+        where=path.name,
+    )
     # The project installs editable, so UV_COMPILE_BYTECODE only covers site-packages;
     # compile src/ too, or every container start recompiles it (the runtime image sets
     # PYTHONDONTWRITEBYTECODE). checked-hash .pyc stay valid whatever mtimes COPY leaves.

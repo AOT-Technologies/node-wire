@@ -2,12 +2,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Source stamps that let a wheel build be skipped while a package's sources are unchanged.
+"""Wheel state: is a package's wheel in ``dist/`` built from its current sources?
 
-A stamp ``<package>/dist/.nw-source-<key>.sha256`` holds the hash of the sources the wheels were
-built from, then the names of the wheels that build wrote. ``key`` names the wheel flavour
-(``py3-none-any``, or ``mcp-host-<interpreter>`` for MCP host builds; older stamps under other
-keys are simply never fresh).
+:func:`wheel_state` is the only check (``MISSING`` / ``STALE`` / ``FRESH``); every builder and
+generator asks it, and :func:`fresh_wheels` hands the resolved wheel paths on, so nothing picks
+"the newest wheel in dist/" by itself.
+
+A stamp ``<package>/dist/.nw-source-py3-none-any.sha256`` holds the hash of the sources the wheel
+was built from (taken *before* the build, so an edit during the build leaves it stale), then the
+name of the one pure-Python wheel that build wrote. Stamps under any other key (the old
+``mcp-host-<interpreter>`` ones) are never read.
 """
 
 from __future__ import annotations
@@ -15,7 +19,28 @@ from __future__ import annotations
 import hashlib
 import os
 import tomllib
+from collections.abc import Iterable
+from enum import Enum
 from pathlib import Path
+
+# Every package builds one pure-Python wheel, whoever builds it (nw gen-whl, nw-mcp-builder).
+WHEEL_STAMP_KEY = "py3-none-any"
+
+
+class WheelState(Enum):
+    MISSING = "missing"  # no wheel to use
+    STALE = "stale"  # a wheel, but not stamped as built from the current sources
+    FRESH = "fresh"  # the stamped wheel, built from the current sources
+
+
+class WheelsNotFreshError(FileNotFoundError):
+    """Packages whose wheel is missing or stale; ``packages`` maps each to its state."""
+
+    def __init__(self, packages: dict[str, str]) -> None:
+        self.packages = packages
+        listed = ", ".join(f"{p} ({state})" for p, state in packages.items())
+        super().__init__(f"Wheels not built from the current sources: {listed}")
+
 
 _HASH_SKIP_DIRS = {"__pycache__", "build", "dist"}
 
@@ -71,42 +96,82 @@ def _source_files(root: Path) -> list[Path]:
     return found
 
 
-def stamp_path(node_wire_root: Path, package: str, key: str) -> Path:
-    return node_wire_root / package / "dist" / f".nw-source-{key}.sha256"
+def stamp_path(node_wire_root: Path, package: str) -> Path:
+    return node_wire_root / package / "dist" / f".nw-source-{WHEEL_STAMP_KEY}.sha256"
 
 
-def is_fresh(node_wire_root: Path, package: str, key: str) -> bool:
-    """True when the stamped build matches the sources and its wheels are all still there."""
-    stamp = stamp_path(node_wire_root, package, key)
-    if not stamp.is_file():
+def is_pure_python_wheel(wheel: Path) -> bool:
+    """True for a ``py3-none-any`` wheel: it installs on any image whatever its Python or CPU."""
+    parts = wheel.name[: -len(".whl")].split("-")
+    if not wheel.name.endswith(".whl") or len(parts) < 5:
         return False
+    python_tags, abi_tags, platform_tags = (tag.split(".") for tag in parts[-3:])
+    return "py3" in python_tags and "none" in abi_tags and "any" in platform_tags
+
+
+def _stamped(node_wire_root: Path, package: str) -> tuple[str, Path] | None:
+    stamp = stamp_path(node_wire_root, package)
+    if not stamp.is_file():
+        return None
     parts = stamp.read_text(encoding="utf-8").split()
-    if not parts:
-        return False
-    digest, *wheels = parts
-    dist = stamp.parent
-    if not wheels or not all((dist / w).is_file() for w in wheels):
-        return False
-    return digest == package_source_hash(node_wire_root, package)
+    if len(parts) != 2:  # an older multi-wheel stamp, or a damaged one
+        return None
+    return parts[0], stamp.parent / parts[1]
 
 
-def stamped_wheels(node_wire_root: Path, package: str, key: str) -> list[Path]:
-    """The wheels the stamped build wrote (empty without a stamp)."""
-    stamp = stamp_path(node_wire_root, package, key)
-    if not stamp.is_file():
-        return []
-    return [stamp.parent / name for name in stamp.read_text(encoding="utf-8").split()[1:]]
+def wheel_state(node_wire_root: Path, package: str) -> WheelState:
+    """``FRESH`` only for the stamped wheel of a build from the current sources."""
+    stamped = _stamped(node_wire_root, package)
+    if stamped is None or not stamped[1].is_file():
+        dist = node_wire_root / package / "dist"
+        has_wheel = dist.is_dir() and any(is_pure_python_wheel(w) for w in dist.glob("*.whl"))
+        return WheelState.STALE if has_wheel else WheelState.MISSING
+    digest, _wheel = stamped
+    if digest != package_source_hash(node_wire_root, package):
+        return WheelState.STALE
+    return WheelState.FRESH
 
 
-def record_build(node_wire_root: Path, package: str, key: str, *, since: float) -> None:
-    """Stamp ``package`` with its source hash and the wheels written after ``since``."""
+def fresh_wheel(node_wire_root: Path, package: str) -> Path:
+    """The stamped wheel of ``package``; raises :class:`WheelsNotFreshError` unless ``FRESH``."""
+    return fresh_wheels(node_wire_root, [package])[package]
+
+
+def fresh_wheels(node_wire_root: Path, packages: Iterable[str]) -> dict[str, Path]:
+    """``{package: wheel}`` for packages that are all ``FRESH``; else one error naming the rest."""
+    found: dict[str, Path] = {}
+    problems: dict[str, str] = {}
+    for package in packages:
+        state = wheel_state(node_wire_root, package)
+        if state is WheelState.FRESH:
+            stamped = _stamped(node_wire_root, package)
+            assert stamped is not None
+            found[package] = stamped[1]
+        else:
+            problems[package] = state.value
+    if problems:
+        raise WheelsNotFreshError(problems)
+    return found
+
+
+def stamp_build(node_wire_root: Path, package: str, digest: str) -> Path:
+    """Stamp the wheel a just-finished build wrote; ``digest`` was hashed before the build.
+
+    The build must have left exactly one pure-Python wheel in ``dist/``. A compiled wheel is
+    removed (it would only install on the platform it was built for), and nothing is stamped.
+    """
     dist = node_wire_root / package / "dist"
-    wheels = sorted(w.name for w in dist.glob("*.whl") if w.stat().st_mtime >= since - 1)
-    stamp = stamp_path(node_wire_root, package, key)
-    if not wheels:
-        stamp.unlink(missing_ok=True)
-        return
-    stamp.write_text(
-        "\n".join([package_source_hash(node_wire_root, package), *wheels]) + "\n",
-        encoding="utf-8",
-    )
+    stamp = stamp_path(node_wire_root, package)
+    stamp.unlink(missing_ok=True)
+    wheels = sorted(dist.glob("*.whl")) if dist.is_dir() else []
+    pure = [w for w in wheels if is_pure_python_wheel(w)]
+    for wheel in wheels:
+        if wheel not in pure:
+            wheel.unlink()
+    if len(pure) != 1:
+        found = ", ".join(w.name for w in wheels) or "none"
+        raise FileNotFoundError(
+            f"Expected one py3-none-any wheel in {dist} after the build; found: {found}"
+        )
+    stamp.write_text(f"{digest}\n{pure[0].name}\n", encoding="utf-8")
+    return pure[0]

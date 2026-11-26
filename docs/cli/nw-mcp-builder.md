@@ -49,16 +49,16 @@ Generated hosts are **thin wrappers** around node-wire’s `McpServer`. Auth, te
 For a connector id like `google_drive` or `salesforce`, `nw-mcp-builder`:
 
 1. **Validates** the connector exists under `packages/connectors/<id>` and `src/node_wire_<id>/logic.py`
-2. **Builds wheels** (unless `--skip-build-wheels`):
+2. **Builds wheels** (unless `--skip-build-wheels`), reusing any package whose wheel is already built from its current sources (see [nw CLI: wheel state](nw-cli.md#nw-gen-all)):
    - `packages/runtime/dist/node_wire_runtime-*.whl`
    - `packages/bindings/dist/node_wire_bindings-*.whl`
    - `packages/connectors/<id>/dist/node_wire_<id>-*.whl`
    - Pure-Python wheels that install anywhere (see [Wheels](#wheels))
 3. **Ensures a scope fixture** at `fixtures/<id>_nw.yaml`
    - Auto-generated from the actions the connector class registers (`nw_action_metas()` on the class in `logic.py`)
-   - Skips overwrite if the file already exists (use `--force-fixture` to regenerate)
-4. **Generates** `out/<server-name>-mcp/` containing:
-   - Copied wheels under `wheels/` (runtime, bindings, connector). The host imports everything from these installed wheels; no node-wire source tree is vendored into it
+   - The actions are always discovered and checked (two actions mapping to one tool name, names over the MCP length limit). An existing fixture, with any hand edits, is kept while it lists exactly those tools; when the connector's actions changed it is regenerated (`--force-fixture` regenerates it anyway)
+4. **Generates** `out/<server-name>-mcp/`, named after the fixture's `server.name`, all-or-nothing: into a staging folder that replaces the old project only once complete. It contains:
+   - Copied wheels under `wheels/` (runtime, bindings, connector): the exact wheels step 2 built or verified, not whatever is newest in `dist/`. The host imports everything from these installed wheels; no node-wire source tree is vendored into it
    - `config/connectors.yaml` from the monorepo
    - Thin `__main__.py` that runs `McpServer(connector_ids=[...])`
    - `pyproject.toml`, `README.md`, `Dockerfile`, `.env.example`
@@ -71,7 +71,7 @@ Example mapping:
 | `salesforce` | `out/salesforce-nw-mcp/` | `salesforce_nw_mcp` |
 | `fhir_epic` | `out/fhir-epic-nw-mcp/` | `fhir_epic_nw_mcp` |
 
-Server name in the fixture is always `{connector_id with _ → -}-nw` (for example, `google-drive-nw`).
+A generated fixture's server name is `{connector_id with _ → -}-nw` (for example, `google-drive-nw`); edit `server.name` in the fixture to name the project differently.
 
 ---
 
@@ -101,17 +101,17 @@ The runtime, bindings and connector wheels are pure Python (`py3-none-any`). One
 uv run nw-mcp-builder -c <connector_id>
 ```
 
-This builds the connector wheel and copies the newest pure-Python wheels into `out/<name>-mcp/wheels/`. To use wheels you already built from the **node-wire** repository root instead:
+This builds the wheels that are not already built from their current sources and copies them into `out/<name>-mcp/wheels/`. To use wheels you already built from the **node-wire** repository root instead:
 
 ```bash
-bash scripts/build-packages.sh packages/runtime packages/bindings packages/connectors/<connector_id>
+uv run nw gen-whl --runtime --bindings --connector-id <connector_id>
 
 cd nw-mcp-builder
 uv sync
 uv run nw-mcp-builder -c <connector_id> --skip-build-wheels --force-output
 ```
 
-Wheels land in each package's `dist/` (for example `packages/runtime/dist/`). A compiled wheel left in `dist/` from an older build is skipped; rebuild the package if that leaves none.
+Wheels land in each package's `dist/` (for example `packages/runtime/dist/`). `--skip-build-wheels` accepts only wheels stamped as built from the current sources (by `nw gen-whl`, `nw gen-all` or a previous `nw-mcp-builder` run); a wheel built by `scripts/build-packages.sh` alone has no stamp and is refused as stale.
 
 ---
 
@@ -165,7 +165,7 @@ Change into the generated project, install it, and run it:
 cd out/<name>-mcp
 # Example
 cd out/google-drive-nw-mcp
-cp .env.example .env    # optional locally; or inject secrets via env (ToolHive)
+cp .env.example .env    # local only: its NW_MCP_LOCAL_DEV=true turns MCP auth off for Inspector
 uv sync --python 3.13   # must match the ABI your wheels were built for
 uv run python -m <module_name>
 # Example
@@ -215,7 +215,7 @@ Point ToolHive at that image (for example, `google-drive-nw-mcp:latest`).
 | `NW_MCP_HOST` | `0.0.0.0` |
 | `NW_MCP_PORT` | Same as ToolHive `FASTMCP_PORT` / `MCP_PORT` (for example, if those are `33622`, set `NW_MCP_PORT=33622`) |
 | `NW_MCP_PATH` | `/mcp` |
-| `NW_MCP_AUTH_DISABLED` | `true` |
+| `NW_MCP_AUTH_DISABLED` | `true` (local ToolHive testing only; the host otherwise enforces MCP auth) |
 
 Also set `NW_ALLOWED_CONNECTORS=<connector_id>` if not already baked into the image (generated Dockerfiles usually set it).
 
@@ -340,6 +340,8 @@ out/google-drive-nw-mcp/
 
 ### Environment variables (generated host)
 
+**Run mode.** The host runs in **server** mode (MCP auth on, scope policy `deny`) unless `NW_MCP_LOCAL_DEV=true` selects **local-dev** mode; it logs the resolved mode, auth and scope policy at startup. Whether it runs in a container (`/.dockerenv`, `NW_MCP_CONTAINER`) only decides whether a project `.env` is read, never auth. Hosts generated before this rule turned auth off automatically outside a container; regenerate them, and add `NW_MCP_LOCAL_DEV=true` to your local `.env`.
+
 Every generated thin host prefers **process environment** (ToolHive secrets, Docker `-e`, K8s). If `out/<name>-mcp/.env` exists, it fills **unset** keys only (`override=False`). It does **not** load the node-wire monorepo or cwd `.env`. The bindings' own MCP/REST dotenv merge is disabled via `NW_REST_LOAD_DOTENV=false`. A missing project `.env` is OK when secrets/env are already injected.
 
 Set these in `.env` (start from `.env.example`):
@@ -351,8 +353,9 @@ Set these in `.env` (start from `.env.example`):
 | `NW_MCP_HOST` | loopback (see [Configuration](../configuration.md#transport-binding-config)) | Bind address for streamable-http. Set `0.0.0.0` inside a container, otherwise the published port answers with `Connection reset by peer` |
 | `NW_ALLOWED_CONNECTORS` | `<connector_id>` | Forced by the thin host |
 | `NW_MCP_TOOL_MODE` | chosen at generation (`list` or `search`) | `list` shows every tool; `search` lists only `nw_search_tools` + `nw_call_tool` |
-| `NW_MCP_AUTH_DISABLED` | `true` locally; unset in images | Local dev / MCP Inspector |
-| `NW_MCP_SCOPE_POLICY_DEFAULT` | `allow` locally; unset (`deny`) in images | Local dev tool access |
+| `NW_MCP_LOCAL_DEV` | unset (server mode) | `true` selects local-dev mode: `NW_MCP_AUTH_DISABLED=true` and `NW_MCP_SCOPE_POLICY_DEFAULT=allow` unless you set them yourself. For MCP Inspector on your own machine; the generated `.env.example` has it. Never set it for a deployment |
+| `NW_MCP_AUTH_DISABLED` | unset (auth enforced) | Set by local-dev mode |
+| `NW_MCP_SCOPE_POLICY_DEFAULT` | unset (`deny`) | Set to `allow` by local-dev mode |
 | `NW_CONFIG_PATH` | `config/connectors.yaml` | Connector registry config |
 | `NW_MULTITENANCY_ENABLED` | `false` | When `true`, load `NW_TENANTS_PATH` and expose `nw_*` tenant/config tools |
 | `NW_TENANTS_PATH` | `config/tenants.yaml` | Runtime tenant/config + secret store |
@@ -372,7 +375,7 @@ Build and run a generated project from the **node-wire** repo root. `nw docker-b
 ```bash
 cd nw-mcp-builder/out/<name>-mcp
 docker build -t <image-name> .
-cp .env.example .env   # fill connector secrets; keeps NW_MCP_AUTH_DISABLED / NW_MCP_SCOPE_POLICY_DEFAULT for local use
+cp .env.example .env   # fill connector secrets; its NW_MCP_LOCAL_DEV=true is for local use only
 # Secrets at runtime only — never COPY .env into the image.
 # NW_MCP_HOST=0.0.0.0 is required: the server binds loopback by default, which is unreachable through -p.
 docker run --rm --env-file .env -e NW_MCP_HOST=0.0.0.0 -p 8081:8081 <image-name>
@@ -407,7 +410,7 @@ curl -s "$URL" "${H[@]}" -H "Mcp-Session-Id: $SID" \
 
 Replace `<connector_id>` with your id (for example, `petstore_review`). Works in bash and zsh. A healthy host prints a session id, `202`, then one line per tool (20 for the Swagger Petstore v2 spec). An empty session id means the port is not reachable — check `NW_MCP_HOST`. A session but no tool names means `NW_MCP_SCOPE_POLICY_DEFAULT=allow` is missing (see the next paragraph). A plain `curl http://localhost:8081/mcp` returns `406 Not Acceptable`; that only proves the port answers.
 
-The generated Dockerfile is multi-stage and digest-pinned (`python:3.13-slim@sha256:…`): wheels install in a `deps` stage (BuildKit pip cache), then `/usr/local` is copied into the runtime stage with app sources last for layer caching. It runs as non-root `USER app` with a read-only application tree, and copies only wheels (`node-wire-runtime`, `node-wire-bindings`, connector), `config/connectors.yaml`, and the thin host package (`src/<module>/`, copied to `/app/src` and put on `PYTHONPATH=/app/src`; the entrypoint is `python -m <module>`). No node-wire source tree is vendored: runtime, bindings and connector come only from the installed wheels. `.dockerignore` is an allowlist so `.env`, tenant YAML, and keys never enter the build context. MCP auth is **not** disabled in the image, and the scope policy defaults **fail-closed** (`deny`) there too — unlike local `uv run`, which sets `NW_MCP_AUTH_DISABLED=true` and `NW_MCP_SCOPE_POLICY_DEFAULT=allow` automatically for Inspector convenience. A container started without both set accepts connections but `tools/list` comes back empty. Set `NW_MCP_AUTH_DISABLED=true` / `NW_MCP_SCOPE_POLICY_DEFAULT=allow` at run time for local Inspector/ToolHive use (the generated `.env.example` already contains both).
+The generated Dockerfile is multi-stage and digest-pinned (`python:3.13-slim@sha256:…`): wheels install in a `deps` stage (BuildKit pip cache), then `/usr/local` is copied into the runtime stage with app sources last for layer caching. It runs as non-root `USER app` with a read-only application tree, and copies only wheels (`node-wire-runtime`, `node-wire-bindings`, connector), `config/connectors.yaml`, and the thin host package (`src/<module>/`, copied to `/app/src` and put on `PYTHONPATH=/app/src`; the entrypoint is `python -m <module>`). No node-wire source tree is vendored: runtime, bindings and connector come only from the installed wheels. `.dockerignore` is an allowlist so `.env`, tenant YAML, and keys never enter the build context. MCP auth is **not** disabled, and the scope policy defaults **fail-closed** (`deny`), in the image and in a local `uv run` alike: both run in server mode unless `NW_MCP_LOCAL_DEV=true` is set. A container started without credentials or a scope policy accepts connections but `tools/list` comes back empty. For local Inspector/ToolHive use, set `NW_MCP_LOCAL_DEV=true` at run time (the generated `.env.example` contains it), or `NW_MCP_AUTH_DISABLED=true` / `NW_MCP_SCOPE_POLICY_DEFAULT=allow` directly.
 
 `--env-file` injects process environment. Do not bind-mount `.env` into the container filesystem.
 
@@ -430,13 +433,12 @@ current tools.
 
 | Problem | What to try |
 |---------|-------------|
-| `Missing runtime wheel in .../dist (omit --skip-build-wheels)` (or the bindings/connector equivalent) | Run without `--skip-build-wheels`, or `bash scripts/build-packages.sh packages/runtime` |
-| `No pure-Python (py3-none-any) ... wheel` / image cannot install `.whl` | `dist/` only has compiled wheels from an older build: rebuild with `nw gen-whl` (or `bash scripts/build-packages.sh <package>`), then regenerate with `--skip-build-wheels` |
+| `Wheels not built from the current sources: packages/runtime (missing)` (or `stale`, or bindings/connector) | Run without `--skip-build-wheels`, or build them with `nw gen-whl` (the command names the flags). A wheel built by `scripts/build-packages.sh` alone, or from sources changed since, counts as stale |
 | `Output project already exists` | Pass `--force-output` |
 | `No module named node_wire_runtime.policies` | Rebuild runtime wheel (`nw gen-whl --runtime`) — `policies` must be a package with `__init__.py` |
 | `No module named bindings` / `No node-wire-bindings wheel` | Build bindings: `nw gen-whl --bindings` |
-| Empty or wrong tools in fixture | `--force-fixture` to rescan `logic.py` |
-| 503 / auth errors from MCP server | Ensure `NW_MCP_AUTH_DISABLED=true` (env or project `.env`) for local use |
+| Empty or wrong tools in fixture | `--force-fixture` to rescan `logic.py` (a fixture whose tools no longer match the connector is regenerated anyway) |
+| 503 / auth errors from MCP server | The host runs in server mode (auth on) unless `NW_MCP_LOCAL_DEV=true`; set it (env or project `.env`) for local use. The startup log line `run mode …` shows what was resolved |
 | Connector secrets missing in Docker/ToolHive | Set secrets via `docker run -e` / `--env-file` or the orchestrator. Do not COPY or bind-mount `.env` into the image. |
 | Connector action fails at runtime | Fill connector secrets via env or project `.env`; check `config/connectors.yaml` |
 | `curl: (56) Recv failure: Connection reset by peer` against a running container; log shows `Uvicorn running on http://127.0.0.1:…` | Add `-e NW_MCP_HOST=0.0.0.0` to `docker run` (see [Docker](#docker)) |

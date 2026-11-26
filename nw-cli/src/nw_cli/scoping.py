@@ -18,11 +18,14 @@ stacklok's CLI.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import shutil
 import subprocess  # nosec B404  # fixed claude argv, no shell
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 
 from nw_cli.stages import LogFn, StageError, run_logged_command
@@ -65,6 +68,63 @@ def allowed_tools(work_dir: Path) -> list[str]:
 
 def scoping_dir(node_wire_root: Path, connector_id: str) -> Path:
     return node_wire_root / STACKLOK_BUILDER_DIR / "scoping" / connector_id
+
+
+SCOPE_FILE = "mcp-scope.yaml"
+SUMMARY_FILE = "scoping-summary.md"
+# Next to mcp-scope.yaml: which prepared spec it was scoped from, and whether a human approved
+# this very scope in the Phase 2 review. Written by nw, never by the AI.
+STATE_FILE = "mcp-scope.state.json"
+
+
+def _file_hash(path: Path) -> str | None:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+class SavedScope(Enum):
+    """What a saved ``mcp-scope.yaml`` is to the spec of this run."""
+
+    NONE = "none"  # nothing saved
+    CURRENT = "current"  # scoped from this very (prepared) spec
+    OTHER_SPEC = "other-spec"  # scoped from another spec, or nw cannot tell which
+
+
+def _read_state(work_dir: Path) -> dict:
+    try:
+        state = json.loads((work_dir / STATE_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return state if isinstance(state, dict) else {}
+
+
+def saved_scope(work_dir: Path, spec: Path) -> SavedScope:
+    if not (work_dir / SCOPE_FILE).is_file():
+        return SavedScope.NONE
+    spec_hash = _file_hash(spec)
+    if spec_hash is not None and _read_state(work_dir).get("spec_hash") == spec_hash:
+        return SavedScope.CURRENT
+    return SavedScope.OTHER_SPEC
+
+
+def scope_reviewed(work_dir: Path) -> bool:
+    """A human approved this scope in Phase 2, and it has not changed since."""
+    state = _read_state(work_dir)
+    return bool(state.get("reviewed")) and state.get("scope_hash") == _file_hash(
+        work_dir / SCOPE_FILE
+    )
+
+
+def record_scope(work_dir: Path, spec: Path, *, reviewed: bool) -> None:
+    """Remember which spec the saved scope belongs to, and whether it was reviewed as it is."""
+    state = {
+        "spec_hash": _file_hash(spec),
+        "scope_hash": _file_hash(work_dir / SCOPE_FILE),
+        "reviewed": reviewed,
+    }
+    (work_dir / STATE_FILE).write_text(json.dumps(state, indent=1) + "\n", encoding="utf-8")
 
 
 @dataclass(frozen=True)
@@ -175,9 +235,12 @@ def _claude_command() -> list[str]:
 
 
 def _prepare_run(node_wire_root: Path, work_dir: Path) -> Path:
+    """A clean work dir: the scope, its reasoning and its state go together."""
     link_skill(node_wire_root)
     work_dir.mkdir(parents=True, exist_ok=True)
-    scope = work_dir / "mcp-scope.yaml"
+    for name in (SUMMARY_FILE, STATE_FILE):
+        (work_dir / name).unlink(missing_ok=True)
+    scope = work_dir / SCOPE_FILE
     scope.unlink(missing_ok=True)
     return scope
 

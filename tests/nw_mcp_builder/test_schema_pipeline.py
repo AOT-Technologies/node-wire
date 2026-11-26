@@ -75,11 +75,22 @@ def test_load_existing_google_drive_fixture() -> None:
     assert scope.runtime.connector_id == "google_drive"
 
 
+def _wheels(root: Path) -> tuple[Path, Path, Path]:
+    from nw_mcp_builder.wheel_cache import fresh_wheels
+
+    found = fresh_wheels(
+        root, ["packages/runtime", "packages/bindings", "packages/connectors/demo_conn"]
+    )
+    return tuple(found.values())  # type: ignore[return-value]
+
+
 def test_pipeline_rejects_non_connector_scope(tmp_path: Path, fake_node_wire: Path) -> None:
     path = tmp_path / "openapi.yaml"
     path.write_text(yaml.safe_dump(_minimal_scope(runtime=False)), encoding="utf-8")
     with pytest.raises(ValueError, match="not connector mode"):
-        run_connector_pipeline(path, fake_node_wire, tmp_path / "out")
+        run_connector_pipeline(
+            path, fake_node_wire, tmp_path / "out", wheels=_wheels(fake_node_wire)
+        )
 
 
 def test_pipeline_writes_project(tmp_path: Path, fake_node_wire: Path) -> None:
@@ -87,7 +98,7 @@ def test_pipeline_writes_project(tmp_path: Path, fake_node_wire: Path) -> None:
     path.write_text(yaml.safe_dump(_minimal_scope()), encoding="utf-8")
     out = tmp_path / "out"
     out.mkdir()
-    project = run_connector_pipeline(path, fake_node_wire, out)
+    project = run_connector_pipeline(path, fake_node_wire, out, wheels=_wheels(fake_node_wire))
     assert project.is_dir()
     assert (project / "src" / "demo_conn_nw_mcp" / "__main__.py").is_file()
 

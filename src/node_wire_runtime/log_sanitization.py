@@ -114,7 +114,9 @@ def is_sensitive_key(key: str) -> bool:
 def redact_credentials(text: str) -> str:
     """Drop URL query strings, fragments and userinfo, and ``Bearer <token>`` values, from
     free text such as ``str(exc)`` (httpx puts the full request URL in its messages)."""
-    text = _URL_RE.sub(lambda m: sanitize_url_for_log(m.group(0)), text)
+    # _URL_RE backtracks quadratically over long alphanumeric runs; it can only match with "://".
+    if "://" in text:
+        text = _URL_RE.sub(lambda m: sanitize_url_for_log(m.group(0)), text)
     return _BEARER_RE.sub(lambda m: f"{m.group(1)} {REDACTED}", text)
 
 

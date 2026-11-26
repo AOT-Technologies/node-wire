@@ -124,7 +124,7 @@ async def test_a_successful_run_is_not_an_error(
 async def test_a_clients_tools_list_without_credentials_is_still_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Only the SDK's own cache refresh (request None) lists nothing instead of failing."""
+    """Only the SDK's own cache refresh (request None) skips the auth check."""
     monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
     monkeypatch.setenv("NW_MCP_API_KEY", "the-key")
     monkeypatch.setenv("NW_ALLOWED_CONNECTORS", "smtp")

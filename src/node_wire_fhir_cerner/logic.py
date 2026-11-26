@@ -880,8 +880,12 @@ class FhirCernerConnector(BaseConnector):
         )
         return self._page(response)
 
+    # Issuing only reads the chart, so the runtime may retry it although it is a POST.
     @nw_action(
-        "health_cards_issue", http_method="POST", http_path="/Patient/{id}/$health-cards-issue"
+        "health_cards_issue",
+        http_method="POST",
+        http_path="/Patient/{id}/$health-cards-issue",
+        idempotent=True,
     )
     async def health_cards_issue(
         self, params: HealthCardsIssueInput, *, trace_id: str

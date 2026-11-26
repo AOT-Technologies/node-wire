@@ -149,7 +149,8 @@ def test_discover_secrets_and_env_example(fake_node_wire: Path, tmp_path: Path) 
     text = example.read_text(encoding="utf-8")
     assert "NW_ALLOWED_CONNECTORS=demo_conn" in text
     assert "DEMO_CONN_SA_JSON=" in text
-    assert "NW_MCP_AUTH_DISABLED=true" in text
+    assert "NW_MCP_LOCAL_DEV=true" in text
+    assert "NW_MCP_AUTH_DISABLED" not in text
     for line in text.splitlines():
         if line.startswith("DEMO_CONN_SA_JSON=") or line.startswith("DEMO_CONN_TOKEN="):
             assert line.endswith("=") and line.count("=") == 1
@@ -225,12 +226,17 @@ def test_run_from_connector_skip_wheels_generates_project(
 
 
 def test_project_gets_the_pure_python_wheel(fake_node_wire: Path, package_root: Path) -> None:
-    """dist/ can still hold compiled wheels from older builds: a newer one must not win."""
+    """dist/ can still hold compiled wheels from older builds: they are never bundled."""
+    from nw_mcp_builder.wheel_cache import package_source_hash, stamp_build
+
     dist = fake_node_wire / "packages" / "runtime" / "dist"
     for old in dist.glob("*.whl"):
         old.unlink()
     wanted = dist / "node_wire_runtime-1.1.0-py3-none-any.whl"
     wanted.write_bytes(b"")
+    stamp_build(
+        fake_node_wire, "packages/runtime", package_source_hash(fake_node_wire, "packages/runtime")
+    )
     for name in (
         "node_wire_runtime-1.1.0-cp313-cp313-musllinux_1_2_aarch64.whl",
         "node_wire_runtime-1.1.0-cp313-cp313-linux_aarch64.whl",
@@ -251,31 +257,13 @@ def test_project_gets_the_pure_python_wheel(fake_node_wire: Path, package_root: 
     assert wheels == [wanted.name]
 
 
-def test_no_installable_wheel_names_what_was_found(
-    fake_node_wire: Path, package_root: Path
-) -> None:
+def test_no_fresh_wheel_names_the_package(fake_node_wire: Path, package_root: Path) -> None:
     dist = fake_node_wire / "packages" / "runtime" / "dist"
     for old in dist.glob("*.whl"):
         old.unlink()
     (dist / "node_wire_runtime-1.1.0-cp313-cp313-musllinux_1_2_aarch64.whl").write_bytes(b"")
 
-    with pytest.raises(
-        FileNotFoundError, match="py3-none-any.*musllinux_1_2_aarch64.*nw gen-whl --runtime"
-    ):
-        run_from_connector(
-            "demo_conn",
-            node_wire_root=fake_node_wire,
-            package_root=package_root,
-            skip_build_wheels=True,
-        )
-
-
-def test_run_from_connector_requires_wheels_when_skip(
-    fake_node_wire: Path, package_root: Path
-) -> None:
-    for whl in (fake_node_wire / "packages" / "runtime" / "dist").glob("*.whl"):
-        whl.unlink()
-    with pytest.raises(FileNotFoundError, match="runtime wheel"):
+    with pytest.raises(FileNotFoundError, match="packages/runtime \\(missing\\)"):
         run_from_connector(
             "demo_conn",
             node_wire_root=fake_node_wire,
@@ -312,11 +300,14 @@ def test_format_success_message(tmp_path: Path) -> None:
 
 
 def test_build_wheels_invoked_when_not_skipped(fake_node_wire: Path, package_root: Path) -> None:
+    from nw_mcp_builder.wheel_cache import fresh_wheels
+
+    stamped = fresh_wheels(
+        fake_node_wire,
+        ["packages/runtime", "packages/bindings", "packages/connectors/demo_conn"],
+    )
     with patch("nw_mcp_builder.from_connector.build_connector_wheels") as build:
-        build.return_value = (
-            fake_node_wire / "packages" / "runtime" / "dist" / "x.whl",
-            fake_node_wire / "packages" / "connectors" / "demo_conn" / "dist" / "y.whl",
-        )
+        build.return_value = tuple(stamped.values())
         run_from_connector(
             "demo_conn",
             node_wire_root=fake_node_wire,

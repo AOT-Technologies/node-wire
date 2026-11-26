@@ -20,6 +20,7 @@ from pathlib import Path
 import yaml
 
 from nw_mcp_builder.schema.models import MCPScope
+from nw_mcp_builder.wheel_cache import is_pure_python_wheel
 
 logger = logging.getLogger(__name__)
 
@@ -47,17 +48,29 @@ def connector_dist_package_name(connector_id: str) -> str:
     return f"node-wire-{connector_id.replace('_', '-')}"
 
 
+def host_wheel_packages(connector_id: str) -> list[str]:
+    """The packages whose wheels a host bundles, in the order :func:`write_connector_project` takes them."""
+    return [
+        "packages/runtime",
+        "packages/bindings",
+        f"packages/connectors/{connector_id}",
+    ]
+
+
 def write_connector_project(
     scope: MCPScope,
     node_wire_root: Path,
-    output_dir: Path,
+    project_dir: Path,
     *,
+    wheels: tuple[Path, Path, Path],
     tool_mode: str = "list",
 ) -> Path:
-    """Create ``out/<server>-mcp/`` wrapping node-wire ``McpServer``.
+    """Create ``project_dir`` (which must not exist yet) wrapping node-wire ``McpServer``.
 
-    ``tool_mode`` becomes the host's default ``NW_MCP_TOOL_MODE`` (``list`` or
-    ``search``), in ``main.py`` and the Dockerfile; still overridable at runtime.
+    ``wheels`` are the runtime, bindings and connector wheels the build/verify stage resolved
+    (see :func:`nw_mcp_builder.wheel_cache.fresh_wheels`); they are copied as given, never
+    looked up again. ``tool_mode`` becomes the host's default ``NW_MCP_TOOL_MODE``.
+    Every precondition is checked before the first file is written.
     """
     if tool_mode not in ("list", "search"):
         raise ValueError(f"Unknown tool mode {tool_mode!r}: expected 'list' or 'search'")
@@ -74,15 +87,20 @@ def write_connector_project(
     node_wire_root = node_wire_root.resolve()
     if not (node_wire_root / "pyproject.toml").is_file():
         raise FileNotFoundError(f"node-wire root missing pyproject.toml: {node_wire_root}")
-
-    runtime_wheel, bindings_wheel, connector_wheel = _resolve_wheels(node_wire_root, connector_id)
-
-    server_name = scope.server.name
-    project_name = f"{server_name}-mcp"
-    project_dir = output_dir / project_name
     if project_dir.exists():
         raise FileExistsError(f"Output project already exists: {project_dir}")
 
+    config_src = node_wire_root / "config" / "connectors.yaml"
+    if not config_src.is_file():
+        raise FileNotFoundError(f"node-wire connector config missing: {config_src}")
+    own_config = _own_connector_config(config_src, connector_id)
+    for wheel in wheels:
+        if not wheel.is_file() or not is_pure_python_wheel(wheel):
+            raise FileNotFoundError(f"Not a py3-none-any wheel on disk: {wheel}")
+    runtime_wheel, bindings_wheel, connector_wheel = wheels
+
+    server_name = scope.server.name
+    project_name = f"{server_name}-mcp"
     module_name = server_name_to_module(server_name)
     module_dir = project_dir / "src" / module_name
     module_dir.mkdir(parents=True)
@@ -96,14 +114,9 @@ def write_connector_project(
     shutil.copy2(bindings_wheel, bindings_dest)
     shutil.copy2(connector_wheel, connector_dest)
 
-    config_src = node_wire_root / "config" / "connectors.yaml"
-    if not config_src.is_file():
-        raise FileNotFoundError(f"node-wire connector config missing: {config_src}")
     config_dir = project_dir / "config"
     config_dir.mkdir()
-    (config_dir / "connectors.yaml").write_text(
-        _own_connector_config(config_src, connector_id), encoding="utf-8"
-    )
+    (config_dir / "connectors.yaml").write_text(own_config, encoding="utf-8")
 
     with_profiles = copy_profiles(node_wire_root, connector_id, project_dir)
 
@@ -244,59 +257,10 @@ def _own_connector_config(config_src: Path, connector_id: str) -> str:
     connectors = doc.get("connectors") if isinstance(doc, dict) else None
     if not isinstance(connectors, dict) or connector_id not in connectors:
         raise ValueError(
-            f"{connector_id} is not in {config_src}; wire it in first (nw gen-all wires it)"
+            f"{connector_id} is not in {config_src}; wire it in first: uv run nw wire --connector-id {connector_id}"
         )
     own = {**doc, "connectors": {connector_id: connectors[connector_id]}}
     return yaml.safe_dump(own, sort_keys=False)
-
-
-def _is_pure_python_wheel(wheel: Path) -> bool:
-    """True for a ``py3-none-any`` wheel: it installs on the image whatever its Python or CPU.
-
-    dist/ can still hold compiled wheels from before the packages were pure Python; those
-    only install on the platform they were built for, so they are skipped.
-    """
-    parts = wheel.name[: -len(".whl")].split("-")
-    if len(parts) < 5:
-        return False
-    python_tags, abi_tags, platform_tags = (tag.split(".") for tag in parts[-3:])
-    return "py3" in python_tags and "none" in abi_tags and "any" in platform_tags
-
-
-def _newest_installable_wheel(dist: Path, *, package: str, build_command: str) -> Path:
-    wheels = sorted(dist.glob("*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)
-    if not wheels:
-        raise FileNotFoundError(f"No {package} wheel in {dist}. Build it: `{build_command}`.")
-    installable = [wheel for wheel in wheels if _is_pure_python_wheel(wheel)]
-    if not installable:
-        found = ", ".join(wheel.name for wheel in wheels)
-        raise FileNotFoundError(
-            f"No pure-Python (py3-none-any) {package} wheel in {dist}; found: {found}. "
-            f"Rebuild it: `{build_command}`."
-        )
-    return installable[0]
-
-
-def _resolve_wheels(node_wire_root: Path, connector_id: str) -> tuple[Path, Path, Path]:
-    packages = node_wire_root / "packages"
-    connector_package = f"node-wire-{connector_id.replace('_', '-')}"
-    return (
-        _newest_installable_wheel(
-            packages / "runtime" / "dist",
-            package="node-wire-runtime",
-            build_command="nw gen-whl --runtime",
-        ),
-        _newest_installable_wheel(
-            packages / "bindings" / "dist",
-            package=BINDINGS_DIST_PACKAGE,
-            build_command="nw gen-whl --bindings",
-        ),
-        _newest_installable_wheel(
-            packages / "connectors" / connector_id / "dist",
-            package=connector_package,
-            build_command=f"nw gen-whl --connector-id {connector_id}",
-        ),
-    )
 
 
 def _pyproject_toml(
@@ -364,10 +328,35 @@ def _project_root() -> Path | None:
 
 
 def _running_in_container() -> bool:
+    """Decides only where settings come from (no filesystem .env in an image), never auth."""
     flag = os.environ.get("NW_MCP_CONTAINER", "").strip().lower()
     if flag in {{"1", "true", "yes"}}:
         return True
     return Path("/.dockerenv").is_file()
+
+
+def _run_mode() -> str:
+    """``local-dev`` only when NW_MCP_LOCAL_DEV is explicitly true; otherwise ``server``."""
+    flag = os.environ.get("NW_MCP_LOCAL_DEV", "").strip().lower()
+    return "local-dev" if flag in {{"1", "true", "yes"}} else "server"
+
+
+def _apply_run_mode(mode: str) -> None:
+    # server (the default, everywhere): MCP auth on, scope policy as configured (deny).
+    # local-dev: Inspector convenience on your own machine; values set explicitly still win.
+    if mode == "local-dev":
+        os.environ.setdefault("NW_MCP_AUTH_DISABLED", "true")
+        os.environ.setdefault("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
+
+
+def _describe_run_mode(mode: str) -> str:
+    auth_off = os.environ.get("NW_MCP_AUTH_DISABLED", "").strip().lower() in {{"1", "true", "yes"}}
+    policy = os.environ.get("NW_MCP_SCOPE_POLICY_DEFAULT") or "deny"
+    return (
+        f"run mode {{mode}}: MCP auth {{'DISABLED' if auth_off else 'enforced'}}, "
+        f"scope policy default {{policy}}"
+        + (" (set NW_MCP_LOCAL_DEV=true only for local development)" if mode == "local-dev" else "")
+    )
 
 
 def _load_env() -> None:
@@ -393,17 +382,17 @@ def _load_env() -> None:
 
 def main() -> None:
     _load_env()
+    mode = _run_mode()
+    _apply_run_mode(mode)
+    import logging
+
     from node_wire_runtime.host_logging import configure_host_logging
 
     # Prints the runtime's trace_id / error_code / audit_event fields; OTLP export
     # only when OTEL_EXPORTER_OTLP_ENDPOINT is set.
     configure_host_logging("nw-{connector_id}")
+    logging.getLogger("nw-{connector_id}").info(_describe_run_mode(mode))
     os.environ["NW_ALLOWED_CONNECTORS"] = "{connector_id}"
-    # Local Inspector convenience only. Container images do not disable auth
-    # or open the scope policy — set those at runtime if you really need them.
-    if not _running_in_container():
-        os.environ.setdefault("NW_MCP_AUTH_DISABLED", "true")
-        os.environ.setdefault("NW_MCP_SCOPE_POLICY_DEFAULT", "allow")
     # Chosen at generation time (nw-mcp-builder); override with NW_MCP_TOOL_MODE.
     os.environ.setdefault("NW_MCP_TOOL_MODE", "{tool_mode}")
     root = _project_root()
@@ -457,7 +446,7 @@ McpServer(connector_ids=["{connector_id}"])
 
 ```bash
 cd {project_name}
-cp .env.example .env   # optional locally — process env / secrets win if already set
+cp .env.example .env   # local only: NW_MCP_LOCAL_DEV=true turns MCP auth off for Inspector
 # Fill connector secrets (see node-wire sample.env). Monorepo/cwd .env is ignored.
 uv sync
 ```
@@ -477,8 +466,9 @@ Process env (ToolHive secrets, Docker `-e` / `--env-file`) is preferred. A proje
 | `NW_MCP_TOOL_MODE` | `{tool_mode}` (chosen at generation) | `list` — every tool in `tools/list`; `search` — only `nw_search_tools` + `nw_call_tool`, schemas on demand |
 | `NW_MCP_PORT` | `8081` | HTTP port |
 | `NW_ALLOWED_CONNECTORS` | `{connector_id}` | Connector allowlist |
-| `NW_MCP_AUTH_DISABLED` | `true` locally; **unset in images** | Local/Inspector only — do not bake into Docker |
-| `NW_MCP_SCOPE_POLICY_DEFAULT` | `allow` locally; **unset (= `deny`) in images** | With no `NW_MCP_ACTION_SCOPE_MAP_JSON`, `deny` silently returns zero tools from `tools/list` — this is separate from `NW_MCP_AUTH_DISABLED` and must be set explicitly too, e.g. for local ToolHive testing |
+| `NW_MCP_LOCAL_DEV` | unset (= server mode) | `true` = local-dev mode: sets `NW_MCP_AUTH_DISABLED=true` and `NW_MCP_SCOPE_POLICY_DEFAULT=allow` unless set otherwise. For Inspector on your own machine only; the generated `.env.example` has it. Never set it in an image or a deployment |
+| `NW_MCP_AUTH_DISABLED` | unset (auth enforced) | Set by local-dev mode; do not bake into Docker |
+| `NW_MCP_SCOPE_POLICY_DEFAULT` | unset (= `deny`) | With no `NW_MCP_ACTION_SCOPE_MAP_JSON`, `deny` silently returns zero tools from `tools/list` — set it explicitly (or use local-dev mode) for local testing |
 
 ## Docker
 
@@ -492,7 +482,7 @@ docker run --rm --env-file .env -p 8081:8081 {module_name}
 
 `--env-file` sets process environment; it does not COPY the file into the image. Do not `COPY` or bind-mount `.env` into the container filesystem.
 
-The image is multi-stage and digest-pinned: wheels install in a `deps` stage (BuildKit pip cache), then only `/usr/local` is copied into the runtime stage. App sources (`src/`, config) are copied **after** that so source edits do not bust the install layer. Runs as non-root `USER app` with a read-only application tree, and does not disable MCP auth or open the scope policy unless you set `NW_MCP_AUTH_DISABLED` / `NW_MCP_SCOPE_POLICY_DEFAULT` at runtime. Both default fail-closed in images (unlike local `uv run`, which sets both for Inspector convenience) — a container started without them accepts connections but `tools/list` comes back empty.
+The image is multi-stage and digest-pinned: wheels install in a `deps` stage (BuildKit pip cache), then only `/usr/local` is copied into the runtime stage. App sources (`src/`, config) are copied **after** that so source edits do not bust the install layer. Runs as non-root `USER app` with a read-only application tree. The host starts in **server** mode everywhere (MCP auth on, scope policy `deny`) unless `NW_MCP_LOCAL_DEV=true` is set; it logs the resolved mode at startup. A container started without auth credentials or a scope policy accepts connections but `tools/list` comes back empty.
 
 Installs `{connector_pkg}` + `node-wire-runtime` + `{BINDINGS_DIST_PACKAGE}` from `./wheels`.
 """
@@ -600,7 +590,8 @@ LABEL org.opencontainers.image.title="{module_name}" \\
       org.opencontainers.image.description="Node Wire — {connector_id} MCP server (nw-mcp-builder)" \\
       org.opencontainers.image.source="https://github.com/AOT-Technologies/node-wire"
 
-# No secrets in ENV. NW_MCP_CONTAINER disables filesystem .env loading.
+# No secrets in ENV. NW_MCP_CONTAINER disables filesystem .env loading only;
+# auth follows the run mode (server unless NW_MCP_LOCAL_DEV=true).
 ENV PYTHONPATH=/app/src \\
     PYTHONDONTWRITEBYTECODE=1 \\
     PYTHONUNBUFFERED=1 \\

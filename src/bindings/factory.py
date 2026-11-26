@@ -153,6 +153,11 @@ def _build_secret_provider() -> SecretProvider:
     raise ValueError(f"Unknown NW_SECRET_BACKEND {mode!r}. Supported: env, aws_env.")
 
 
+def _record_version(record: ConfigRecord) -> int:
+    # ConfigRecord.version is newer than the published node-wire-runtime 1.1.2.
+    return int(getattr(record, "version", 0))
+
+
 def _make_refresh_token_rotation_callback(
     *, connector_id: str, tenant_id: str, config_name: Optional[str], refresh_token_secret: str
 ):
@@ -274,6 +279,9 @@ class ConnectorFactory:
         # protocol gating, and the MCP upstream-passthrough check.
         self._configs: Dict[str, ConnectorConfig] = {}
         self._instances: "OrderedDict[Tuple[str, str, str], BaseConnector]" = OrderedDict()
+        # ConfigRecord.version each cached instance was built from; an instance older than
+        # the record the store now resolves is rebuilt (see _cached_or_build).
+        self._instance_versions: Dict[Tuple[str, str, str], int] = {}
         # Guards all OrderedDict mutations. asyncio.Lock is per-key single-flight only
         # and does not protect sync/off-loop callers (invalidate, list_for_protocol).
         self._instances_guard = threading.RLock()
@@ -684,23 +692,42 @@ class ConnectorFactory:
         record = self._store.resolve(tenant_id, connector_id, config_name)
         key = (tenant_id, connector_id, record.name)
 
-        with self._instances_guard:
-            inst = self._instances.get(key)
-            if inst is not None:
-                self._instances.move_to_end(key)
-                return inst
+        inst = self._cached(key, record)
+        if inst is not None:
+            return inst
 
         lock = self._lock_for(key)
         async with lock:
-            with self._instances_guard:
-                inst = self._instances.get(key)
-                if inst is not None:
-                    self._instances.move_to_end(key)
-                    return inst
-                inst = self._instantiate(record)
-                self._instances[key] = inst
-                self._evict_if_needed()
+            return self._cached_or_build(key, record)
+
+    def _cached(self, key: Tuple[str, str, str], record: ConfigRecord) -> Optional[BaseConnector]:
+        """The cached instance for ``key`` if it was built from ``record``'s version or later."""
+        with self._instances_guard:
+            inst = self._instances.get(key)
+            if inst is None or self._instance_versions.get(key, -1) < _record_version(record):
+                return None
+            self._instances.move_to_end(key)
+            return inst
+
+    def _cached_or_build(self, key: Tuple[str, str, str], record: ConfigRecord) -> BaseConnector:
+        """Return the cached instance, or build one from ``record`` replacing a stale one.
+
+        The version check and the insert happen under one ``_instances_guard`` hold, so a
+        store write that landed after ``record`` was resolved is caught by the next call:
+        that call resolves the newer version and finds the cached one older.
+        """
+        with self._instances_guard:
+            inst = self._cached(key, record)
+            if inst is not None:
                 return inst
+            stale = self._instances.pop(key, None)
+            if stale is not None:
+                self._schedule_aclose(stale)
+            inst = self._instantiate(record)
+            self._instances[key] = inst
+            self._instance_versions[key] = _record_version(record)
+            self._evict_if_needed()
+            return inst
 
     def is_exposed(self, connector_id: str, protocol: str) -> bool:
         """Whether ``connector_id`` may be reached over ``protocol``.
@@ -750,6 +777,7 @@ class ConnectorFactory:
     def _evict_if_needed(self) -> None:
         while len(self._instances) > self._max_instances:
             key, old = self._instances.popitem(last=False)
+            self._instance_versions.pop(key, None)
             self._drop_lock(key)
             self._schedule_aclose(old)
 
@@ -762,6 +790,7 @@ class ConnectorFactory:
             for name in names:
                 key = (tenant_id, connector_id, name)
                 old = self._instances.pop(key, None)
+                self._instance_versions.pop(key, None)
                 self._drop_lock(key)
                 if old is not None:
                     self._schedule_aclose(old)
@@ -800,15 +829,7 @@ class ConnectorFactory:
             record = self._store.resolve(DEFAULT_TENANT, connector_id, None)
         except ConfigNotFoundError:
             return None
-        key = (DEFAULT_TENANT, connector_id, record.name)
-        with self._instances_guard:
-            inst = self._instances.get(key)
-            if inst is None:
-                inst = self._instantiate(record)
-                self._instances[key] = inst
-            else:
-                self._instances.move_to_end(key)
-            return inst
+        return self._cached_or_build((DEFAULT_TENANT, connector_id, record.name), record)
 
     def get_for_protocol(
         self, connector_id: str, protocol: str, action: Optional[str] = None

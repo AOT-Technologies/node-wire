@@ -20,6 +20,7 @@ import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 from rich.console import Console, Group, RenderableType
@@ -40,6 +41,16 @@ from nw_cli.ui import AMBER, BLUE, PINK, display_path
 ATTENTION_HEADINGS = ("Flagged for Phase 2 Review", "Auto-approved gates", "Inferred workflows")
 
 Rescope = Callable[[str | None], Path]  # reviewer feedback -> the new scope file
+
+
+class Choice(str, Enum):
+    """The review menu's options (their keys)."""
+
+    GENERATE = "g"
+    DETAILS = "d"
+    EDIT = "e"
+    REDO = "r"
+    STOP = "s"
 
 
 @dataclass(frozen=True)
@@ -177,27 +188,36 @@ def _edit(console: Console, scope_file: Path) -> None:
 
 
 def _redo(console: Console, rescope: Rescope, scope_file: Path) -> Path | None:
-    """Rerun the AI scoping with the reviewer's feedback; the old scope survives a failure."""
+    """Rerun the AI scoping with the reviewer's feedback; the old scope survives a failure.
+
+    So do its reasoning (``scoping-summary.md``) and state, which a new run clears first.
+    """
+    from nw_cli.scoping import STATE_FILE, SUMMARY_FILE
+
     feedback = Prompt.ask(
         "What should the AI change? [dim](Enter to just rerun it)[/dim]",
         default="",
         show_default=False,
         console=console,
     ).strip()
-    backup = scope_file.with_suffix(".yaml.bak")
-    shutil.copy2(scope_file, backup)
+    kept = [scope_file, scope_file.with_name(SUMMARY_FILE), scope_file.with_name(STATE_FILE)]
+    backups = {f: f.with_name(f.name + ".bak") for f in kept if f.is_file()}
+    for original, backup in backups.items():
+        shutil.copy2(original, backup)
+    failed = True
     try:
         produced = rescope(feedback or None)
+        failed = False
     except StageError as exc:
-        shutil.copy2(backup, scope_file)
         console.print(
             f"[{PINK}]AI scoping failed:[/] {exc}\nKept the previous scope.", highlight=False
         )
         return None
     finally:
-        if not scope_file.exists():
-            shutil.copy2(backup, scope_file)
-        backup.unlink(missing_ok=True)
+        for original, backup in backups.items():
+            if failed or not original.exists():
+                shutil.copy2(backup, original)
+            backup.unlink(missing_ok=True)
     return produced
 
 
@@ -207,14 +227,24 @@ def _menu(
     options = []
     if check.ok:
         options.append(
-            Option("g", "Generate the MCP server", f"replaces {replaces}" if replaces else "")
+            Option(
+                Choice.GENERATE.value,
+                "Generate the MCP server",
+                f"replaces {replaces}" if replaces else "",
+            )
         )
     if details:
-        options.append(Option("d", "Show details", "tools, endpoints, flagged points"))
+        options.append(
+            Option(Choice.DETAILS.value, "Show details", "tools, endpoints, flagged points")
+        )
     options += [
-        Option("e", "Edit the scope", f"opens {editor[0]}" if editor else "then review again"),
-        Option("r", "Redo the AI scoping", "tell the AI what to change"),
-        Option("s", "Stop here", "resume later with --scope"),
+        Option(
+            Choice.EDIT.value,
+            "Edit the scope",
+            f"opens {editor[0]}" if editor else "then review again",
+        ),
+        Option(Choice.REDO.value, "Redo the AI scoping", "tell the AI what to change"),
+        Option(Choice.STOP.value, "Stop here", "resume later with --scope"),
     ]
     return options
 
@@ -230,8 +260,13 @@ def review_scope(
     force: bool,
     reused_at: float | None,
     rescope: Rescope,
+    reviewed: bool = False,
 ) -> tuple[ReviewDecision, Path]:
-    """Show the scope and loop until the reviewer generates or stops; returns the final scope."""
+    """Show the scope and loop until the reviewer generates or stops; returns the final scope.
+
+    ``reviewed``: a human already approved this exact scope (for this spec). Without a terminal
+    such a scope is generated; any other stops for review.
+    """
     console = progress.console
     while True:
         try:
@@ -248,6 +283,9 @@ def review_scope(
         replaces = project is not None and project.exists() and not force
 
         if not is_interactive():
+            if reviewed and check.ok:
+                progress.log("Scope already reviewed and unchanged since; generating.")
+                return ReviewDecision(generate=True), scope_file
             verdict = (
                 "passes validation" if check.ok else f"{len(check.errors)} validation error(s)"
             )
@@ -285,8 +323,8 @@ def review_scope(
             )
             with key_session(console) as keys:
                 while True:
-                    choice = choose(console, "Next step", options, key_reader=keys)
-                    if choice != "d":
+                    choice = Choice(choose(console, "Next step", options, key_reader=keys))
+                    if choice is not Choice.DETAILS:
                         break
                     assert scoped is not None
                     console.print(
@@ -297,13 +335,15 @@ def review_scope(
                             border_style="grey50",
                         )
                     )
-            if choice == "g":
+            if choice is Choice.GENERATE:
                 return ReviewDecision(generate=True, replace_output=replaces), scope_file
-            if choice == "s":
+            if choice is Choice.STOP:
                 return ReviewDecision(generate=False), scope_file
-            if choice == "e":
+            if choice is Choice.EDIT:
                 _edit(console, scope_file)
-            elif choice == "r":
+            elif choice is Choice.REDO:
                 produced = _redo(console, rescope, scope_file)
                 if produced is not None:
                     scope_file, reused_at = produced, None
+            else:
+                raise AssertionError(f"unhandled review choice {choice!r}")

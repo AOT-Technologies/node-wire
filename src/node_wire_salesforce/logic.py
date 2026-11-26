@@ -283,12 +283,15 @@ class SalesforceConnector(BaseConnector):
     async def read_lead(self, params: ReadLeadInput, *, trace_id: str) -> SalesforceOperationOutput:
         return await self._record("GET", f"Lead/{params.record_id}", None, trace_id)
 
+    # PATCH sets the given fields to the given values: repeating it changes nothing more, so a
+    # timeout is retried. create_* (POST) is not: see OUTCOME_UNKNOWN in docs/errors.md.
     @sdk_action(
         "update_lead",
         http_method="PATCH",
         http_path="/sobjects/Lead/{record_id}",
         alias_tolerant=True,
         mcp_normalize=normalize_salesforce_update_lead,
+        idempotent=True,
     )
     async def update_lead(
         self, params: UpdateLeadInput, *, trace_id: str
@@ -333,6 +336,7 @@ class SalesforceConnector(BaseConnector):
         http_path="/sobjects/Contact/{record_id}",
         alias_tolerant=True,
         mcp_normalize=normalize_salesforce_update_contact,
+        idempotent=True,
     )
     async def update_contact(
         self, params: UpdateContactInput, *, trace_id: str

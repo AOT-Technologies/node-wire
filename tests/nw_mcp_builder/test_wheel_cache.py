@@ -75,3 +75,115 @@ def test_digest_matches_original_walk_with_build_artifacts(tmp_path: Path) -> No
     assert package_source_hash(tmp_path, "packages/demo") == _reference_hash(
         tmp_path, "packages/demo"
     )
+
+
+# --- one wheel-state function (MISSING / STALE / FRESH) -----------------------------------
+
+
+def _package(root: Path, name: str = "packages/demo") -> Path:
+    pkg = root / name
+    (pkg / "dist").mkdir(parents=True, exist_ok=True)
+    (pkg / "pyproject.toml").write_text('[project]\nname = "demo"\n', encoding="utf-8")
+    return pkg
+
+
+def _wheel(pkg: Path, name: str = "demo-1.0-py3-none-any.whl") -> Path:
+    wheel = pkg / "dist" / name
+    wheel.write_bytes(b"w")
+    return wheel
+
+
+def test_state_is_missing_without_a_wheel(tmp_path: Path) -> None:
+    from nw_mcp_builder.wheel_cache import WheelState, wheel_state
+
+    _package(tmp_path)
+    assert wheel_state(tmp_path, "packages/demo") is WheelState.MISSING
+
+
+def test_an_unstamped_wheel_is_stale_not_fresh(tmp_path: Path) -> None:
+    """A wheel nobody stamped (built by hand, or before this check) cannot be trusted."""
+    from nw_mcp_builder.wheel_cache import WheelState, wheel_state
+
+    _wheel(_package(tmp_path))
+    assert wheel_state(tmp_path, "packages/demo") is WheelState.STALE
+
+
+def test_stamped_wheel_is_fresh_until_the_sources_change(tmp_path: Path) -> None:
+    from nw_mcp_builder.wheel_cache import (
+        WheelState,
+        fresh_wheel,
+        package_source_hash,
+        stamp_build,
+        wheel_state,
+    )
+
+    pkg = _package(tmp_path)
+    digest = package_source_hash(tmp_path, "packages/demo")
+    wheel = _wheel(pkg)
+    assert stamp_build(tmp_path, "packages/demo", digest) == wheel
+    assert wheel_state(tmp_path, "packages/demo") is WheelState.FRESH
+    assert fresh_wheel(tmp_path, "packages/demo") == wheel
+
+    (pkg / "pyproject.toml").write_text('[project]\nname = "demo2"\n', encoding="utf-8")
+    assert wheel_state(tmp_path, "packages/demo") is WheelState.STALE
+
+
+def test_sources_are_hashed_before_the_build(tmp_path: Path) -> None:
+    """An edit made while the wheel builds must leave the wheel stale, not stamp it fresh."""
+    from nw_mcp_builder.wheel_cache import (
+        WheelState,
+        package_source_hash,
+        stamp_build,
+        wheel_state,
+    )
+
+    pkg = _package(tmp_path)
+    before = package_source_hash(tmp_path, "packages/demo")
+    _wheel(pkg)
+    (pkg / "pyproject.toml").write_text('[project]\nname = "edited"\n', encoding="utf-8")
+    stamp_build(tmp_path, "packages/demo", before)
+    assert wheel_state(tmp_path, "packages/demo") is WheelState.STALE
+
+
+def test_a_compiled_wheel_is_removed_not_stamped(tmp_path: Path) -> None:
+    from nw_mcp_builder.wheel_cache import (
+        WheelState,
+        package_source_hash,
+        stamp_build,
+        wheel_state,
+    )
+
+    pkg = _package(tmp_path)
+    digest = package_source_hash(tmp_path, "packages/demo")
+    compiled = _wheel(pkg, "demo-1.0-cp313-cp313-linux_x86_64.whl")
+    with pytest.raises(FileNotFoundError, match="py3-none-any"):
+        stamp_build(tmp_path, "packages/demo", digest)
+    assert not compiled.exists()
+    assert wheel_state(tmp_path, "packages/demo") is WheelState.MISSING
+
+
+def test_a_deleted_stamped_wheel_is_missing(tmp_path: Path) -> None:
+    from nw_mcp_builder.wheel_cache import (
+        WheelState,
+        package_source_hash,
+        stamp_build,
+        wheel_state,
+    )
+
+    pkg = _package(tmp_path)
+    digest = package_source_hash(tmp_path, "packages/demo")
+    wheel = _wheel(pkg)
+    stamp_build(tmp_path, "packages/demo", digest)
+    wheel.unlink()
+    assert wheel_state(tmp_path, "packages/demo") is WheelState.MISSING
+
+
+def test_fresh_wheels_names_every_package_that_is_not_fresh(tmp_path: Path) -> None:
+    from nw_mcp_builder.wheel_cache import WheelsNotFreshError, fresh_wheels
+
+    _package(tmp_path, "packages/a")
+    _wheel(_package(tmp_path, "packages/b"))
+    with pytest.raises(WheelsNotFreshError) as excinfo:
+        fresh_wheels(tmp_path, ["packages/a", "packages/b"])
+    assert excinfo.value.packages == {"packages/a": "missing", "packages/b": "stale"}
+    assert "packages/a (missing)" in str(excinfo.value)

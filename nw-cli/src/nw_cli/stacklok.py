@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict
@@ -16,6 +15,7 @@ from typing import Any, Dict
 import yaml
 
 from nw_cli.stages import LogFn, StageError, run_wheel_build, stale_wheel_packages
+from nw_cli.wheel_cache import WheelsNotFreshError, fresh_wheels
 
 STACKLOK_BUILDER_DIR = "nw-stacklok-builder"
 # Set on specs prepared by `nw gen-stacklok --path`: the original spec the file was made from.
@@ -34,6 +34,21 @@ def stacklok_packages(connector_id: str) -> list[str]:
         "packages/toolhive",
         f"packages/connectors/{connector_id}",
     ]
+
+
+def stacklok_wheels(node_wire_root: Path, connector_id: str) -> Dict[str, Path]:
+    """``{distribution name: wheel}`` for the server's image, all built from current sources.
+
+    What the generator bundles; it never looks in ``dist/`` itself.
+    """
+    from nw_stacklok.project import distributions
+
+    dists = distributions(node_wire_root, connector_id)
+    try:
+        found = fresh_wheels(node_wire_root, [d.package for d in dists])
+    except WheelsNotFreshError as exc:
+        raise StageError(f"{exc}; nw gen-stacklok builds them (omit --no-wheel)") from exc
+    return {d.name: found[d.package] for d in dists}
 
 
 def default_output_dir(node_wire_root: Path) -> Path:
@@ -332,7 +347,6 @@ def run_stacklok_generate(
     output_dir: Path,
     work_dir: Path,
     force_output: bool = False,
-    wheels: bool = True,
     lock: bool = True,
     log: LogFn | None = None,
     validated: ValidatedScope | None = None,
@@ -341,9 +355,13 @@ def run_stacklok_generate(
 
     ``validated``: the result of :func:`load_and_validate_stacklok_scope` for this scope, when
     the caller already ran it (its files must still exist); skips validating and parsing again.
+
+    The project is generated into a staging folder and moved into place only when complete;
+    an existing project is replaced (``force_output``) only then.
     """
     from mcp_builder.log import configure_logging
     from mcp_builder.pipeline import run_pipeline
+    from nw_mcp_builder.output_dir import atomic_output_dir
     from nw_stacklok.hooks import NodeWireOptions
 
     # stacklok logs every planning step at debug; keep the progress display readable.
@@ -363,13 +381,15 @@ def run_stacklok_generate(
             raise StageError(f"Output project already exists: {project} (pass --force)")
         if output_dir.resolve() not in project.resolve().parents:
             raise StageError(f"Refusing to replace {project}: it is outside {output_dir}")
-        shutil.rmtree(project)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    return run_pipeline(
-        scope_file,
-        spec_file,
-        template_dir(node_wire_root),
-        output_dir,
-        node_wire=NodeWireOptions(node_wire_root, wheels=wheels, lock=lock),
-        preloaded=loaded,
-    )
+    # Preconditions before anything is written: the wheels the image installs.
+    wheels = stacklok_wheels(node_wire_root, scope.connector_id)
+    with atomic_output_dir(project, replace=force_output) as staging:
+        run_pipeline(
+            scope_file,
+            spec_file,
+            template_dir(node_wire_root),
+            staging,
+            node_wire=NodeWireOptions(node_wire_root, wheels=wheels, lock=lock),
+            preloaded=loaded,
+        )
+    return project

@@ -166,6 +166,36 @@ def test_tenants_persist_roundtrip(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     )
 
 
+def test_tricky_config_values_survive_save_and_load(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The file is written and read with libyaml when available; values must round-trip,
+    and the file must read the same with the pure-Python loader (older readers, tools)."""
+    path = tmp_path / "t.yaml"
+    monkeypatch.setenv("NW_TENANTS_PATH", str(path))
+    tricky = {
+        "unicode": "café — naïve ✓ 日本語",
+        "multiline": "line one\nline two: with colon\n  indented",
+        "yaml_words": ["yes", "no", "on", "off", "null", "~", "true"],
+        "number_like": ["0123", "1e3", "0x1F", "1_000", "12:30"],
+        "punctuation": "# not a comment: [x] {y} & *z !tag | > ' \"",
+        "spaces": "  leading and trailing  ",
+        "long": "x" * 200 + " " + "y" * 200,
+        "empty": "",
+        "nested": {"list": [1, 2.5, None, False]},
+    }
+    store = _factory().store
+    store.create("acme", "smtp", {"name": "tricky", "default": True, "config": tricky})
+    save_tenants(store)
+
+    text = path.read_text(encoding="utf-8")
+    assert yaml.safe_load(text) == yaml.load(text, Loader=yaml.CSafeLoader)
+    fresh = _factory().store
+    load_tenants(fresh)
+    assert fresh.get("acme", "smtp", "tricky") == store.get("acme", "smtp", "tricky")
+    assert fresh.get("acme", "smtp", "tricky")["config"] == tricky
+
+
 def test_new_config_without_secrets_rejected(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("NW_MULTITENANCY_ENABLED", "true")
     factory = _factory()
@@ -954,3 +984,30 @@ def test_local_store_inside_the_source_tree_is_refused(monkeypatch: pytest.Monke
     monkeypatch.setenv("NW_LOCAL_SECRET_FILE", str(tp._REPO_ROOT / "config" / "secrets.enc"))
     with pytest.raises(SecretStoreNotConfiguredError, match="outside the source tree"):
         load_tenants(ConnectorConfigStore())
+
+
+def test_set_default_survives_save_and_reload(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    monkeypatch.setenv("NW_TENANTS_PATH", str(tmp_path / "defaults.yaml"))
+    store = _factory().store
+    store.create("acme", "smtp", {"name": "a", "default": True, "config": {}})
+    store.create("acme", "smtp", {"name": "b", "config": {}})
+    store.set_default("acme", "smtp", "b")
+    save_tenants(store)
+
+    fresh = _factory().store
+    load_tenants(fresh)
+    assert fresh.resolve("acme", "smtp", None).name == "b"
+    # Reloading into a store that already holds the configs (update path) honours it too.
+    store.set_default("acme", "smtp", "a")
+    load_tenants(store)
+    assert store.resolve("acme", "smtp", None).name == "b"
+    assert [d["name"] for d in store.list("acme", "smtp") if d["default"]] == ["b"]
+
+
+def test_export_writes_the_records_default_flag():
+    store = ConnectorConfigStore()
+    store.create("acme", "smtp", {"name": "a", "default": True, "config": {}})
+    store.create("acme", "smtp", {"name": "b", "config": {}})
+    store.set_default("acme", "smtp", "b")
+    exported = {d["name"]: d["default"] for d in store.export_all()["acme"]["smtp"]}
+    assert exported == {"a": False, "b": True}

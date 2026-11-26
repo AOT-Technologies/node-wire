@@ -41,7 +41,7 @@ from .config_store import (
     ConfigStoreError,
     DefaultDeletionError,
 )
-from .errors import CATALOGUE, ErrorCode, ErrorMapper
+from .errors import CATALOGUE, ErrorCode, ErrorMapper, NestedConnectorActionError
 from .models import ConnectorResponse, ErrorCategory
 from .identity import (
     MissingTenantError,
@@ -51,7 +51,7 @@ from .identity import (
 )
 from .policy import PolicyContext, PolicyHook, PolicyDenied
 from .log_sanitization import reset_log_connector_id, redact_credentials, set_log_connector_id
-from .resilience import CircuitBreaker, with_resilience
+from .resilience import CircuitBreaker, _counts_against_breaker, with_resilience
 from .secrets import SecretNotFoundError, SecretProvider, TenantSecretNotFoundError
 from .secrets.base import _sanitize_secret_segment
 from .sdk_action_spec import SdkActionSpec
@@ -89,15 +89,6 @@ _register(SecretNotFoundError, ErrorCode.SECRET_NOT_FOUND)
 _register(TenantSecretNotFoundError, ErrorCode.TENANT_SECRET_NOT_FOUND)
 
 
-class NestedConnectorActionError(Exception):
-    """Nested action invoked via :meth:`call_action` returned ``ConnectorResponse.success=False``."""
-
-    def __init__(self, response: ConnectorResponse) -> None:
-        self.response = response
-        msg = response.message or response.error_code or "Nested action failed"
-        super().__init__(msg)
-
-
 def _merge_nested_failure_details(nested: ConnectorResponse) -> Any:
     """Attach nested trace id for debugging without dropping existing ``details``."""
     tid = nested.trace_id
@@ -117,6 +108,26 @@ def _merge_nested_failure_details(nested: ConnectorResponse) -> Any:
 _caller_execution_ctx: contextvars.ContextVar[
     tuple[Optional[str], Optional[str], Optional[tuple[str, ...]]] | None
 ] = contextvars.ContextVar("nw_connector_caller_execution", default=None)
+
+# The circuit breaker the running action's invocation already holds. A nested call_action that
+# would use the same breaker leaves the accounting to that outer invocation.
+_breaker_in_use: contextvars.ContextVar[Optional[CircuitBreaker]] = contextvars.ContextVar(
+    "nw_connector_breaker_in_use", default=None
+)
+
+
+class _NestedOutcome:
+    """Filled by a nested :meth:`BaseConnector.run` for its :meth:`call_action` caller."""
+
+    __slots__ = ("counts_against_breaker",)
+
+    def __init__(self) -> None:
+        self.counts_against_breaker = False
+
+
+_nested_outcome: contextvars.ContextVar[Optional[_NestedOutcome]] = contextvars.ContextVar(
+    "nw_connector_nested_outcome", default=None
+)
 
 # Populated by BaseConnector.__init_subclass__
 _CONNECTOR_REGISTRY: Dict[str, Type["BaseConnector"]] = {}
@@ -182,6 +193,7 @@ def _make_spec_handler(
     scopes: Optional[List[str]] = None,
     rate_limit: Optional[Dict[str, Any]] = None,
     deprecated: bool = False,
+    idempotent: Optional[bool] = None,
 ) -> Any:
     """
     Build a single async handler function for one action_specs entry.
@@ -208,6 +220,7 @@ def _make_spec_handler(
     handler_fn._scopes = scopes
     handler_fn._rate_limit = rate_limit
     handler_fn._deprecated = deprecated
+    handler_fn._idempotent = idempotent
     # Backward-compatible alias for legacy callers/tests.
     handler_fn._nw_action_name = action_name
     return handler_fn
@@ -265,6 +278,7 @@ def _generate_methods_from_action_specs(cls: Any) -> None:
             scopes=spec.scopes,
             rate_limit=spec.rate_limit,
             deprecated=spec.deprecated,
+            idempotent=getattr(spec, "idempotent", None),
         )
         setattr(cls, fn_name, handler)
 
@@ -278,6 +292,7 @@ def sdk_action(
     scopes: Optional[List[str]] = None,
     rate_limit: Optional[Dict[str, Any]] = None,
     deprecated: bool = False,
+    idempotent: Optional[bool] = None,
     http_method: Optional[str] = None,
     http_path: Optional[str] = None,
     tags: Tuple[str, ...] = (),
@@ -295,6 +310,10 @@ def sdk_action(
     extra/alias fields (e.g. LLM-generated aliases) before normalization runs.
 
     Optional mcp_normalize mutates tool argument dicts in place before connector.run.
+
+    ``idempotent`` says whether running the action twice has the effect of running it once.
+    ``False``: a timeout or 5xx is not retried (``OUTCOME_UNKNOWN``); ``True``: it is. ``None``
+    (default): judged per failed HTTP request by its method and idempotency headers.
     """
 
     def decorator(fn: Any) -> Any:
@@ -305,6 +324,7 @@ def sdk_action(
         fn._scopes = scopes
         fn._rate_limit = rate_limit
         fn._deprecated = deprecated
+        fn._idempotent = idempotent
         fn._http_method = http_method
         fn._http_path = http_path
         fn._tags = tuple(tags)
@@ -324,6 +344,7 @@ def nw_action(
     scopes: Optional[List[str]] = None,
     rate_limit: Optional[Dict[str, Any]] = None,
     deprecated: bool = False,
+    idempotent: Optional[bool] = None,
     http_method: Optional[str] = None,
     http_path: Optional[str] = None,
     tags: Tuple[str, ...] = (),
@@ -341,6 +362,7 @@ def nw_action(
         scopes=scopes,
         rate_limit=rate_limit,
         deprecated=deprecated,
+        idempotent=idempotent,
         http_method=http_method,
         http_path=http_path,
         tags=tags,
@@ -361,6 +383,8 @@ class NwActionMeta:
     scopes: Optional[List[str]] = None
     rate_limit: Optional[Dict[str, Any]] = None
     deprecated: bool = False
+    # None: judged per failed HTTP request (method, idempotency headers); see with_resilience.
+    idempotent: Optional[bool] = None
     http_method: Optional[str] = None
     http_path: Optional[str] = None
     tags: Tuple[str, ...] = ()
@@ -479,6 +503,7 @@ class BaseConnector(ABC):
                 scopes=getattr(method, "_scopes", None),
                 rate_limit=getattr(method, "_rate_limit", None),
                 deprecated=getattr(method, "_deprecated", False),
+                idempotent=getattr(method, "_idempotent", None),
                 http_method=getattr(method, "_http_method", None),
                 http_path=getattr(method, "_http_path", None),
                 tags=getattr(method, "_tags", ()),
@@ -732,6 +757,13 @@ class BaseConnector(ABC):
             _metric_attrs: Dict[str, AttributeValue] = {}
             _start = time.monotonic()
             token = _caller_execution_ctx.set((principal, tenant_id, scopes))
+            # Set only by call_action, for this run; the action's own nested calls get their own.
+            nested_outcome = _nested_outcome.get()
+            outcome_token = _nested_outcome.set(None)
+            breaker = self._breaker_for_tenant(tenant_id)
+            # A call_action from an action that already holds this breaker: that invocation
+            # owns the accounting, so this one neither asks the breaker nor reports to it.
+            breaker_owned_by_caller = _breaker_in_use.get() is breaker
             try:
                 try:
                     input_model = self._input_model_cls.model_validate(raw_input)
@@ -801,15 +833,21 @@ class BaseConnector(ABC):
                         )
                         return _response
 
+                meta = self._action_registry.get(action)
                 execute_with_resilience = with_resilience(
-                    self._breaker_for_tenant(tenant_id),
+                    None if breaker_owned_by_caller else breaker,
                     connector_id=self.connector_id,
                     action=action,
+                    idempotent=meta.idempotent if meta is not None else None,
                 )
 
                 @execute_with_resilience
                 async def _do_execute(*, trace_id: str) -> Any:
-                    return await self.internal_execute(input_model, trace_id=trace_id)
+                    in_use = _breaker_in_use.set(breaker)
+                    try:
+                        return await self.internal_execute(input_model, trace_id=trace_id)
+                    finally:
+                        _breaker_in_use.reset(in_use)
 
                 output_model = await _do_execute(trace_id=trace_id)
 
@@ -842,6 +880,8 @@ class BaseConnector(ABC):
                         "nested_trace_id": nested.trace_id,
                     },
                 )
+                if nested_outcome is not None and breaker_owned_by_caller:
+                    nested_outcome.counts_against_breaker = exc.counts_against_breaker
                 _response = ConnectorResponse(
                     success=False,
                     error_code=nested.error_code,
@@ -868,6 +908,10 @@ class BaseConnector(ABC):
                         "audit_event": "invocation_failure",
                     },
                 )
+                if nested_outcome is not None and breaker_owned_by_caller:
+                    nested_outcome.counts_against_breaker = _counts_against_breaker(
+                        exc, mapped.category
+                    )
                 _response = ConnectorResponse(
                     success=False,
                     error_code=mapped.code,
@@ -877,6 +921,7 @@ class BaseConnector(ABC):
                 )
                 return _response
             finally:
+                _nested_outcome.reset(outcome_token)
                 _caller_execution_ctx.reset(token)
                 if _response is not None:
                     _duration_ms = (time.monotonic() - _start) * 1000
@@ -972,11 +1017,18 @@ class BaseConnector(ABC):
 
         payload = dict(params_dict)
         payload["action"] = name
-        resp = await self.run(payload, principal=p, tenant_id=t, scopes=s)
+        outcome = _NestedOutcome()
+        outcome_token = _nested_outcome.set(outcome)
+        try:
+            resp = await self.run(payload, principal=p, tenant_id=t, scopes=s)
+        finally:
+            _nested_outcome.reset(outcome_token)
         if not resp.success:
             if resp.error_code == POLICY_DENIED_CODE:
                 raise PolicyDenied(resp.message or "Policy denied")
-            raise NestedConnectorActionError(resp)
+            raise NestedConnectorActionError(
+                resp, counts_against_breaker=outcome.counts_against_breaker
+            )
         if resp.data is None:
             raise RuntimeError("call_action: connector returned no data")
         return meta.output_model.model_validate(resp.data)

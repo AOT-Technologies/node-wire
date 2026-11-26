@@ -39,7 +39,7 @@ def register_config_tools(mcp: FastMCP, client: NodeWireClient) -> None:
             tenant_id = client.tenant_id()
             return {
                 "tenant_id": tenant_id,
-                "selected": client.selected_config(),
+                "selected": client.selected_config(tenant_id),
                 "configs": client.config_names(tenant_id),
             }
         except Exception as exc:  # noqa: BLE001 — surface as a traced tool error

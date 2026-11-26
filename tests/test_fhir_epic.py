@@ -861,3 +861,67 @@ async def test_fhir_epic_search_document_reference_generic_error():
     ):
         with pytest.raises(httpx.ConnectError):
             await c.internal_execute(params, trace_id="test-trace")
+
+
+# ---------------------------------------------------------------------------
+# Conditional create and next-page links
+# ---------------------------------------------------------------------------
+
+
+def _bundle(next_url: str | None) -> MagicMock:
+    resp = MagicMock()
+    resp.status_code = 200
+    links = [{"relation": "self", "url": "https://fhir.example/R4/X?page=1"}]
+    if next_url:
+        links.append({"relation": "next", "url": next_url})
+    resp.json.return_value = {
+        "resourceType": "Bundle",
+        "total": 40,
+        "link": links,
+        "entry": [{"resource": {"resourceType": "Encounter", "id": "e1"}}],
+    }
+    return resp
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_create_without_a_usable_identifier_sends_no_if_none_exist():
+    from node_wire_fhir_epic.schema import FhirDocumentReferenceCreateInput
+
+    params = FhirDocumentReferenceCreateInput(
+        identifier=[{"value": "no-system"}],
+        status="current",
+        type={"coding": [{"system": "urn:oid:4.5.6", "code": "18100"}]},
+        subject="Patient/p1",
+        data="dGVzdA==",
+    )
+    create_response = MagicMock()
+    create_response.status_code = 201
+    create_response.headers = {"Location": "DocumentReference/doc-1"}
+    create_response.content = b""
+    with patch(
+        "httpx.AsyncClient.post", new_callable=AsyncMock, return_value=create_response
+    ) as mock_post:
+        await _connector().internal_execute(params, trace_id="t")
+    assert "If-None-Exist" not in mock_post.call_args.kwargs["headers"]
+
+
+@pytest.mark.asyncio
+async def test_fhir_epic_searches_return_the_next_page_url():
+    from node_wire_fhir_epic.schema import (
+        FhirDocumentReferenceSearchInput,
+        FhirEncounterSearchInput,
+        FhirPatientSearchInput,
+    )
+
+    nxt = "https://fhir.example/R4/X?page=2"
+    for params in (
+        FhirEncounterSearchInput(search_params={"patient": "p1"}),
+        FhirDocumentReferenceSearchInput(search_params={"patient": "p1"}),
+        FhirPatientSearchInput(family_name="Doe"),
+    ):
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=_bundle(nxt)):
+            result = await _connector().internal_execute(params, trace_id="t")
+        assert result.next_url == nxt, params.action
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=_bundle(None)):
+            result = await _connector().internal_execute(params, trace_id="t")
+        assert result.next_url is None

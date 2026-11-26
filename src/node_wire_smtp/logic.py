@@ -110,6 +110,23 @@ class SmtpCredentialsError(ValueError):
     """The auth provider could not supply the SMTP username and password."""
 
 
+class SmtpAuthFailedError(Exception):
+    """The relay refused the configured credentials."""
+
+
+class SmtpConnectFailedError(ConnectionError):
+    """Could not reach the relay: nothing was sent, so the call is retried."""
+
+
+class SmtpTimeoutError(TimeoutError):
+    """The relay stopped answering mid-conversation. The message may have been sent, so the
+    call is not retried (a retry could send it twice)."""
+
+
+class SmtpDisconnectedError(ConnectionError):
+    """The relay dropped the connection mid-conversation; as for a timeout, not retried."""
+
+
 class SmtpConnector(BaseConnector):
     """SMTP connector for sending email and inspecting the configured relay, via aiosmtplib."""
 
@@ -122,8 +139,12 @@ class SmtpConnector(BaseConnector):
     error_map: ClassVar[Dict[Type[BaseException], Tuple[ErrorCategory, str]]] = {
         SmtpRelayNotAllowedError: (ErrorCategory.FATAL, "SMTP_RELAY_NOT_ALLOWED"),
         SmtpCredentialsError: (ErrorCategory.AUTH, "SMTP_CREDENTIALS_MISSING"),
+        SmtpAuthFailedError: (ErrorCategory.AUTH, "SMTP_AUTH_ERROR"),
+        SmtpConnectFailedError: (ErrorCategory.RETRYABLE, "SMTP_CONNECT_ERROR"),
+        SmtpTimeoutError: (ErrorCategory.FATAL, "SMTP_TIMEOUT"),
+        SmtpDisconnectedError: (ErrorCategory.FATAL, "SMTP_DISCONNECTED"),
         aiosmtplib.errors.SMTPConnectError: (ErrorCategory.RETRYABLE, "SMTP_CONNECT_ERROR"),
-        aiosmtplib.errors.SMTPTimeoutError: (ErrorCategory.RETRYABLE, "SMTP_TIMEOUT"),
+        aiosmtplib.errors.SMTPTimeoutError: (ErrorCategory.FATAL, "SMTP_TIMEOUT"),
         aiosmtplib.errors.SMTPAuthenticationError: (ErrorCategory.AUTH, "SMTP_AUTH_ERROR"),
         aiosmtplib.errors.SMTPException: (ErrorCategory.BUSINESS, "SMTP_ERROR"),
     }
@@ -233,7 +254,7 @@ class SmtpConnector(BaseConnector):
                 rcpt_options=rcpt_options,
             )
         except Exception as exc:  # noqa: BLE001
-            # The runtime classifies the exception; this only adds context to the log.
+            # Log with relay context, then re-raise as a typed error the error_map classifies.
             logger.error(
                 "SMTP send failed",
                 extra={
@@ -246,6 +267,29 @@ class SmtpConnector(BaseConnector):
                     "error_message": str(exc),
                 },
             )
+            where = f"{relay.host}:{relay.port}"
+            if isinstance(exc, aiosmtplib.SMTPAuthenticationError):
+                raise SmtpAuthFailedError(
+                    f"SMTP authentication failed for {where}. "
+                    f"Check SMTP_USERNAME and SMTP_PASSWORD. Detail: {exc}"
+                ) from exc
+            # Before the timeout check: a connect timeout is both, and nothing was sent.
+            if isinstance(exc, aiosmtplib.SMTPConnectError):
+                raise SmtpConnectFailedError(
+                    f"Could not connect to SMTP server {where}. "
+                    f"Check SMTP_HOST, SMTP_PORT, and SMTP_USE_TLS. Detail: {exc}"
+                ) from exc
+            if isinstance(exc, aiosmtplib.SMTPTimeoutError):
+                raise SmtpTimeoutError(
+                    f"SMTP server {where} timed out mid-conversation; the message may have been "
+                    "sent, so it was not retried. Check before sending again; NW_TIMEOUT may be "
+                    f"too low. Detail: {exc}"
+                ) from exc
+            if isinstance(exc, aiosmtplib.SMTPServerDisconnected):
+                raise SmtpDisconnectedError(
+                    f"SMTP server {where} closed the connection; the message may have been "
+                    f"sent, so it was not retried. Check before sending again. Detail: {exc}"
+                ) from exc
             raise
 
         self._log(

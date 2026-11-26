@@ -92,7 +92,7 @@ def test_recursive_spec_builds_and_promotes(tmp_path: Path) -> None:
         report_path=tmp_path / "abort.json",
     )
 
-    assert code == 0
+    assert code.exit_code == 0
     logic = (root / "src" / "node_wire_recursive_demo" / "logic.py").read_text()
     assert '@nw_action("create_message"' in logic
     assert '@nw_action("get_team"' in logic

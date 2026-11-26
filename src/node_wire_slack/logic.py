@@ -15,15 +15,16 @@ All credentials are resolved at call-time via SecretProvider.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 import base64
 import binascii
 import json
 import logging
 import os
 import re
-from typing import Any, ClassVar, Dict, Tuple, Type
+from typing import Any, ClassVar, Dict, Tuple, Type, TypeVar
 
 import httpx
 
@@ -74,6 +75,12 @@ _DEFAULT_TIMEOUT = float(os.getenv("NW_SLACK_TIMEOUT", os.getenv("NW_TIMEOUT", "
 _HARD_UPLOAD_LIMIT_MB = 100
 _DEFAULT_UPLOAD_LIMIT_MB = 50
 _CHANNEL_ID_RE = re.compile(r"^[CGDZ][A-Z0-9]{8,}$")
+# Upload steps 2 and 3 run after Slack has assigned a file_id: they retry on their own instead of
+# the whole action starting over with a new file.
+_STEP_ATTEMPTS = 3
+_STEP_RETRY_WAIT = 0.5
+
+_T = TypeVar("_T")
 
 
 def _get_api_url(path: str) -> str:
@@ -215,10 +222,54 @@ async def _complete_upload(
             data=data,
             timeout=timeout,
         )
-    resp_data = response.json()
+    try:
+        resp_data = response.json()
+    except ValueError as exc:
+        raise SlackUploadError(
+            f"Slack answered HTTP {response.status_code} without JSON while completing the "
+            f"upload of file {file_id}; the file was uploaded but may not be shared."
+        ) from exc
+    if not isinstance(resp_data, dict):
+        raise SlackUploadError(
+            f"Slack returned an unexpected body completing the upload of file {file_id}."
+        )
     if not resp_data.get("ok"):
         _raise_for_slack_error(resp_data, response.status_code)
     return resp_data
+
+
+async def _upload_step(
+    name: str,
+    file_id: str,
+    step: Callable[[], Awaitable[_T]],
+    retry_on: tuple[type[BaseException], ...],
+) -> _T:
+    """Run one upload step after Slack assigned ``file_id``, retrying only that step.
+
+    When the step still fails, raises :class:`SlackUploadError` naming the file, so the runtime
+    does not retry the whole action (which would upload a second copy).
+    """
+    for attempt in range(1, _STEP_ATTEMPTS + 1):
+        try:
+            return await step()
+        except retry_on as exc:
+            if attempt == _STEP_ATTEMPTS:
+                raise SlackUploadError(
+                    f"Slack upload of file {file_id} failed at the {name} step after "
+                    f"{attempt} attempts: {exc}"
+                ) from exc
+            logger.warning(
+                "Slack upload step failed; retrying that step",
+                extra={
+                    "connector_id": "slack",
+                    "step": name,
+                    "file_id": file_id,
+                    "attempt_number": attempt,
+                    "error_type": type(exc).__name__,
+                },
+            )
+            await asyncio.sleep(_STEP_RETRY_WAIT * attempt)
+    raise AssertionError("unreachable")  # pragma: no cover
 
 
 def _resolve_blocks(blocks: Any) -> list[Any] | None:
@@ -506,14 +557,25 @@ class SlackConnector(BaseConnector):
         )
         upload_url, file_id = await _get_upload_url(token, effective_filename, len(content_bytes))
 
-        await _upload_bytes(upload_url, content_bytes)
-
-        data = await _complete_upload(
-            token,
+        # Sending the same bytes to the same pre-signed URL again is harmless: retry any
+        # transport failure. Completing is retried only when Slack did not take the request.
+        await _upload_step(
+            "upload",
             file_id,
-            title=effective_filename,
-            channel_id=channel_id,
-            initial_comment=params.initial_comment,
+            lambda: _upload_bytes(upload_url, content_bytes),
+            (httpx.TransportError, SlackRateLimitError),
+        )
+        data = await _upload_step(
+            "complete",
+            file_id,
+            lambda: _complete_upload(
+                token,
+                file_id,
+                title=effective_filename,
+                channel_id=channel_id,
+                initial_comment=params.initial_comment,
+            ),
+            (SlackRateLimitError, httpx.ConnectError, httpx.ConnectTimeout),
         )
 
         logger.info(

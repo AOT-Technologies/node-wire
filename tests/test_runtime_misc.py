@@ -515,3 +515,50 @@ def test_sanitizing_span_exporter_handles_immutable_attributes() -> None:
     delegate.export.assert_called_once()
     assert span._attributes["patient_id"] == REDACTED
     assert span._attributes["connector.id"] == "fhir_epic"
+
+
+# ---------------------------------------------------------------------------
+# BufferedStreamIterator: error flush and cancellation logging
+# ---------------------------------------------------------------------------
+
+
+async def test_buffered_stream_flushes_buffered_items_before_raising() -> None:
+    async def bad_source():
+        yield {"i": 0}
+        yield {"i": 1}
+        raise RuntimeError("upstream error")
+
+    seen: list = []
+    with pytest.raises(RuntimeError, match="upstream error"):
+        async for item in BufferedStreamIterator(bad_source(), buffer_ms=10_000, trace_id="t5"):
+            seen.append(item)
+    assert seen == [{"i": 0}, {"i": 1}]
+
+
+async def test_buffered_stream_cancellation_is_not_logged_as_completed(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import asyncio
+
+    started = asyncio.Event()
+
+    async def slow_source():
+        yield {"i": 0}
+        started.set()
+        await asyncio.sleep(10)
+        yield {"i": 1}
+
+    async def consume() -> None:
+        async for _ in BufferedStreamIterator(slow_source(), buffer_ms=0, trace_id="t6"):
+            pass
+
+    with caplog.at_level(logging.INFO, logger="runtime.streaming"):
+        task = asyncio.create_task(consume())
+        await started.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    messages = [r.getMessage().lower() for r in caplog.records if r.name == "runtime.streaming"]
+    assert any("cancelled" in m for m in messages)
+    assert not any("completed" in m for m in messages)

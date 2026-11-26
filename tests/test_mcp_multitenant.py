@@ -775,3 +775,65 @@ def test_streamable_http_get_is_not_served(monkeypatch: pytest.MonkeyPatch) -> N
         )
 
     assert response.status_code == 405
+
+
+# ---------------------------------------------------------------------------
+# Streamable HTTP: nw_select_tenant / nw_select_config are scoped to the caller's
+# session, and a caller cannot select a tenant other than its request tenant.
+# ---------------------------------------------------------------------------
+
+
+def _structured(result: dict) -> dict:
+    if "structuredContent" in result and result["structuredContent"] is not None:
+        return result["structuredContent"]
+    return json.loads(result["content"][0]["text"])
+
+
+def _two_tenant_app(monkeypatch: pytest.MonkeyPatch) -> tuple[McpServer, object]:
+    server, app = _http_app(monkeypatch, ["http_generic"])
+    for tenant in ("acme", "beta"):
+        server._factory.store.create(tenant, "http_generic", {"name": "main", "default": True})
+        server._factory.store.create(tenant, "http_generic", {"name": "alt", "default": False})
+    return server, app
+
+
+def test_streamable_http_select_tenant_rejects_other_tenant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi.testclient import TestClient
+
+    _server, app = _two_tenant_app(monkeypatch)
+    with TestClient(app) as client:
+        result = _call(client, _jwt("alice", "acme"), "nw_select_tenant", {"tenant_id": "beta"})
+
+    assert result.get("isError") is True
+    body = _structured(result)
+    assert body["error_code"] == "TENANT_IDENTITY_MISMATCH"
+    assert "configs" not in body
+    assert "alt" not in json.dumps(result)
+
+
+def test_streamable_http_select_config_does_not_leak_to_other_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fastapi.testclient import TestClient
+
+    _server, app = _two_tenant_app(monkeypatch)
+    with TestClient(app) as client:
+        chosen = _call(client, _jwt("alice", "acme"), "nw_select_config", {"config_name": "alt"})
+        assert not chosen.get("isError"), chosen
+        bob = _call(client, _jwt("bob", "beta"), "nw_select_tenant", {"tenant_id": "beta"})
+        other_session = _call(
+            client,
+            _jwt("alice", "acme"),
+            "nw_select_tenant",
+            {"tenant_id": "acme"},
+            **{"mcp-session-id": "second"},
+        )
+        same_session = _call(
+            client, _jwt("alice", "acme"), "nw_select_tenant", {"tenant_id": "acme"}
+        )
+
+    assert _structured(bob)["selected_config_name"] is None
+    assert _structured(other_session)["selected_config_name"] is None
+    assert _structured(same_session)["selected_config_name"] == "alt"

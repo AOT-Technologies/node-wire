@@ -64,7 +64,8 @@ def _add_from_openapi_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--wire",
         action="store_true",
-        help="After a clean promote, edit connectors.yaml + sample.env",
+        help="After a clean promote, wire it in: connectors.yaml, sample.env and "
+        "scripts/build-packages.sh ALL_PACKAGES (idempotent)",
     )
     parser.add_argument(
         "--force",
@@ -120,7 +121,7 @@ def _run_from_openapi(args: argparse.Namespace) -> None:
 
     node_wire_root = (args.node_wire_root or _default_node_wire_root()).resolve()
     try:
-        code = run_build(
+        outcome = run_build(
             spec=args.spec,
             connector_id=args.connector_id,
             node_wire_root=node_wire_root,
@@ -136,9 +137,10 @@ def _run_from_openapi(args: argparse.Namespace) -> None:
         print(f"usage error: {exc}", file=sys.stderr)
         raise SystemExit(2) from exc
     except BuildError as exc:
-        print(f"build failed: {exc}", file=sys.stderr)
+        where = f" (report: {exc.report_path})" if exc.report_path else ""
+        print(f"build failed: {exc}{where}", file=sys.stderr)
         raise SystemExit(1) from exc
-    raise SystemExit(code)
+    raise SystemExit(outcome.exit_code)
 
 
 def main(argv: list[str] | None = None) -> None:

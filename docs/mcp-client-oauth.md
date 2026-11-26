@@ -124,6 +124,27 @@ tools = await client.list_tools()
 
 Environment variables: see `sample.env` (`NW_MCP_OAUTH_*`).
 
+### Token lifecycle
+
+`TokenManager` stores the client registration (the `client_id` the tokens were issued to) together with the tokens, so an expired access token is refreshed after a restart, or behind an injected `reauthorize=` callback, without a new browser authorization. Records written by earlier versions have no registration; they still load and fall back to the configured `auth.client.id`.
+
+| Stored tokens | `get_bearer_token()` |
+|---------------|----------------------|
+| valid, outside `refreshLeadSeconds` | returns the token |
+| inside the lead window, not expired | refreshes; if that fails, keeps using the current token |
+| expired, refresh token and registration known | refreshes; full authorization only if the refresh fails |
+| none, or expired and not refreshable | full authorization |
+
+`force_refresh=True` tries the refresh token before a full authorization. A JWT access token whose `aud` is not the MCP server URL is never stored, and a stored one is discarded.
+
+On an MCP response, `McpOAuthClient` resends the request once after recovery:
+
+- `401`: refresh the token (or authorize again), then resend.
+- `401` or `403` with `error="insufficient_scope"`: request the challenge's `scope` and run a new authorization (scope step-up), then resend.
+- other `403`: raise.
+
+The client keeps one MCP session (`Mcp-Session-Id`). Concurrent first calls share one `initialize`; an HTTP `404` for the session starts a new session and resends once; calls after `aclose()` raise `McpSessionClosedError`. `start_authorization()` can run several times at once: each callback completes the authorization whose `state` it carries, within 10 minutes.
+
 ## STDIO
 
 STDIO MCP transports use environment credentials only; this OAuth client does not apply.
@@ -151,6 +172,7 @@ Implementation lives in `src/node_wire_runtime/mcp_client/`:
 | `token_storage.py` | Persisted access/refresh tokens per issuer |
 | `token_manager.py` | `TokenManager` — caches and refreshes tokens ahead of expiry |
 | `client.py` | `McpOAuthClient` / `create_http_mcp_client()` — the client factory used by ToolHive/playground integration |
+| `session.py` | MCP streamable-HTTP session handshake shared by `McpOAuthClient` and `ToolHiveMcpClient` |
 | `challenges.py` | PKCE challenge/verifier generation |
 | `exceptions.py` | `McpOAuthConfigurationError` and related error types |
 

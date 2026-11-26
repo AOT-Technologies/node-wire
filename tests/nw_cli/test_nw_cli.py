@@ -19,6 +19,29 @@ from nw_cli.stages import register_all_packages
 runner = CliRunner()
 
 
+def _ok_build(**overrides):
+    """A successful ``run_build`` outcome (what the connector stage reads)."""
+    from nw_connector_builder.pipeline import BuildOutcome
+
+    fields = dict(
+        stage_reached="promoted",
+        promoted=True,
+        mcp=None,
+        wire=None,
+        report={"summary": {}},
+        report_path=Path("report.json"),
+    )
+    fields.update(overrides)
+    return BuildOutcome(**fields)
+
+
+def stamp_wheels(root: Path, *packages: str) -> None:
+    from nw_mcp_builder.wheel_cache import package_source_hash, stamp_build
+
+    for package in packages:
+        stamp_build(root, package, package_source_hash(root, package))
+
+
 @pytest.fixture
 def fake_root(tmp_path: Path) -> Path:
     """Minimal node-wire layout for root resolution."""
@@ -112,6 +135,9 @@ def test_mcp_calls_run_mcp_build(fake_root: Path) -> None:
         path = fake_root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"x")
+    stamp_wheels(
+        fake_root, "packages/runtime", "packages/bindings", "packages/connectors/pet_store"
+    )
     project = fake_root / "out" / "pet-store-nw-mcp"
     project.mkdir(parents=True)
 
@@ -150,6 +176,7 @@ def test_docker_build_without_a_project_lists_the_stages_it_runs(fake_root: Path
     ):
         (fake_root / rel).parent.mkdir(parents=True, exist_ok=True)
         (fake_root / rel).write_bytes(b"x")
+    stamp_wheels(fake_root, "packages/runtime", "packages/bindings")
     with (
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
         patch("nw_cli.prerequisites.is_interactive", return_value=True),
@@ -168,7 +195,7 @@ def test_docker_build_without_a_project_lists_the_stages_it_runs(fake_root: Path
 
 
 def test_generate_stage_chaining_in_process(fake_root: Path) -> None:
-    """Default generate chains connector → wheel → mcp → wire without re-invoking nw."""
+    """Default generate chains connector → wire → wheel → mcp without re-invoking nw."""
     for rel in (
         "packages/runtime/dist/runtime-1.0-py3-none-any.whl",
         "packages/bindings/dist/bindings-1.0-py3-none-any.whl",
@@ -186,9 +213,9 @@ def test_generate_stage_chaining_in_process(fake_root: Path) -> None:
     def fake_run_build(**kwargs):
         order.append("connector")
         assert kwargs["no_mcp"] is True
-        assert kwargs["wire"] is True
+        assert kwargs["wire"] is False  # wired by its own stage
         assert kwargs["connector_id"] == "pet_store"
-        return 0
+        return _ok_build()
 
     def fake_wheel(*args, **kwargs):
         order.append("wheel")
@@ -207,7 +234,7 @@ def test_generate_stage_chaining_in_process(fake_root: Path) -> None:
         patch("nw_connector_builder.pipeline.run_build", side_effect=fake_run_build) as rb,
         patch("nw_cli.cli.run_wheel_build", side_effect=fake_wheel) as wh,
         patch("nw_cli.cli.run_mcp_build", side_effect=fake_mcp) as mp,
-        patch("nw_cli.cli.register_all_packages", side_effect=fake_register) as reg,
+        patch("nw_cli.cli.run_wire", side_effect=fake_register) as reg,
         patch("subprocess.run") as sub_run,
         patch("nw_cli.stages.subprocess.Popen") as popen,
     ):
@@ -218,7 +245,7 @@ def test_generate_stage_chaining_in_process(fake_root: Path) -> None:
         )
 
     assert result.exit_code == 0, result.output
-    assert order == ["connector", "wheel", "mcp", "wire"]
+    assert order == ["connector", "wire", "wheel", "mcp"]
     rb.assert_called_once()
     assert rb.call_args.kwargs["no_mcp"] is True
     wh.assert_called_once()
@@ -239,10 +266,10 @@ def test_generate_stage_chaining_in_process(fake_root: Path) -> None:
 def test_generate_skip_flags(fake_root: Path) -> None:
     with (
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
-        patch("nw_connector_builder.pipeline.run_build", return_value=0) as rb,
+        patch("nw_connector_builder.pipeline.run_build", return_value=_ok_build()) as rb,
         patch("nw_cli.cli.run_wheel_build") as wh,
         patch("nw_cli.cli.run_mcp_build") as mp,
-        patch("nw_cli.cli.register_all_packages") as reg,
+        patch("nw_cli.cli.run_wire") as reg,
     ):
         result = runner.invoke(
             app,
@@ -340,10 +367,12 @@ def test_register_all_packages_idempotent(fake_root: Path) -> None:
     assert text2.count("packages/connectors/pet_store") == 1
 
 
-def test_run_wheel_build_subprocess_args(fake_root: Path) -> None:
+def test_run_wheel_build_subprocess_args(fake_root: Path, fake_wheel_builder) -> None:
     from nw_cli.stages import run_wheel_build
 
-    with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
+    with patch(
+        "nw_cli.stages.run_logged_command", side_effect=fake_wheel_builder(fake_root)
+    ) as run:
         run_wheel_build(fake_root, connector_id="pet_store")
         cmd = run.call_args.args[0]
         # Relative POSIX path so Git Bash on Windows does not eat backslashes.
@@ -465,7 +494,7 @@ def test_several_projects_ask_on_a_terminal_and_take_the_newest_without(
 def test_gen_all_passes_auth_and_headers_to_the_connector_build(fake_root: Path) -> None:
     with (
         patch("nw_cli.cli.resolve_node_wire_root", return_value=fake_root),
-        patch("nw_connector_builder.pipeline.run_build", return_value=0) as rb,
+        patch("nw_connector_builder.pipeline.run_build", return_value=_ok_build()) as rb,
     ):
         result = runner.invoke(
             app,

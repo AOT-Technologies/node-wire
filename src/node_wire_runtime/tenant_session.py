@@ -16,9 +16,17 @@ picked" (via the ``nw_select_tenant`` / ``nw_select_config`` tools or the
 stdio ``NW_TENANT_ID`` env pin), plus the pin-lock and allowlist guardrails
 around switching it.
 
-One :class:`TenantSessionOverlay` per MCP server process (stdio and HTTP
-share the same instance). Split ToolHive images do not share it — run one
-MCP server with all connectors if session selection needs to be shared.
+One :class:`TenantSessionOverlay` per MCP server process. Where a selection
+lives depends on the transport, through the injected ``session_key``:
+
+* stdio (``session_key()`` returns ``None``): one process-wide
+  :class:`Selection` — the process has exactly one client.
+* HTTP (``session_key()`` returns the caller's session key): one
+  :class:`Selection` per session in a bounded LRU map, so one caller's
+  ``nw_select_config`` never changes another caller's calls.
+
+Split ToolHive images do not share it — run one MCP server with all
+connectors if session selection needs to be shared.
 
 Collaborators (store lookups, config coverage) are injected rather than
 imported, so this module has no dependency on ``bindings.mcp_server`` or
@@ -28,7 +36,10 @@ imported, so this module has no dependency on ``bindings.mcp_server`` or
 from __future__ import annotations
 
 import os
-from typing import Callable, List, Optional, Tuple
+import threading
+from collections import OrderedDict
+from dataclasses import dataclass, replace
+from typing import Callable, Hashable, List, Optional, Tuple
 
 from node_wire_runtime.config_store import DEFAULT_TENANT
 from node_wire_runtime.errors import ErrorCode, NodeWireError
@@ -46,6 +57,26 @@ PIN_LOCKED_MESSAGE = (
 # Collaborator shapes injected into TenantSessionOverlay.
 StoreHasTenant = Callable[[str], bool]
 ConfigCoverage = Callable[[str, str], Tuple[List[str], List[str]]]
+# Key of the caller's session, or None for the process-wide (stdio) selection.
+SessionKey = Callable[[], Optional[Hashable]]
+
+#: Upper bound on remembered HTTP sessions; the least recently used is dropped.
+MAX_TRACKED_SESSIONS = 4096
+
+
+@dataclass(frozen=True)
+class Selection:
+    """What one session has selected. Replaced whole, never mutated."""
+
+    tenant_id: Optional[str] = None
+    config_name: Optional[str] = None
+
+
+NO_SELECTION = Selection()
+
+
+def _process_scope() -> Optional[Hashable]:
+    return None
 
 
 def pin_locked_from_env() -> bool:
@@ -68,7 +99,8 @@ def allowed_tenants_from_env() -> Optional[frozenset[str]]:
 
 class TenantSessionOverlay:
     """The stateful "which tenant/config is selected" overlay for one MCP
-    server process.
+    server process: one process-wide selection (stdio) or one per session
+    (HTTP), chosen per call by ``session_key``.
     """
 
     def __init__(
@@ -78,14 +110,19 @@ class TenantSessionOverlay:
         config_coverage: ConfigCoverage,
         pin_locked: Callable[[], bool] = pin_locked_from_env,
         allowed_tenants: Callable[[], Optional[frozenset[str]]] = allowed_tenants_from_env,
+        session_key: SessionKey = _process_scope,
+        max_sessions: int = MAX_TRACKED_SESSIONS,
     ) -> None:
         self._store_has_tenant = store_has_tenant
         self._config_coverage = config_coverage
         self._pin_locked = pin_locked
         self._allowed_tenants = allowed_tenants
+        self._session_key = session_key
+        self._max_sessions = max_sessions
         self._env_pin: Optional[str] = None
-        self._selected_tenant_id: Optional[str] = None
-        self._selected_config_name: Optional[str] = None
+        self._lock = threading.Lock()
+        self._process_selection = NO_SELECTION
+        self._sessions: OrderedDict[Hashable, Selection] = OrderedDict()
 
     # ---- stdio env pin ----------------------------------------------- #
 
@@ -105,12 +142,45 @@ class TenantSessionOverlay:
     # ---- current selection (read) ------------------------------------ #
 
     @property
+    def selection(self) -> Selection:
+        """The calling session's selection (process-wide on stdio)."""
+        key = self._session_key()
+        if key is None:
+            return self._process_selection
+        with self._lock:
+            found = self._sessions.get(key)
+            if found is None:
+                return NO_SELECTION
+            self._sessions.move_to_end(key)
+            return found
+
+    @property
     def selected_tenant_id(self) -> Optional[str]:
-        return self._selected_tenant_id
+        return self.selection.tenant_id
 
     @property
     def selected_config_name(self) -> Optional[str]:
-        return self._selected_config_name
+        return self.selection.config_name
+
+    def _store(self, selection: Selection) -> None:
+        key = self._session_key()
+        if key is None:
+            self._process_selection = selection
+            return
+        with self._lock:
+            self._sessions[key] = selection
+            self._sessions.move_to_end(key)
+            while len(self._sessions) > self._max_sessions:
+                self._sessions.popitem(last=False)
+
+    def _with_tenant(self, selection: Selection, tenant_id: Optional[str]) -> Selection:
+        """``selection`` moved to ``tenant_id``, dropping a config that tenant lacks."""
+        config_name = selection.config_name
+        if tenant_id and config_name:
+            have, _missing = self._config_coverage(tenant_id, config_name)
+            if not have:
+                config_name = None
+        return Selection(tenant_id=tenant_id, config_name=config_name)
 
     # ---- guardrails ---------------------------------------------------- #
 
@@ -152,9 +222,10 @@ class TenantSessionOverlay:
         ``agents.toolhive.InProcessMcpClient``) — analogous to the stdio
         env-pin path (:meth:`set_env_pin`), which is also unguarded. Callers
         that go through the ``nw_select_tenant`` MCP tool must use
-        :meth:`select_tenant` instead.
+        :meth:`select_tenant` instead. Like every tenant change, a selected
+        config the new tenant lacks is dropped.
         """
-        self._selected_tenant_id = tenant_id
+        self._store(self._with_tenant(self.selection, tenant_id))
 
     def set_selected_config(self, config_name: Optional[str]) -> None:
         """Directly pin the session's config name, bypassing the
@@ -162,7 +233,7 @@ class TenantSessionOverlay:
 
         Same trusted-caller carve-out as :meth:`set_selected_tenant`.
         """
-        self._selected_config_name = config_name
+        self._store(replace(self.selection, config_name=config_name))
 
     def select_tenant(self, tenant_id: str) -> None:
         """Pin the session to ``tenant_id`` (``nw_select_tenant``).
@@ -173,8 +244,7 @@ class TenantSessionOverlay:
         """
         self.assert_switch_allowed()
         self.assert_tenant_allowed(tenant_id)
-        self._selected_tenant_id = tenant_id
-        self.clear_config_if_missing(tenant_id)
+        self._store(self._with_tenant(self.selection, tenant_id))
 
     def select_config(self, tenant_id: str, config_name: str) -> Tuple[List[str], List[str]]:
         """Pin the session to ``config_name`` for the given, already-resolved
@@ -190,18 +260,16 @@ class TenantSessionOverlay:
                 ErrorCode.CONFIG_NOT_FOUND,
                 f"Unknown config {config_name!r} for tenant {tenant_id!r}.",
             )
-        self._selected_config_name = config_name
+        self._store(replace(self.selection, config_name=config_name))
         return have, missing
 
     def clear_config_if_missing(self, tenant_id: str) -> None:
         """Clear the selected config name if ``tenant_id`` has no connector
-        configured under it (called after a tenant switch)."""
-        name = self._selected_config_name
-        if not name:
-            return
-        have, _missing = self._config_coverage(tenant_id, name)
-        if not have:
-            self._selected_config_name = None
+        configured under it."""
+        current = self.selection
+        if current.config_name:
+            revalidated = self._with_tenant(current, tenant_id)
+            self._store(replace(current, config_name=revalidated.config_name))
 
     # ---- resolution ------------------------------------------------------ #
 
@@ -239,8 +307,16 @@ class TenantSessionOverlay:
             return tenant_arg
         if request_tenant_id:
             return request_tenant_id
-        if self._selected_tenant_id:
-            return self._selected_tenant_id
+        selected = self.selection.tenant_id
+        if selected:
+            # The tenant may have been deleted since it was selected.
+            if not self._store_has_tenant(selected):
+                raise NodeWireError(
+                    ErrorCode.TENANT_NOT_ALLOWED,
+                    f"Selected tenant {selected!r} no longer exists. "
+                    "Call nw_list_tenants, then nw_select_tenant.",
+                )
+            return selected
         try:
             return resolve_from_request()
         except ValueError:
@@ -285,4 +361,4 @@ class TenantSessionOverlay:
         """
         if config_arg:
             return resolve_config_name(config_arg)
-        return resolve_config_name(self._selected_config_name)
+        return resolve_config_name(self.selection.config_name)

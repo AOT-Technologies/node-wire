@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -24,7 +24,7 @@ def test_help_lists_subcommands(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_from_openapi_subcommand_forwards_to_run_build() -> None:
-    with patch.object(cli, "run_build", return_value=0) as run:
+    with patch.object(cli, "run_build", return_value=MagicMock(exit_code=0)) as run:
         with pytest.raises(SystemExit) as exc:
             cli.main(
                 [
@@ -46,7 +46,7 @@ def test_from_openapi_subcommand_forwards_to_run_build() -> None:
 
 
 def test_legacy_flat_flags_map_to_from_openapi() -> None:
-    with patch.object(cli, "run_build", return_value=0) as run:
+    with patch.object(cli, "run_build", return_value=MagicMock(exit_code=0)) as run:
         with pytest.raises(SystemExit) as exc:
             cli.main(["--path", "https://example.com/openapi.json", "--id", "my_api"])
         assert exc.value.code == 0

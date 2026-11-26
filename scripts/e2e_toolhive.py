@@ -367,6 +367,41 @@ def run_host_workload(
     _cmd(*argv, image)
 
 
+def run_host_container(
+    container: str,
+    image: str,
+    env: Dict[str, str],
+    *,
+    mounts: Iterable[str] = (),
+    port: Optional[int] = None,
+) -> str:
+    """``docker run`` a node-wire MCP host image on ``127.0.0.1:port``; returns its MCP URL once up.
+
+    For a host ToolHive cannot probe itself (multi-tenant: every request needs a tenant).
+    Same settings as :func:`run_host_workload`, passed through a 0600 env file.
+    """
+    port = port or HOST_PORTS[container]
+    _remove_workload(container)  # an earlier run's ToolHive workload of the same name
+    _cmd("docker", "rm", "-f", container, check=False)
+    settings = {
+        "NW_MCP_HOST": "0.0.0.0",  # nosec B104  # inside the container, for the published port
+        "NW_MCP_AUTH_DISABLED": "true",
+        "NW_MCP_SCOPE_POLICY_DEFAULT": "allow",
+        "NW_MCP_PORT": str(port),
+        **env,
+    }
+    env_file = _private_file(f"{container}.env", "".join(f"{k}={v}\n" for k, v in settings.items()))
+    argv = ["docker", "run", "-d", "--name", container, "-p", f"127.0.0.1:{port}:{port}"]
+    argv += ["--env-file", str(env_file)]
+    for mount in mounts:
+        argv += ["-v", mount]
+    _cmd(*argv, image)
+    url = f"http://127.0.0.1:{port}/mcp"
+    with httpx.Client(timeout=10) as client:
+        wait_for(client, url, timeout=90)
+    return url
+
+
 def run_stacklok_container(
     container: str,
     image: str,
@@ -559,6 +594,15 @@ def expect_401(url: str) -> Optional[str]:
     return None if status == 401 else f"HTTP {status}, expected 401"
 
 
+def expect_missing_tenant(url: str) -> Optional[str]:
+    """A request straight to a multi-tenant host, without X-Tenant-ID, is ``400 MISSING_TENANT``."""
+    response = httpx.post(url, json={}, timeout=10)
+    code = _envelope(response.text).get("error_code")
+    if response.status_code == 400 and code == "MISSING_TENANT":
+        return None
+    return f"HTTP {response.status_code} {response.text[:200]}, expected 400 MISSING_TENANT"
+
+
 def _host_tools(connector_id: str) -> set[str]:
     from verify_mcp_tools_list import expected_tool_names
 
@@ -583,7 +627,7 @@ def _scope_tools(scope: Path) -> set[str]:
 VALIDATION = ("VALIDATION_ERROR", "BUSINESS")
 UNKNOWN_TOOL = ("UNKNOWN_TOOL", "BUSINESS")
 MISSING_TENANT = ("MISSING_TENANT", "AUTH")
-TENANT_NOT_ALLOWED = ("TENANT_NOT_ALLOWED", "AUTH")
+TENANT_IDENTITY_MISMATCH = ("TENANT_IDENTITY_MISMATCH", "AUTH")
 CONFIG_NOT_FOUND = ("CONFIG_NOT_FOUND", "AUTH")
 # A missing credential: the host lacks a configured secret (a server misconfiguration), or
 # ToolHive forwarded no bearer token to the stacklok server (the caller's authentication).
@@ -887,12 +931,16 @@ def _host_tenants(
     connector_id: str,
     token_keys: tuple[str, ...],
 ) -> None:
-    """A node-wire host with tenant acme (configs production, staging), in one workload.
+    """A node-wire host with tenant acme (configs production, staging), behind a tenant proxy.
 
-    Credentials: the plain ``token_keys`` for the ``__default__`` tenant, which a call uses until
-    ``nw_select_tenant`` (the image's connectors.yaml provides it: docs/architecture/tenancy.md),
-    and ``NW_ACME_<CONNECTOR>_<CONFIG>_<KEY>`` for each config: the one you exported, if any
-    (a separate staging credential), else the shared token.
+    On streamable-http the tenant comes from each request, and a request without one is
+    ``400 MISSING_TENANT`` (docs/architecture/tenancy.md). ToolHive's readiness probe sends no
+    tenant, so the host cannot be a ToolHive container workload: like the stacklok tenant
+    scenarios, it runs as a plain container (``name``) with a ToolHive proxy for acme
+    (``<name without -mt>-acme``) that forwards ``X-Tenant-ID``.
+
+    Credentials: ``NW_ACME_<CONNECTOR>_<CONFIG>_<KEY>`` for each config: the one you exported,
+    if any (a separate staging credential), else the shared token.
     """
     s = SCENARIO_TITLES[key]
     # The host project's copy: the repo's wiring is restored after the build.
@@ -916,15 +964,16 @@ def _host_tenants(
             value = os.environ.get(scoped) or ctx.tokens.get(token_key)
             if value:
                 env[scoped] = value
-    run_host_workload(name, image, env, mounts=[f"{tenants}:/app/config/tenants.yaml:ro"])
+    direct = run_host_container(name, image, env, mounts=[f"{tenants}:/app/config/tenants.yaml:ro"])
+    acme_name = f"{name.removesuffix('-mt')}-{TENANT}"
+    run_remote_workload(acme_name, direct, token=None, tenant=TENANT)
     r = ctx.report
     r.run(
         s,
-        f"lists {connector_id} tools + tenant tools",
-        lambda: _same_tools(listed_tools(name), _host_tools(connector_id) | TENANT_TOOLS),
+        f"acme lists {connector_id} tools + tenant tools",
+        lambda: _same_tools(listed_tools(acme_name), _host_tools(connector_id) | TENANT_TOOLS),
     )
-    url = workload_url(name)
-    # Tenant selection is per process: these run in order on one workload.
+    url = workload_url(acme_name)
     r.run(
         s,
         "nw_list_tenants: acme",
@@ -932,14 +981,14 @@ def _host_tenants(
     )
     r.run(
         s,
-        "select an unknown tenant",
+        "select another tenant",
         lambda: expect_error(
             url,
             "nw_select_tenant",
             {"tenant_id": "initech"},
-            TENANT_NOT_ALLOWED,
+            TENANT_IDENTITY_MISMATCH,
             seen=ctx.seen(s),
-            mentions="Unknown tenant 'initech'",
+            mentions="does not match the request tenant 'acme'",
         ),
     )
     r.run(
@@ -947,6 +996,7 @@ def _host_tenants(
         "select acme: configs production, staging",
         lambda: expect_result(url, "nw_select_tenant", {"tenant_id": TENANT}, *CONFIGS),
     )
+    r.run(s, "request without X-Tenant-ID", lambda: expect_missing_tenant(direct))
 
 
 def _stacklok_tenants(
@@ -1091,14 +1141,23 @@ WORKLOADS = [
     "slack-web-nw-mcp",
     "slack-web-nw-mcp-search",
     "slack-post-mcp",
-    "pet-store-nw-mcp-mt",
+    "pet-store-nw-mcp-mt",  # a ToolHive workload before scenario 7 became container + proxy
+    "pet-store-nw-mcp-acme",
     "petstore-mcp-acme",
     "petstore-mcp-notenant",
     "slack-web-nw-mcp-mt",
+    "slack-web-nw-mcp-acme",
     "slack-post-mcp-acme",
     "slack-post-mcp-notenant",
 ]
-CONTAINERS = ["petstore-mcp", "slack-post-mcp", "petstore-mcp-mt", "slack-post-mcp-mt"]
+CONTAINERS = [
+    "petstore-mcp",
+    "slack-post-mcp",
+    "petstore-mcp-mt",
+    "slack-post-mcp-mt",
+    "pet-store-nw-mcp-mt",
+    "slack-web-nw-mcp-mt",
+]
 
 
 # The OpenTelemetry service.name each scenario's server reports under.

@@ -77,11 +77,46 @@ def test_load_env_skips_dotenv_file_in_container(
     assert "LEAKED_SECRET" not in os.environ
 
 
-def test_generated_main_disables_auth_only_outside_container() -> None:
+def test_server_mode_is_the_default_outside_a_container(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No container detected is not a reason to turn auth off (D2)."""
+    for name in ("NW_MCP_LOCAL_DEV", "NW_MCP_CONTAINER", "NW_MCP_AUTH_DISABLED"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.delenv("NW_MCP_SCOPE_POLICY_DEFAULT", raising=False)
+    mod = _load_generated_module(tmp_path / "host", "smtp")
+    assert not mod._running_in_container()
+
+    mode = mod._run_mode()
+    mod._apply_run_mode(mode)
+
+    assert mode == "server"
+    assert "NW_MCP_AUTH_DISABLED" not in os.environ
+    assert "NW_MCP_SCOPE_POLICY_DEFAULT" not in os.environ
+    assert "auth enforced" in mod._describe_run_mode(mode)
+
+
+def test_local_dev_mode_is_explicit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("NW_MCP_LOCAL_DEV", "true")
+    monkeypatch.delenv("NW_MCP_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("NW_MCP_SCOPE_POLICY_DEFAULT", raising=False)
+    mod = _load_generated_module(tmp_path / "host", "smtp")
+
+    mode = mod._run_mode()
+    mod._apply_run_mode(mode)
+
+    assert mode == "local-dev"
+    assert os.environ["NW_MCP_AUTH_DISABLED"] == "true"
+    assert os.environ["NW_MCP_SCOPE_POLICY_DEFAULT"] == "allow"
+    assert "auth DISABLED" in mod._describe_run_mode(mode)
+
+
+def test_container_detection_never_decides_auth() -> None:
     src = _main_py(connector_id="smtp")
-    assert "if not _running_in_container():" in src
-    assert 'os.environ.setdefault("NW_MCP_AUTH_DISABLED", "true")' in src
-    assert "from dotenv import load_dotenv" in src
+    body = src[src.index("def main() -> None:") :]
+    assert "_running_in_container" not in body
+    assert body.index("_load_env()") < body.index("mode = _run_mode()")
+    assert "_describe_run_mode(mode)" in body
     assert src.index("if _running_in_container():") < src.index("from dotenv import load_dotenv")
 
 

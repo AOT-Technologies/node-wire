@@ -47,12 +47,17 @@ class BackgroundAsyncRunner:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         self._loop = loop
-        self._ready.set()
+        # Signalled from inside the loop, so start() returns only once it is running.
+        loop.call_soon(self._ready.set)
         loop.run_forever()
 
     def run(self, coro: Coroutine[Any, Any, _T]) -> _T:
         if self._loop is None:
             raise RuntimeError("Background async runner is not started")
+        # A dead loop thread would accept the coroutine and never run it: every call would
+        # hold a worker thread until the timeout. Fail at once instead.
+        if self._thread is None or not self._thread.is_alive() or not self._loop.is_running():
+            raise RuntimeError("Background async runner loop is not running")
         future = asyncio.run_coroutine_threadsafe(coro, self._loop)
         # Bounded wait: a hung connector would otherwise hold one of the server's
         # worker threads forever. Well above NW_TIMEOUT x retries by default.

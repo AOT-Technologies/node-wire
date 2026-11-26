@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import io
-import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -19,11 +18,27 @@ from nw_cli import prerequisites
 from nw_cli.cli import app
 from nw_cli.prerequisites import _probe_docker  # the real probe (conftest stubs the module's)
 from nw_cli.progress import GenerateProgress, Stage
-from nw_cli.stages import WHEEL_STAMP_KEY, StageError, run_logged_command, run_wheel_build
+from nw_cli.stages import StageError, run_logged_command, run_wheel_build
 from nw_cli.ui import ReportedError
-from nw_cli.wheel_cache import is_fresh, record_build
+from nw_cli.wheel_cache import WheelState, package_source_hash, stamp_build, wheel_state
 
 runner = CliRunner()
+
+
+def _ok_build(**overrides):
+    """A successful ``run_build`` outcome (what the connector stage reads)."""
+    from nw_connector_builder.pipeline import BuildOutcome
+
+    fields = dict(
+        stage_reached="promoted",
+        promoted=True,
+        mcp=None,
+        wire=None,
+        report={"summary": {}},
+        report_path=Path("report.json"),
+    )
+    fields.update(overrides)
+    return BuildOutcome(**fields)
 
 
 @pytest.fixture
@@ -47,7 +62,7 @@ def _gen_all(fake_root: Path, *extra: str, **patches):
         patch("nw_cli.cli.run_wheel_build", **patches.get("wheel", {})) as wheel,
         patch("nw_cli.cli.run_mcp_build", return_value=fake_root / "out") as mcp,
         patch("nw_cli.cli.decide_tool_mode", return_value=MagicMock(mode="list", listing=None)),
-        patch("nw_cli.cli.register_all_packages", return_value=True),
+        patch("nw_cli.cli.run_wire", **patches.get("wire", {"return_value": "added"})),
     ):
         result = runner.invoke(
             app, ["gen-all", "--connector-id", "pet_store", "--path", "spec.yaml", *extra]
@@ -103,9 +118,11 @@ def test_a_root_error_exits_1_with_its_message(tmp_path: Path, monkeypatch) -> N
 
 
 def test_a_wiring_failure_names_its_cause(fake_root: Path) -> None:
-    report = fake_root / "packages" / "connectors" / "pet_store" / "report.json"
-    report.write_text(json.dumps({"wire": {"ok": False, "error": "sample.env is read-only"}}))
-    result, *_ = _gen_all(fake_root, run_build={"return_value": 1})
+    result, *_ = _gen_all(
+        fake_root,
+        run_build={"return_value": _ok_build()},
+        wire={"side_effect": StageError("sample.env is read-only")},
+    )
     assert result.exit_code == 1
     assert "sample.env is read-only" in result.output
 
@@ -122,15 +139,19 @@ def test_gen_all_reuses_wheels_whose_sources_are_unchanged(fake_root: Path) -> N
         dist = fake_root / "packages" / package / "dist"
         dist.mkdir()
         (dist / "x-1.0-py3-none-any.whl").write_bytes(b"x")
-        record_build(fake_root, f"packages/{package}", WHEEL_STAMP_KEY, since=0)
+        stamp_build(
+            fake_root, f"packages/{package}", package_source_hash(fake_root, f"packages/{package}")
+        )
     (fake_root / "packages" / "connectors" / "pet_store" / "logic.py").write_text("changed = 1\n")
 
-    result, _, wheel, _ = _gen_all(fake_root, run_build={"return_value": 0})
+    result, _, wheel, _ = _gen_all(fake_root, run_build={"return_value": _ok_build()})
     assert result.exit_code == 0, result.output
     assert wheel.call_args.kwargs["packages"] == ["packages/connectors/pet_store"]
     assert "reused: packages/runtime, packages/bindings" in result.output
 
-    result, _, wheel, _ = _gen_all(fake_root, "--rebuild-wheels", run_build={"return_value": 0})
+    result, _, wheel, _ = _gen_all(
+        fake_root, "--rebuild-wheels", run_build={"return_value": _ok_build()}
+    )
     assert len(wheel.call_args.kwargs["packages"]) == 3
 
 
@@ -139,17 +160,20 @@ def test_a_stamp_is_stale_once_its_wheel_is_gone(fake_root: Path) -> None:
     dist.mkdir()
     wheel = dist / "r-1.0-py3-none-any.whl"
     wheel.write_bytes(b"x")
-    record_build(fake_root, "packages/runtime", WHEEL_STAMP_KEY, since=0)
-    assert is_fresh(fake_root, "packages/runtime", WHEEL_STAMP_KEY)
-    assert not is_fresh(fake_root, "packages/runtime", "linux-only")  # an old compiled-era stamp
+    stamp_build(fake_root, "packages/runtime", package_source_hash(fake_root, "packages/runtime"))
+    assert wheel_state(fake_root, "packages/runtime") is WheelState.FRESH
     wheel.unlink()
-    assert not is_fresh(fake_root, "packages/runtime", WHEEL_STAMP_KEY)
+    assert wheel_state(fake_root, "packages/runtime") is WheelState.MISSING
 
 
-def test_wheel_builds_do_not_need_docker(fake_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_wheel_builds_do_not_need_docker(
+    fake_root: Path, monkeypatch: pytest.MonkeyPatch, fake_wheel_builder
+) -> None:
     prerequisites.docker_problem.cache_clear()
     monkeypatch.setattr(prerequisites, "_probe_docker", lambda: "the Docker daemon is not running")
-    with patch("nw_cli.stages.run_logged_command", return_value=0) as run:
+    with patch(
+        "nw_cli.stages.run_logged_command", side_effect=fake_wheel_builder(fake_root)
+    ) as run:
         run_wheel_build(fake_root, runtime=True)
     run.assert_called_once()
 

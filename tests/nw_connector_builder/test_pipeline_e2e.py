@@ -40,7 +40,7 @@ def test_e2e_no_mcp_promote(tmp_path: Path) -> None:
         force=False,
         report_path=tmp_path / "abort.json",
     )
-    assert code == 0
+    assert code.exit_code == 0
     assert (root / "src" / "node_wire_demo_pets" / "logic.py").is_file()
     assert (root / "packages" / "connectors" / "demo_pets" / "pyproject.toml").is_file()
     assert (root / "packages" / "connectors" / "demo_pets" / "report.json").is_file()
@@ -74,7 +74,7 @@ def test_force_required_on_second_build(tmp_path: Path) -> None:
         no_mcp=True,
         force=True,
     )
-    assert code == 0
+    assert code.exit_code == 0
 
 
 def test_remote_ref_leaves_repo_untouched(tmp_path: Path) -> None:
@@ -116,7 +116,7 @@ def test_generated_connector_secrets_are_storable_under_enforce(tmp_path: Path) 
         no_mcp=True,
         wire=True,
     )
-    assert code == 0
+    assert code.exit_code == 0
 
     probe = tmp_path / "probe.py"
     probe.write_text(
@@ -174,7 +174,7 @@ def test_generated_connector_reports_ok_false_as_a_failure(tmp_path: Path) -> No
             connector_id="slack_web",
             node_wire_root=root,
             no_mcp=True,
-        )
+        ).exit_code
         == 0
     )
 
