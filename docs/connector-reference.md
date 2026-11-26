@@ -125,14 +125,17 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 | Connector | Actions | `auth.provider` | Setup guide |
 |---|---|---|---|
 | [`http_generic`](#http_generic) | `request` | `none` | — |
-| [`smtp`](#smtp) | `send_email` | `static_credentials` | — |
+| [`smtp`](#smtp) | `send_email`, `send_bulk`, `send_raw`, `check_connection`, `get_server_capabilities`, `get_tls_info`, `ping`, `verify_address`, `expand_list`, `get_help`, `validate_address_syntax` (11 actions) | `static_credentials` | — |
 | [`postgres`](#postgres) | 55 actions: server and session, schema discovery, read, write, DDL | `none` (credentials via secrets) | — |
 | [`stripe`](#stripe) | `charge`, `create_payment_intent`, `create_subscription`, `cancel_subscription`, `issue_refund` | `static_token` | — |
+| [`salesforce`](#salesforce) | 150 actions: leads and contacts, plus the REST API v68.0 (records, metadata, query, search, composite, process, knowledge, consent and more) and Bulk API 2.0 | `oauth2` (`refresh_token`) | [Salesforce](salesforce_connector.md) |
 | [`salesforce`](#salesforce) | `create_lead`, `read_lead`, `update_lead`, `delete_lead`, `create_contact`, `read_contact`, `update_contact`, `delete_contact` | `oauth2` (`refresh_token`) | [Salesforce](salesforce_connector.md) |
 | [`google_drive`](#google_drive) | 49 Drive v3 actions (48 generated, plus `drive_files_upload`) (`drive_files_list`, `drive_files_get`, `drive_files_create`, `drive_files_update`, `drive_files_delete`, `drive_permissions_create`, comments, revisions, shared drives and more); upload up to 5 MB, no download | `service_account` (or `upstream_bearer`) | [Google Drive](google_drive_connector.md) |
 | [`slack`](#slack) | `post_message`, `send_direct_message`, `upload_file` | `static_token` | [Slack](slack_connector.md) |
-| [`fhir_epic`](#fhir_epic-and-fhir_cerner) | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | `oauth2` (`private_key_jwt`) | — |
-| [`fhir_cerner`](#fhir_epic-and-fhir_cerner) | same actions as `fhir_epic` | `oauth2` (`private_key_jwt`) | — |
+| [`fhir_epic`](#fhir_epic) | 137 Epic R4 actions: `read_<resource>`, `search_<resource>`, `create_<resource>`, `update_<resource>` for Epic's public resources, `patient_match`, `patient_summary`, bulk export and more | `oauth2` (`private_key_jwt`) | — |
+| [`fhir_cerner`](#fhir_cerner) | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | `oauth2` (`private_key_jwt`) | — |
+| [`n8n`](#n8n) | 173 actions: every n8n 2.47.7 public API operation except 3 deprecated ones (workflows, executions, tags, variables, credentials, folders, data tables, evaluations, projects, roles, users, audit, insights, community packages, source control, instance settings, policies, promotions, n8n packages), plus `trigger_workflow` | `static_token` (`X-N8N-API-KEY`) | — |
+
 
 ### `http_generic`
 
@@ -146,10 +149,17 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 
 - **Package:** `node-wire-smtp`, `src/node_wire_smtp/`. MCP image `nw-smtp`.
 - **Secrets / settings:** `SMTP_HOST`, `SMTP_PORT`, `SMTP_USE_TLS`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `FROM_EMAIL`.
-- **Egress:** the payload carries only `to`, `subject`, `body` and an optional `from_email`. Relay
-  settings are server-side only, so credentials never go to a caller-chosen host. Set
-  `NW_SMTP_ALLOWED_HOSTS` in production. `subject` may not contain newlines or control characters.
-- **Errors:** `SMTP_AUTH_ERROR` (`AUTH`), `SMTP_CONNECT_ERROR` (`RETRYABLE`, including a connect
+  `host`, `port` and `use_tls` can also be set in `connectors.yaml`; the environment wins.
+- **Actions:** `send_email` (plus optional `cc`, `bcc`, `reply_to`, `html_body`, base64 `attachments`, extra `headers`,
+  `priority`, `dsn_notify`, `dsn_return`; returns the `message_id`), `send_bulk` (up to 100 messages over one
+  connection, one result each), `send_raw` (a finished RFC 5322 message to given envelope recipients; its `From` header must equal `from_email`, it may not carry `Bcc`, `Received` or `Return-Path`, and it is limited to 10 MB),
+  `check_connection`, `get_server_capabilities`, `get_tls_info`, `ping`, `verify_address` (VRFY), `expand_list` (EXPN),
+  `get_help` (HELP) and `validate_address_syntax` (offline, no server call). Many servers disable VRFY, EXPN and
+  HELP and answer 502 (an `SMTP_ERROR`). `from_email` is required unless `FROM_EMAIL` or `SMTP_USERNAME` is set.
+- **Egress:** relay settings are server-side only and no action accepts them, so credentials never go to a
+  caller-chosen host. Set `NW_SMTP_ALLOWED_HOSTS` in production. `subject` and header values may not contain
+  newlines or control characters.
+- **Errors:** `SMTP_CREDENTIALS_MISSING` and `SMTP_AUTH_ERROR` (`AUTH`), `SMTP_CONNECT_ERROR` (`RETRYABLE`, including a connect
   timeout), and `SMTP_TIMEOUT` and `SMTP_DISCONNECTED` (`FATAL`). The last two are not retried,
   because the message may already have been sent.
 
@@ -182,8 +192,12 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 
 - **Package:** `node-wire-salesforce`, `src/node_wire_salesforce/`. MCP image `nw-salesforce`.
 - **Secrets / settings:** `SALESFORCE_INSTANCE_URL`, `SALESFORCE_TOKEN_URL`, `SALESFORCE_CLIENT_ID`,
-  `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_REFRESH_TOKEN`.
-- **Guide:** [Salesforce](salesforce_connector.md) covers configuration and examples.
+  `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_REFRESH_TOKEN`. `api_version` (default `v68.0`) can be set in `connectors.yaml`.
+- **Actions:** the 8 lead and contact actions, plus 142 for the REST API and Bulk API 2.0, listed by group in the guide.
+  The instance URL and token are server-side only; no action accepts them. The shipped config has it disabled and on REST only. Use an exposure profile
+  (`expose/salesforce/`: `salesforce-readonly`, `salesforce-records`, `salesforce-leads-contacts`, `salesforce-bulk`) to limit what a
+  deployment can do (it includes password resets and bulk deletes).
+- **Guide:** [Salesforce](salesforce_connector.md) covers configuration, the action list and the error codes.
 
 ### `google_drive`
 
@@ -201,23 +215,51 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
   `NW_SLACK_ATTACHMENTS_DIR` (default `/slack_attachments`).
 - **Guide:** [Slack](slack_connector.md) covers bot setup, channel resolution and the error codes.
 
-### `fhir_epic` and `fhir_cerner`
+### `fhir_epic`
 
-- **Packages:** `node-wire-fhir-epic` (`src/node_wire_fhir_epic/`, MCP image `nw-smartonfhir-epic`)
-  and `node-wire-fhir-cerner` (`src/node_wire_fhir_cerner/`, MCP image `nw-smartonfhir-cerner`).
-  Both are SMART on FHIR R4 backend services with Epic- and Cerner-specific schemas.
-- **Secrets / settings:** Epic: `EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`, `EPIC_CLIENT_ID`, `EPIC_KID`,
-  `EPIC_PRIVATE_KEY`. Cerner: the same with a `CERNER_` prefix, plus `CERNER_SCOPES`.
-- **Privacy:** logs record operation mode, HTTP status and counts, never request parameters or
-  FHIR bodies ([Privacy](privacy.md)).
-- **Arguments:** normalizers accept common LLM aliases (`patientId` → `resource_id`; root-level
-  `patient` / `patientId` → `patient_id` and `sort` → `_sort` on `search_encounter`). Encounter
-  search requires a patient filter before any outbound call.
+- **Package:** `node-wire-fhir-epic` (`src/node_wire_fhir_epic/`, MCP image `nw-smartonfhir-epic`). Epic on FHIR R4, SMART
+  backend services.
+- **Secrets / settings:** `EPIC_FHIR_BASE_URL`, `EPIC_TOKEN_URL`, `EPIC_CLIENT_ID`, `EPIC_KID`, `EPIC_PRIVATE_KEY`.
+- **Actions:** 137, in waves: the original five, US Core and other resources (read and search), writes (create and update, the
+  FHIR resource as JSON), and the operations (`patient_match`, `patient_summary`, `value_set_expand`, group bulk export,
+  `fetch_next_page`). The full list, the request rules and the error codes are in `src/node_wire_fhir_epic/README.md`.
+- **Privacy:** logs record the operation, the method, the URL path, the status and counts, never query values or FHIR bodies
+  ([Privacy](privacy.md)).
+- **Writes:** a create that timed out after it was sent is not retried (Epic has no conditional create). Limit a deployment
+  with an [exposure profile](exposure.md); the connector can write to a patient chart.
+- **Arguments:** the original five accept common LLM aliases (`patientId` → `resource_id`; root-level `patient` /
+  `patientId` → `patient_id` and `sort` → `_sort` on `search_encounter`).
+
+### `fhir_cerner`
+
+- **Package:** `node-wire-fhir-cerner` (`src/node_wire_fhir_cerner/`, MCP image `nw-smartonfhir-cerner`). SMART on FHIR R4
+  backend services with Cerner-specific schemas.
+- **Secrets / settings:** `CERNER_FHIR_BASE_URL`, `CERNER_TOKEN_URL`, `CERNER_CLIENT_ID`, `CERNER_KID`, `CERNER_PRIVATE_KEY`,
+  plus `CERNER_SCOPES`.
+- **Privacy:** logs record operation mode, HTTP status and counts, never request parameters or FHIR bodies.
+- **Arguments:** the same aliases as the original five Epic actions. Encounter search requires a patient filter before any
+  outbound call.
+### `n8n`
+
+- **Package:** `node-wire-n8n`, `src/node_wire_n8n/`. Versions: n8n public API v1 (spec 1.1.1), written against n8n 2.47.7.
+- **Secrets / settings:** secret `N8N_API_KEY`, sent as `X-N8N-API-KEY` (`auth: static_token`, `prefix: ""`). `instance_url` is the
+  instance root and is set in `connectors.yaml` only: no action accepts it, so the key can only go to the configured host.
+- **Egress:** there is no private-address guard, so an n8n on localhost or a private network works. Use a scoped API key
+  (n8n 2.14+) and an exposure profile to limit what the connector can do. It is disabled and REST-only in the shipped config;
+  profiles `n8n-readonly` and `n8n-workflows` are in `expose/n8n/`.
+- **Actions:** see `src/node_wire_n8n/README.md`. `trigger_workflow` calls a workflow's webhook without the API key, and only
+  on the configured n8n host.
+
 
 The following table lists the main read and search actions:
 
 | Action | When to use | Example arguments |
 |--------|-------------|-------------------|
+| `read_patient` | You have a Patient ID | `{"resource_id": "12724066"}` |
+| `search_patients` | No ID, or name-based search | `{"given_name": "Nancy", "family_name": "Smart"}` |
+| `search_encounter` | Find medical visits | `{"patient_id": "12724066"}` |
+
+--------|-------------|-------------------|
 | `read_patient` | You have a Patient ID | `{"resource_id": "12724066"}` |
 | `search_patients` | No ID, or name-based search | `{"given_name": "Nancy", "family_name": "Smart"}` |
 | `search_encounter` | Find medical visits | `{"patient_id": "12724066"}` |

@@ -15,11 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`node-wire-salesforce`** now has **150 actions**: the 8 lead and contact actions plus 142 for the REST API and Bulk API 2.0,
+  written against API v68.0 (Winter '27). `api_version` can be set in `connectors.yaml` (default `v68.0`; it was a fixed `v58.0`).
+  Four exposure profiles are in `expose/salesforce/`: `salesforce-readonly`, `salesforce-records`, `salesforce-leads-contacts`
+  and `salesforce-bulk`. The playground shows a generic "Salesforce (all actions)" card next to the Lead and Contact panel.
 - `nw wire <id>`: the idempotent wiring step (`connectors.yaml`, `sample.env`, `ALL_PACKAGES`)
   on its own; `gen-all` rerun hints are now computed from what is on disk.
-- `fhir_epic` / `fhir_cerner`: searches return `next_link`, the Bundle's next-page URL.
-  `fhir_epic` `create_document_reference` sends `If-None-Exist` for the first identifier with a
-  system and value (FHIR conditional create), so a timed-out create is retried safely.
+- `fhir_cerner`: searches return `next_link`, the Bundle's next-page URL. (`fhir_epic` returns
+  `next_url` and has `fetch_next_page`; see its entry under Changed.)
 
 ### Changed
 
@@ -69,8 +72,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retried, because the message may have been sent).
 - `slack`: `upload_file` retries a failed upload or completion step on its own instead of starting
   a new upload; a completion that still fails is `SLACK_UPLOAD_ERROR` naming the file id.
-- `salesforce`: `update_*` actions are declared idempotent (retried after a timeout or 5xx);
-  `create_*` returns `OUTCOME_UNKNOWN` instead.
+- `salesforce`: `update_lead` and `update_contact` are declared idempotent (retried after a
+  timeout); a create that timed out returns `OUTCOME_UNKNOWN` instead.
+- **Salesforce is off by default in the shipped `config/connectors.yaml`** (`enabled: false`, `exposed_via: ["rest"]`), because it now
+  includes password resets and bulk deletes. **Migration:** a deployment that used Salesforce over gRPC or MCP must set
+  `enabled: true` and `exposed_via: ["rest", "grpc", "mcp"]` in its own `connectors.yaml`, and should set `NW_EXPOSE_PROFILE` (for example
+  `salesforce-leads-contacts` for the original 8 actions) so it does not expose all 150. See `docs/salesforce_connector.md`.
+- Salesforce actions answer 401 as an auth error, 429 as retryable, and retry 502, 503 and 504 only for `GET` and `DELETE`.
+  A 503 on a write such as `create_lead` is no longer retried (the write may already have run); before, any 5xx on the 8 original actions
+  was retryable. Error messages carry only Salesforce's `errorCode` and `message` (at most 3, 200 characters each), never the raw body.
+- Salesforce requests are sent as JSON (CSV for Bulk API data) instead of the OAuth provider's FHIR media types, which Salesforce refuses.
+- The package now requires `node-wire-runtime>=1.2.0`. Because it adds many actions and changes defaults, release it as a minor version.
+- `node-wire-fhir-epic` is rebuilt for Epic on FHIR R4 (November 2026): 137 actions, up from five. The five keep their names and
+  inputs. New: read and search for 55 more resource types (every Epic R4 search parameter is a field), create and update (the FHIR
+  resource as JSON, nine creates and seven updates), `patient_match`, `patient_summary`, `value_set_expand`, the group bulk
+  export calls and `fetch_next_page`. Errors now follow the runtime taxonomy (429 and gateway errors on reads retry, 401 and 403 are
+  auth errors) and a create or bulk kick-off that timed out after it was sent is not retried. The connector sets the `httpx`
+  logger to WARNING so request URLs (patient ids and names) are not logged. `search_patients` takes at most 50 ids. The package no
+  longer depends on `PyJWT` (the runtime signs the token) and needs `node-wire-runtime>=1.2.0`. DSTU2 and STU3 are not covered.
 - `node-wire-google-drive` is now generated from Google's Drive v3 API: 48 actions (plus the hand-written upload) named `drive_<resource>_<method>` (for example
   `drive_files_list`; they replace `files.list`, `files.get`, `files.create`, `files.update`, `files.delete`, `permissions.create` and
   `files.upload`). `drive_files_upload` (hand-written, up to 5 MB, `content` or `content_base64`) replaces `files.upload`; `drive_files_create` and `drive_files_update` take `name`, `mime_type`, `description` and `parents`, and `trashed: true` on update is the old soft delete. Shared drives stay on by default. **Not supported:** downloading content, replacing the content of an existing file, and uploads over 5 MB. `drive_files_get` cannot return content and binary responses are not returned.

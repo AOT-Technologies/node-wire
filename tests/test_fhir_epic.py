@@ -884,29 +884,6 @@ def _bundle(next_url: str | None) -> MagicMock:
 
 
 @pytest.mark.asyncio
-async def test_fhir_epic_create_sends_if_none_exist_for_the_identifier():
-    from node_wire_fhir_epic.schema import FhirDocumentReferenceCreateInput
-
-    params = FhirDocumentReferenceCreateInput(
-        identifier=[{"system": "urn:oid:1.2.3", "value": "ID.123"}],
-        status="current",
-        type={"coding": [{"system": "urn:oid:4.5.6", "code": "18100"}]},
-        subject="Patient/p1",
-        data="dGVzdA==",
-    )
-    create_response = MagicMock()
-    create_response.status_code = 201
-    create_response.headers = {"Location": "DocumentReference/doc-1/_history/1"}
-    create_response.content = b""
-    with patch(
-        "httpx.AsyncClient.post", new_callable=AsyncMock, return_value=create_response
-    ) as mock_post:
-        await _connector().internal_execute(params, trace_id="t")
-    headers = mock_post.call_args.kwargs["headers"]
-    assert headers["If-None-Exist"] == "identifier=urn:oid:1.2.3|ID.123"
-
-
-@pytest.mark.asyncio
 async def test_fhir_epic_create_without_a_usable_identifier_sends_no_if_none_exist():
     from node_wire_fhir_epic.schema import FhirDocumentReferenceCreateInput
 
@@ -929,7 +906,7 @@ async def test_fhir_epic_create_without_a_usable_identifier_sends_no_if_none_exi
 
 
 @pytest.mark.asyncio
-async def test_fhir_epic_searches_return_the_next_page_link():
+async def test_fhir_epic_searches_return_the_next_page_url():
     from node_wire_fhir_epic.schema import (
         FhirDocumentReferenceSearchInput,
         FhirEncounterSearchInput,
@@ -944,7 +921,7 @@ async def test_fhir_epic_searches_return_the_next_page_link():
     ):
         with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=_bundle(nxt)):
             result = await _connector().internal_execute(params, trace_id="t")
-        assert result.next_link == nxt, params.action
+        assert result.next_url == nxt, params.action
         with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=_bundle(None)):
             result = await _connector().internal_execute(params, trace_id="t")
-        assert result.next_link is None
+        assert result.next_url is None

@@ -95,6 +95,7 @@ fhir_epic    = "node_wire_fhir_epic.logic"
 fhir_cerner  = "node_wire_fhir_cerner.logic"
 salesforce   = "node_wire_salesforce.logic"
 slack        = "node_wire_slack.logic"
+n8n          = "node_wire_n8n.logic"
 postgres     = "node_wire_postgres.logic"
 
 [tool.setuptools.packages.find]

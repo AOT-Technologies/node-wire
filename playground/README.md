@@ -22,15 +22,11 @@ The demo provides a modern, interactive web interface to trigger, monitor, and v
 
 ## Scenarios and implementation
 
-### Scenario 1: EHR orchestration (Epic FHIR)
-This scenario automates the process of synchronizing clinical notes from a third-party application into a patient's chart in Epic.
+### Scenario 1: Epic FHIR
+The **Epic FHIR** card lists every action of the `fhir_epic` connector (137): reads, searches, writes and operations for Epic's R4 resources. Pick an action, fill its fields and run it. The card has no fixed workflow, so you build one: find a patient, read the chart, write a note, check that it arrived.
 
-*   **Logic Flow**:
-    1.  **Patient Discovery**: Reads patient details (Name, DOB, Patient ID) to verify identity in the EHR.
-    2.  **Encounter Identification**: Searches for a matching "Finished" encounter (medical visit) for that patient.
-    3.  **Clinical Note Upload**: Automatically encodes the clinical note as Base64 and creates a `DocumentReference` resource in Epic.
-    4.  **Verification**: Re-queries the EHR to confirm the document's existence and displays the raw FHIR JSON response.
-*   **Implementation**: Uses the `fhir_epic` connector, handling complex FHIR resource schemas and mapping internal data to US Core standards.
+*   **Setup**: `fhir_epic` must be in `NW_ALLOWED_CONNECTORS`. **Add config** takes the client id, key id and PEM private key.
+*   **Implementation**: the generic connector card in `dynamic-connectors.js`, which builds its form from each action's input schema. See the [connector README](../src/node_wire_fhir_epic/README.md).
 
 ### Scenario 2: IT ops automation (generic HTTP)
 This scenario demonstrates how the platform can integrate with any REST-enabled legacy system or internal tool without requiring a specific connector.
