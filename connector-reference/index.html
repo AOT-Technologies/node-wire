@@ -3154,15 +3154,15 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 <td>—</td>
 </tr>
 <tr>
-<td><a href="#fhir_cerner"><code>fhir_cerner</code></a></td>
-<td><code>read_patient</code>, <code>search_patients</code>, <code>search_encounter</code>, <code>create_document_reference</code>, <code>search_document_reference</code></td>
-<td><code>oauth2</code> (<code>private_key_jwt</code>)</td>
-<td>—</td>
-</tr>
-<tr>
 <td><a href="#n8n"><code>n8n</code></a></td>
 <td>173 actions: every n8n 2.47.7 public API operation except 3 deprecated ones (workflows, executions, tags, variables, credentials, folders, data tables, evaluations, projects, roles, users, audit, insights, community packages, source control, instance settings, policies, promotions, n8n packages), plus <code>trigger_workflow</code></td>
 <td><code>static_token</code> (<code>X-N8N-API-KEY</code>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="#fhir_cerner"><code>fhir_cerner</code></a></td>
+<td>129 actions: every R4 read, search, write and operation of Millennium, bulk export; the original five are <code>read_patient</code>, <code>search_patients</code>, <code>search_encounter</code>, <code>create_document_reference</code>, <code>search_document_reference</code></td>
+<td><code>oauth2</code> (<code>private_key_jwt</code>)</td>
 <td>—</td>
 </tr>
 </tbody>
@@ -3259,24 +3259,23 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 </ul>
 <h3 id="fhir_cerner"><code>fhir_cerner</code><a class="headerlink" href="#fhir_cerner" title="Anchor link to this section">&para;</a></h3>
 <ul>
-<li><strong>Package:</strong> <code>node-wire-fhir-cerner</code> (<code>src/node_wire_fhir_cerner/</code>, MCP image <code>nw-smartonfhir-cerner</code>). SMART on FHIR R4
-  backend services with Cerner-specific schemas.</li>
+<li><strong>Package:</strong> <code>node-wire-fhir-cerner</code> (<code>src/node_wire_fhir_cerner/</code>, MCP image <code>nw-smartonfhir-cerner</code>). Oracle Health
+  (Cerner) Millennium FHIR R4, SMART backend services.</li>
 <li><strong>Secrets / settings:</strong> <code>CERNER_FHIR_BASE_URL</code>, <code>CERNER_TOKEN_URL</code>, <code>CERNER_CLIENT_ID</code>, <code>CERNER_KID</code>, <code>CERNER_PRIVATE_KEY</code>,
   plus <code>CERNER_SCOPES</code>.</li>
-<li><strong>Privacy:</strong> logs record operation mode, HTTP status and counts, never request parameters or FHIR bodies.</li>
-<li><strong>Arguments:</strong> the same aliases as the original five Epic actions. Encounter search requires a patient filter before any
-  outbound call.</li>
-</ul>
-<h3 id="n8n"><code>n8n</code><a class="headerlink" href="#n8n" title="Anchor link to this section">&para;</a></h3>
-<ul>
-<li><strong>Package:</strong> <code>node-wire-n8n</code>, <code>src/node_wire_n8n/</code>. Versions: n8n public API v1 (spec 1.1.1), written against n8n 2.47.7.</li>
-<li><strong>Secrets / settings:</strong> secret <code>N8N_API_KEY</code>, sent as <code>X-N8N-API-KEY</code> (<code>auth: static_token</code>, <code>prefix: ""</code>). <code>instance_url</code> is the
-  instance root and is set in <code>connectors.yaml</code> only: no action accepts it, so the key can only go to the configured host.</li>
-<li><strong>Egress:</strong> there is no private-address guard, so an n8n on localhost or a private network works. Use a scoped API key
-  (n8n 2.14+) and an exposure profile to limit what the connector can do. It is disabled and REST-only in the shipped config;
-  profiles <code>n8n-readonly</code> and <code>n8n-workflows</code> are in <code>expose/n8n/</code>.</li>
-<li><strong>Actions:</strong> see <code>src/node_wire_n8n/README.md</code>. <code>trigger_workflow</code> calls a workflow's webhook without the API key, and only
-  on the configured n8n host.</li>
+<li><strong>Actions:</strong> 129, in waves: the original five, clinical and other resources (read and search), writes (create, update
+  with PUT, patch with JSON Patch, and <code>delete_coverage</code>), and the operations (<code>$autogen-ccd-if</code>, <code>$docref</code>,
+  <code>$health-cards-issue</code>, the charge item operations, batch, group and patient bulk export, <code>fetch_next_page</code>). The full list, the
+  request rules, the scopes and the error codes are in <code>src/node_wire_fhir_cerner/README.md</code>.</li>
+<li><strong>Scopes:</strong> Cerner checks the scopes of the token request (<code>system/&lt;Resource&gt;.read</code> and <code>.write</code>), so set <code>CERNER_SCOPES</code>
+  (or <code>scopes</code> in <code>connectors.yaml</code>, which ships with four) for the resources you use.</li>
+<li><strong>Writes:</strong> updates, patches and deletes take <code>if_match</code>, the <code>etag</code> of the last read. A write that timed out after it was
+  sent is not retried. A 5xx other than a retried gateway error on a read is <code>CERNER_SERVER_ERROR</code> (fatal). Limit a
+  deployment with an <a href="../exposure/">exposure profile</a>; the connector can write to a patient chart.</li>
+<li><strong>Privacy:</strong> logs record the operation, the method, the URL path, the status and counts, never query values or FHIR bodies
+  (<a href="../privacy/">Privacy</a>).</li>
+<li><strong>Arguments:</strong> the original five accept the same aliases as the Epic ones. Encounter search requires a patient filter
+  before any outbound call.</li>
 </ul>
 <p>The following table lists the main read and search actions:</p>
 <table>
@@ -3291,7 +3290,7 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 <tr>
 <td><code>read_patient</code></td>
 <td>You have a Patient ID</td>
-<td><code>{"resource_id": "12724066"}</code></td>
+<td><code>{"resource_id": "12765407"}</code></td>
 </tr>
 <tr>
 <td><code>search_patients</code></td>
@@ -3301,14 +3300,21 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 <tr>
 <td><code>search_encounter</code></td>
 <td>Find medical visits</td>
-<td><code>{"patient_id": "12724066"}</code></td>
+<td><code>{"patient_id": "12765407"}</code></td>
 </tr>
 </tbody>
 </table>
-<p>--------|-------------|-------------------|
-| <code>read_patient</code> | You have a Patient ID | <code>{"resource_id": "12724066"}</code> |
-| <code>search_patients</code> | No ID, or name-based search | <code>{"given_name": "Nancy", "family_name": "Smart"}</code> |
-| <code>search_encounter</code> | Find medical visits | <code>{"patient_id": "12724066"}</code> |</p>
+<h3 id="n8n"><code>n8n</code><a class="headerlink" href="#n8n" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Package:</strong> <code>node-wire-n8n</code>, <code>src/node_wire_n8n/</code>. Versions: n8n public API v1 (spec 1.1.1), written against n8n 2.47.7.</li>
+<li><strong>Secrets / settings:</strong> secret <code>N8N_API_KEY</code>, sent as <code>X-N8N-API-KEY</code> (<code>auth: static_token</code>, <code>prefix: ""</code>). <code>instance_url</code> is the
+  instance root and is set in <code>connectors.yaml</code> only: no action accepts it, so the key can only go to the configured host.</li>
+<li><strong>Egress:</strong> there is no private-address guard, so an n8n on localhost or a private network works. Use a scoped API key
+  (n8n 2.14+) and an exposure profile to limit what the connector can do. It is disabled and REST-only in the shipped config;
+  profiles <code>n8n-readonly</code> and <code>n8n-workflows</code> are in <code>expose/n8n/</code>.</li>
+<li><strong>Actions:</strong> see <code>src/node_wire_n8n/README.md</code>. <code>trigger_workflow</code> calls a workflow's webhook without the API key, and only
+  on the configured n8n host.</li>
+</ul>
 <hr />
 <h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Anchor link to this section">&para;</a></h2>
 <table>
