@@ -22,6 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`node-wire-fhir-cerner` is rebuilt with 129 actions** (was 5): every R4 read, search, create, update, patch and delete that Oracle's
+  Millennium FHIR R4 documentation lists, the CCD, `$docref`, health cards, charge item and batch operations, and the group and patient
+  bulk exports. The five original actions keep their names, inputs and Cerner rules (CodeSet 72, charset, authenticator, context period).
+  Search results now also return `next_url`; reads and writes return the resource version as `etag`, and updates, patches and deletes take
+  it as `if_match`. Errors follow the same policy as `fhir_epic`: a 5xx other than a retried gateway error on a read is the fatal
+  `CERNER_SERVER_ERROR` (before it was `CERNER_HTTP_ERROR`, business), and a timeout after a write was sent is not retried. Cerner checks the
+  scopes of the token request, so set `CERNER_SCOPES` for the resources you use. The package no longer depends on PyJWT or the httpx `http2`
+  extra and requires `node-wire-runtime>=1.1.3`. Release it as a minor version. All 129 actions, writes included, are exposed on REST, gRPC
+  and MCP until exposure profiles exist.
 - **Salesforce is off by default in the shipped `config/connectors.yaml`** (`enabled: false`, `exposed_via: ["rest"]`), because it now
   includes password resets and bulk deletes. **Migration:** a deployment that used Salesforce over gRPC or MCP must set
   `enabled: true` and `exposed_via: ["rest", "grpc", "mcp"]` in its own `connectors.yaml`, and should set `NW_EXPOSE_PROFILE` (for example

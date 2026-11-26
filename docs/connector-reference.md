@@ -134,7 +134,7 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 | [`slack`](#slack) | `post_message`, `send_direct_message`, `upload_file` | `static_token` | [Slack](slack_connector.md) |
 | [`n8n`](#n8n) | 173 actions: every n8n 2.47.7 public API operation except 3 deprecated ones (workflows, executions, tags, variables, credentials, folders, data tables, evaluations, projects, roles, users, audit, insights, community packages, source control, instance settings, policies, promotions, n8n packages), plus `trigger_workflow` | `static_token` (`X-N8N-API-KEY`) | — |
 | [`fhir_epic`](#fhir_epic-and-fhir_cerner) | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | `oauth2` (`private_key_jwt`) | — |
-| [`fhir_cerner`](#fhir_epic-and-fhir_cerner) | same actions as `fhir_epic` | `oauth2` (`private_key_jwt`) | — |
+| [`fhir_cerner`](#fhir_epic-and-fhir_cerner) | 129 actions: every R4 read, search, write and operation of Millennium, bulk export; the original five are `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | `oauth2` (`private_key_jwt`) | — |
 
 ### `http_generic`
 
@@ -234,6 +234,13 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 - **Arguments:** normalizers accept common LLM aliases (`patientId` → `resource_id`; root-level
   `patient` / `patientId` → `patient_id` and `sort` → `_sort` on `search_encounter`). Encounter
   search requires a patient filter before any outbound call.
+- **`fhir_cerner` has 129 actions:** every R4 read, search, create, update (PUT), patch (JSON Patch) and delete of
+  Millennium's 42 resource types, the `$autogen-ccd-if`, `$docref`, `$health-cards-issue`, charge item and batch operations,
+  and the group and patient bulk exports. Search fields are Cerner's own parameters, and a search must be scoped as Cerner's
+  capability statement says. Cerner checks the scopes of the token request (`system/<Resource>.read` and `.write`), so set
+  `CERNER_SCOPES` (or `scopes` in `connectors.yaml`, which ships with four) for the resources you use. Updates, patches and
+  deletes take `if_match`, the `etag` of the last read. 5xx errors other than a retried gateway error on a read are
+  `CERNER_SERVER_ERROR` (fatal). See `src/node_wire_fhir_cerner/README.md`.
 
 The following table lists the main read and search actions:
 

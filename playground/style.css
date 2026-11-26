@@ -1176,11 +1176,6 @@ textarea:focus {
     background: linear-gradient(135deg, #6366f1, #4f46e5);
 }
 
-/* Cerner/Oracle: red brand background matches Oracle Health */
-.bg-cerner {
-    background: #C74634;
-}
-
 
 /* Slack: purple brand */
 .bg-slack {
@@ -2286,7 +2281,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .bg-connectors { background: linear-gradient(135deg, #2563EB, #1D4ED8); }
 .bg-epic { background: #2B5BE0; }
 .bg-itops { background: #6366F1; }
-.bg-cerner { background: #C74634; }
 .bg-slack { background: #4A154B; }
 .selection-details h3 {
     font-family: "Outfit", sans-serif;

@@ -6,10 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 # node-wire-fhir-cerner
 
-Oracle Health (Cerner) FHIR R4 connector for Node Wire. Lets an agent or app read and search
-patients, search encounters, and create and search document references in a Cerner Millennium
-EHR. It connects as a SMART on FHIR backend service (OAuth 2.0 client credentials with a signed
-JWT).
+Oracle Health (Cerner) FHIR R4 connector for Node Wire. Lets an agent or app read, search, create, update, patch and
+delete the resources Millennium publishes (patients, encounters, observations, documents and more) and run its bulk export. It
+connects as a SMART on FHIR backend service (OAuth 2.0 client credentials with a signed JWT).
 
 Part of [Node Wire](https://github.com/AOT-Technologies/node-wire). Every call runs through the
 Node Wire runtime, so it gets input validation, retries with a circuit breaker, scope policy,
@@ -31,23 +30,22 @@ OS and CPU.
 
 ## Actions
 
-The connector registers as `fhir_cerner`. MCP tool names are `<connector_id>_<action>`, with
-dots replaced by underscores.
+The connector registers as `fhir_cerner` and has **129 actions** for Millennium's FHIR R4 API. MCP tool names are
+`<connector_id>_<action>`.
 
-| Action | MCP tool | What it does |
-|---|---|---|
-| `read_patient` | `fhir_cerner_read_patient` | Reads one Patient by ID (`{"resource_id": "..."}`) |
-| `search_patients` | `fhir_cerner_search_patients` | Finds Patients by ID list or by name and birth date |
-| `search_encounter` | `fhir_cerner_search_encounter` | Finds a patient's Encounters, optionally filtered by status and date |
-| `create_document_reference` | `fhir_cerner_create_document_reference` | Writes a clinical document (a DocumentReference with attachment) for a patient |
-| `search_document_reference` | `fhir_cerner_search_document_reference` | Finds DocumentReferences with FHIR search parameters |
+| Group | Actions |
+|---|---|
+| Original five | `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` |
+| Read and search | `read_<resource>` and `search_<resource>`, for example `read_observation`, `search_condition`, `search_medication_request`; every Cerner search parameter is a field |
+| Write | `create_<resource>`, `update_<resource>` (PUT), `patch_<resource>` (JSON Patch) and `delete_coverage`; updates, patches and deletes take `if_match`, the resource version |
+| Operations | `get_ccd`, `docref`, `health_cards_issue`, `charge_item_create`, `charge_item_credit`, `charge_item_modify`, `create_financial_transaction`, `execute_batch`, `get_capability_statement`, `get_smart_configuration`, `get_caregiver_organizations`, `fetch_next_page` |
+| Bulk export | `bulk_export_group`, `bulk_export_patients`, `bulk_export_status`, `bulk_export_file`, `bulk_export_delete` |
 
-Arguments accept common aliases that language models produce, such as `patientId` for
-`resource_id`. `search_encounter` requires a patient filter and refuses to call Cerner without one.
-
-`create_document_reference` fills in what Cerner's validation requires. It base64-encodes `text`
-when no `data` is given, adds `;charset=utf-8` to `text/*` content types, and adds a
-`context.period` when an encounter is given without one.
+The full list, request rules, scopes and error codes are in the
+[connector README](https://github.com/AOT-Technologies/node-wire/blob/main/src/node_wire_fhir_cerner/README.md).
+The original five accept common aliases that language models produce, such as `patientId` for
+`resource_id`. `search_encounter` requires a patient filter and refuses to call Cerner without one. Cerner checks the scopes of
+the token request, so an action works only for a resource whose `system/<Resource>.read` or `.write` scope is configured.
 
 ## Configuration
 
@@ -94,13 +92,13 @@ from the configuration above. See [Use a connector](https://aot-technologies.git
 
 ## Security notes
 
-Logs record the operation mode, HTTP status and result counts, never request parameters or FHIR
-resource bodies. See [Privacy](https://aot-technologies.github.io/node-wire/privacy/).
+Logs record the operation, HTTP status and result counts, never request parameters or FHIR
+resource bodies. A bulk file link is followed without the access token. See [Privacy](https://aot-technologies.github.io/node-wire/privacy/).
 
 ## Documentation
 
 - [Node Wire on GitHub](https://github.com/AOT-Technologies/node-wire): source, issues and full documentation
-- [Connector reference](https://aot-technologies.github.io/node-wire/connector-reference/#fhir_epic-and-fhir_cerner)
+- [Connector reference](https://aot-technologies.github.io/node-wire/connector-reference/#fhir_cerner)
 - [Configuration](https://aot-technologies.github.io/node-wire/configuration/)
 - [Error codes](https://aot-technologies.github.io/node-wire/errors/)
 - [Changelog](https://github.com/AOT-Technologies/node-wire/blob/main/CHANGELOG.md)

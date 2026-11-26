@@ -42,15 +42,11 @@ This scenario demonstrates how the platform can integrate with any REST-enabled 
     4.  **Audit Log**: Triggers a background task to record the transaction in the system audit log.
 *   **Implementation**: Uses the `http_generic` connector. In this demo, it targets `httpbin.org/post` to echo and verify the dispatched data, showcasing universal connectivity.
 
-### Scenario 3: Cerner FHIR R4 orchestration
-This scenario demonstrates advanced clinical note orchestration for Oracle Health (Cerner) legacy systems, handling proprietary coding and strict validation rules.
+### Scenario 3: Cerner FHIR
+The **Cerner FHIR** card lists every action of the `fhir_cerner` connector (129): reads, searches, writes and operations for Oracle Health Millennium's R4 resources. Pick an action, fill its fields and run it. The card has no fixed workflow, so you build one: find a patient, read the chart, write a note, check that it arrived.
 
-*   **Logic Flow**:
-    1.  **Identity Verification**: Verifies patient identity (for example, Nancy Smart) using the `fhir_cerner` connector.
-    2.  **Medical Visit Sync**: Locates specific encounters compatible with clinical documentation (for example, `97957281`).
-    3.  **Secure Clinical Sync**: Handles Cerner's specific requirements, including **CodeSet 72** document types, mandatory `docStatus`, and synchronized clinical periods to avoid temporal validation errors.
-    4.  **EHR Verification**: Confirms the document creation by querying for the specific resource ID, ensuring it's properly indexed in the patient's record.
-*   **Implementation**: Uses the `fhir_cerner` connector, demonstrating automated handling of Cerner's strict 422/400 validation rules (for example, numeric practitioner IDs and specific search parameter combinations).
+*   **Setup**: `fhir_cerner` must be in `NW_ALLOWED_CONNECTORS`. **Add config** takes the client id, key id and PEM private key. Cerner checks the scopes of the token request, so set `CERNER_SCOPES` for the resources you use.
+*   **Implementation**: the generic connector card in `dynamic-connectors.js`, which builds its form from each action's input schema. See the [connector README](../src/node_wire_fhir_cerner/README.md).
 
 ### Scenario 4: AI agent orchestration (MCP)
 This scenario demonstrates the platform's highest level of abstraction: an autonomous AI Assistant that uses the **Model Context Protocol (MCP)** to orchestrate complex healthcare workflows through natural language.
