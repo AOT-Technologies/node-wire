@@ -24,11 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const itopsRunBtn = document.getElementById('itops-run-btn');
     const itopsSpinner = itopsRunBtn.querySelector('.loading-spinner');
     const itopsBtnText = itopsRunBtn.querySelector('.btn-lbl');
-    const ehrPanel = document.getElementById('ehr-panel');
-    const cernerForm = document.getElementById('cerner-form');
-    const cernerRunBtn = document.getElementById('cerner-run-btn');
-    const cernerSpinner = cernerRunBtn.querySelector('.loading-spinner');
-    const cernerBtnText = cernerRunBtn.querySelector('.btn-lbl');
     const itopsPanel = document.getElementById('itops-panel');
     const slackForm = document.getElementById('slack-form');
     const slackRunBtn = document.getElementById('slack-run-btn');
@@ -219,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetUI(pipelineLabelOverride = null) {
-        const baseLabels = pipelineLabels[currentMode] || pipelineLabels.cerner;
+        const baseLabels = pipelineLabels[currentMode] || pipelineLabels.itops;
         const useOverride = Array.isArray(pipelineLabelOverride) && pipelineLabelOverride.length > 0;
         const rowLabels = useOverride ? pipelineLabelOverride : baseLabels;
         const visibleCount = rowLabels.length;
@@ -916,8 +911,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Map playground mode names to connector_id strings used by the config API.
     const _modeToConnectorId = {
-        ehr: 'fhir_epic',
-        cerner: 'fhir_cerner',
         itops: 'http_generic',
         slack: 'slack',
         stripe: 'stripe',
@@ -933,35 +926,6 @@ document.addEventListener('DOMContentLoaded', () => {
         http_generic: {
             config: {},
             auth: {},
-        },
-        fhir_epic: {
-            config: {
-                base_url: 'https://fhir.epic.sandbox/api/FHIR/R4',
-        fhir_cerner: {
-            config: {
-                base_url: 'https://fhir-ehr-code.cerner.com/r4/your-tenant-id',
-            },
-            auth: {
-                provider: 'oauth2',
-                grant_method: 'private_key_jwt',
-                token_url_secret: 'EPIC_TOKEN_URL',
-                client_id_secret: 'EPIC_CLIENT_ID',
-                private_key_secret: 'EPIC_PRIVATE_KEY',
-                kid_secret: 'EPIC_KID',
-                algorithm: 'RS384',
-                token_url_secret: 'CERNER_TOKEN_URL',
-                client_id_secret: 'CERNER_CLIENT_ID',
-                private_key_secret: 'CERNER_PRIVATE_KEY',
-                kid_secret: 'CERNER_KID',
-                algorithm: 'RS384',
-                scopes_secret: 'CERNER_SCOPES',
-                scopes: [
-                    'system/Patient.read',
-                    'system/Encounter.read',
-                    'system/DocumentReference.read',
-                    'system/DocumentReference.write',
-                ],
-            },
         },
         slack: {
             config: {},
@@ -995,16 +959,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Varying-only secret fields shown in Add config (shared env auto-copied server-side).
     // Format / required secret validation is server-side only (tenant_store).
     const _connectorSecretFields = {
-        fhir_epic: [
-            { key: 'EPIC_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
-            { key: 'EPIC_PRIVATE_KEY', label: 'Private key (PEM)', type: 'textarea', required: true },
-            { key: 'EPIC_KID', label: 'Key ID (kid)', type: 'text', required: true },
-        fhir_cerner: [
-            { key: 'CERNER_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
-            { key: 'CERNER_PRIVATE_KEY', label: 'Private key (PEM)', type: 'textarea', required: true },
-            { key: 'CERNER_KID', label: 'Key ID (kid)', type: 'text', required: true },
-            { key: 'CERNER_SCOPES', label: 'Scopes (space-separated)', type: 'text', required: false },
-        ],
         slack: [
             { key: 'SLACK_BOT_TOKEN', label: 'Bot token', type: 'text', required: true },
         ],

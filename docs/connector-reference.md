@@ -134,7 +134,7 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 | [`slack`](#slack) | `post_message`, `send_direct_message`, `upload_file` | `static_token` | [Slack](slack_connector.md) |
 | [`fhir_epic`](#fhir_epic) | 137 Epic R4 actions: `read_<resource>`, `search_<resource>`, `create_<resource>`, `update_<resource>` for Epic's public resources, `patient_match`, `patient_summary`, bulk export and more | `oauth2` (`private_key_jwt`) | — |
 | [`n8n`](#n8n) | 173 actions: every n8n 2.47.7 public API operation except 3 deprecated ones (workflows, executions, tags, variables, credentials, folders, data tables, evaluations, projects, roles, users, audit, insights, community packages, source control, instance settings, policies, promotions, n8n packages), plus `trigger_workflow` | `static_token` (`X-N8N-API-KEY`) | — |
-| [`fhir_cerner`](#fhir_epic-and-fhir_cerner) | 129 actions: every R4 read, search, write and operation of Millennium, bulk export; the original five are `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | `oauth2` (`private_key_jwt`) | — |
+| [`fhir_cerner`](#fhir_cerner) | 129 actions: every R4 read, search, write and operation of Millennium, bulk export; the original five are `read_patient`, `search_patients`, `search_encounter`, `create_document_reference`, `search_document_reference` | `oauth2` (`private_key_jwt`) | — |
 
 ### `http_generic`
 
@@ -228,16 +228,6 @@ Per-tenant secrets follow the [tenant secret naming](architecture/tenancy.md#ten
 
 ### `fhir_cerner`
 
-- **Package:** `node-wire-fhir-cerner` (`src/node_wire_fhir_cerner/`, MCP image `nw-smartonfhir-cerner`). SMART on FHIR R4
-  backend services with Cerner-specific schemas.
-- **Secrets / settings:** `CERNER_FHIR_BASE_URL`, `CERNER_TOKEN_URL`, `CERNER_CLIENT_ID`, `CERNER_KID`, `CERNER_PRIVATE_KEY`,
-  plus `CERNER_SCOPES`.
-- **Privacy:** logs record operation mode, HTTP status and counts, never request parameters or FHIR bodies.
-- **Arguments:** the same aliases as the original five Epic actions. Encounter search requires a patient filter before any
-  outbound call.
-  
-### `fhir_cerner`
-
 - **Package:** `node-wire-fhir-cerner` (`src/node_wire_fhir_cerner/`, MCP image `nw-smartonfhir-cerner`). Oracle Health
   (Cerner) Millennium FHIR R4, SMART backend services.
 - **Secrets / settings:** `CERNER_FHIR_BASE_URL`, `CERNER_TOKEN_URL`, `CERNER_CLIENT_ID`, `CERNER_KID`, `CERNER_PRIVATE_KEY`,
@@ -260,9 +250,10 @@ The following table lists the main read and search actions:
 
 | Action | When to use | Example arguments |
 |--------|-------------|-------------------|
-| `read_patient` | You have a Patient ID | `{"resource_id": "12724066"}` |
+| `read_patient` | You have a Patient ID | `{"resource_id": "12765407"}` |
 | `search_patients` | No ID, or name-based search | `{"given_name": "Nancy", "family_name": "Smart"}` |
-| `search_encounter` | Find medical visits | `{"patient_id": "12724066"}` |
+| `search_encounter` | Find medical visits | `{"patient_id": "12765407"}` |
+
 ### `n8n`
 
 - **Package:** `node-wire-n8n`, `src/node_wire_n8n/`. Versions: n8n public API v1 (spec 1.1.1), written against n8n 2.47.7.
@@ -273,20 +264,6 @@ The following table lists the main read and search actions:
   profiles `n8n-readonly` and `n8n-workflows` are in `expose/n8n/`.
 - **Actions:** see `src/node_wire_n8n/README.md`. `trigger_workflow` calls a workflow's webhook without the API key, and only
   on the configured n8n host.
-
-
-The following table lists the main read and search actions:
-
-| Action | When to use | Example arguments |
-|--------|-------------|-------------------|
-| `read_patient` | You have a Patient ID | `{"resource_id": "12724066"}` |
-| `search_patients` | No ID, or name-based search | `{"given_name": "Nancy", "family_name": "Smart"}` |
-| `search_encounter` | Find medical visits | `{"patient_id": "12724066"}` |
-
---------|-------------|-------------------|
-| `read_patient` | You have a Patient ID | `{"resource_id": "12724066"}` |
-| `search_patients` | No ID, or name-based search | `{"given_name": "Nancy", "family_name": "Smart"}` |
-| `search_encounter` | Find medical visits | `{"patient_id": "12724066"}` |
 
 ---
 
