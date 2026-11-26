@@ -1224,10 +1224,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#n8n" class="md-nav__link">
+  <a href="#fhir_epic" class="md-nav__link">
     <span class="md-ellipsis">
       
-        n8n
+        fhir_epic
       
     </span>
   </a>
@@ -1235,10 +1235,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fhir_epic-and-fhir_cerner" class="md-nav__link">
+  <a href="#fhir_cerner" class="md-nav__link">
     <span class="md-ellipsis">
       
-        fhir_epic and fhir_cerner
+        fhir_cerner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#n8n" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        n8n
       
     </span>
   </a>
@@ -2844,10 +2855,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#n8n" class="md-nav__link">
+  <a href="#fhir_epic" class="md-nav__link">
     <span class="md-ellipsis">
       
-        n8n
+        fhir_epic
       
     </span>
   </a>
@@ -2855,10 +2866,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fhir_epic-and-fhir_cerner" class="md-nav__link">
+  <a href="#fhir_cerner" class="md-nav__link">
     <span class="md-ellipsis">
       
-        fhir_epic and fhir_cerner
+        fhir_cerner
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#n8n" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        n8n
       
     </span>
   </a>
@@ -3126,21 +3148,21 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 <td><a href="../slack_connector/">Slack</a></td>
 </tr>
 <tr>
-<td><a href="#n8n"><code>n8n</code></a></td>
-<td>173 actions: every n8n 2.47.7 public API operation except 3 deprecated ones (workflows, executions, tags, variables, credentials, folders, data tables, evaluations, projects, roles, users, audit, insights, community packages, source control, instance settings, policies, promotions, n8n packages), plus <code>trigger_workflow</code></td>
-<td><code>static_token</code> (<code>X-N8N-API-KEY</code>)</td>
+<td><a href="#fhir_epic"><code>fhir_epic</code></a></td>
+<td>137 Epic R4 actions: <code>read_&lt;resource&gt;</code>, <code>search_&lt;resource&gt;</code>, <code>create_&lt;resource&gt;</code>, <code>update_&lt;resource&gt;</code> for Epic's public resources, <code>patient_match</code>, <code>patient_summary</code>, bulk export and more</td>
+<td><code>oauth2</code> (<code>private_key_jwt</code>)</td>
 <td>—</td>
 </tr>
 <tr>
-<td><a href="#fhir_epic-and-fhir_cerner"><code>fhir_epic</code></a></td>
+<td><a href="#fhir_cerner"><code>fhir_cerner</code></a></td>
 <td><code>read_patient</code>, <code>search_patients</code>, <code>search_encounter</code>, <code>create_document_reference</code>, <code>search_document_reference</code></td>
 <td><code>oauth2</code> (<code>private_key_jwt</code>)</td>
 <td>—</td>
 </tr>
 <tr>
-<td><a href="#fhir_epic-and-fhir_cerner"><code>fhir_cerner</code></a></td>
-<td>same actions as <code>fhir_epic</code></td>
-<td><code>oauth2</code> (<code>private_key_jwt</code>)</td>
+<td><a href="#n8n"><code>n8n</code></a></td>
+<td>173 actions: every n8n 2.47.7 public API operation except 3 deprecated ones (workflows, executions, tags, variables, credentials, folders, data tables, evaluations, projects, roles, users, audit, insights, community packages, source control, instance settings, policies, promotions, n8n packages), plus <code>trigger_workflow</code></td>
+<td><code>static_token</code> (<code>X-N8N-API-KEY</code>)</td>
 <td>—</td>
 </tr>
 </tbody>
@@ -3220,6 +3242,31 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
   <code>NW_SLACK_ATTACHMENTS_DIR</code> (default <code>/slack_attachments</code>).</li>
 <li><strong>Guide:</strong> <a href="../slack_connector/">Slack</a> covers bot setup, channel resolution and the error codes.</li>
 </ul>
+<h3 id="fhir_epic"><code>fhir_epic</code><a class="headerlink" href="#fhir_epic" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Package:</strong> <code>node-wire-fhir-epic</code> (<code>src/node_wire_fhir_epic/</code>, MCP image <code>nw-smartonfhir-epic</code>). Epic on FHIR R4, SMART
+  backend services.</li>
+<li><strong>Secrets / settings:</strong> <code>EPIC_FHIR_BASE_URL</code>, <code>EPIC_TOKEN_URL</code>, <code>EPIC_CLIENT_ID</code>, <code>EPIC_KID</code>, <code>EPIC_PRIVATE_KEY</code>.</li>
+<li><strong>Actions:</strong> 137, in waves: the original five, US Core and other resources (read and search), writes (create and update, the
+  FHIR resource as JSON), and the operations (<code>patient_match</code>, <code>patient_summary</code>, <code>value_set_expand</code>, group bulk export,
+  <code>fetch_next_page</code>). The full list, the request rules and the error codes are in <code>src/node_wire_fhir_epic/README.md</code>.</li>
+<li><strong>Privacy:</strong> logs record the operation, the method, the URL path, the status and counts, never query values or FHIR bodies
+  (<a href="../privacy/">Privacy</a>).</li>
+<li><strong>Writes:</strong> a create that timed out after it was sent is not retried (Epic has no conditional create). Limit a deployment
+  with an <a href="../exposure/">exposure profile</a>; the connector can write to a patient chart.</li>
+<li><strong>Arguments:</strong> the original five accept common LLM aliases (<code>patientId</code> → <code>resource_id</code>; root-level <code>patient</code> /
+  <code>patientId</code> → <code>patient_id</code> and <code>sort</code> → <code>_sort</code> on <code>search_encounter</code>).</li>
+</ul>
+<h3 id="fhir_cerner"><code>fhir_cerner</code><a class="headerlink" href="#fhir_cerner" title="Anchor link to this section">&para;</a></h3>
+<ul>
+<li><strong>Package:</strong> <code>node-wire-fhir-cerner</code> (<code>src/node_wire_fhir_cerner/</code>, MCP image <code>nw-smartonfhir-cerner</code>). SMART on FHIR R4
+  backend services with Cerner-specific schemas.</li>
+<li><strong>Secrets / settings:</strong> <code>CERNER_FHIR_BASE_URL</code>, <code>CERNER_TOKEN_URL</code>, <code>CERNER_CLIENT_ID</code>, <code>CERNER_KID</code>, <code>CERNER_PRIVATE_KEY</code>,
+  plus <code>CERNER_SCOPES</code>.</li>
+<li><strong>Privacy:</strong> logs record operation mode, HTTP status and counts, never request parameters or FHIR bodies.</li>
+<li><strong>Arguments:</strong> the same aliases as the original five Epic actions. Encounter search requires a patient filter before any
+  outbound call.</li>
+</ul>
 <h3 id="n8n"><code>n8n</code><a class="headerlink" href="#n8n" title="Anchor link to this section">&para;</a></h3>
 <ul>
 <li><strong>Package:</strong> <code>node-wire-n8n</code>, <code>src/node_wire_n8n/</code>. Versions: n8n public API v1 (spec 1.1.1), written against n8n 2.47.7.</li>
@@ -3230,19 +3277,6 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
   profiles <code>n8n-readonly</code> and <code>n8n-workflows</code> are in <code>expose/n8n/</code>.</li>
 <li><strong>Actions:</strong> see <code>src/node_wire_n8n/README.md</code>. <code>trigger_workflow</code> calls a workflow's webhook without the API key, and only
   on the configured n8n host.</li>
-</ul>
-<h3 id="fhir_epic-and-fhir_cerner"><code>fhir_epic</code> and <code>fhir_cerner</code><a class="headerlink" href="#fhir_epic-and-fhir_cerner" title="Anchor link to this section">&para;</a></h3>
-<ul>
-<li><strong>Packages:</strong> <code>node-wire-fhir-epic</code> (<code>src/node_wire_fhir_epic/</code>, MCP image <code>nw-smartonfhir-epic</code>)
-  and <code>node-wire-fhir-cerner</code> (<code>src/node_wire_fhir_cerner/</code>, MCP image <code>nw-smartonfhir-cerner</code>).
-  Both are SMART on FHIR R4 backend services with Epic- and Cerner-specific schemas.</li>
-<li><strong>Secrets / settings:</strong> Epic: <code>EPIC_FHIR_BASE_URL</code>, <code>EPIC_TOKEN_URL</code>, <code>EPIC_CLIENT_ID</code>, <code>EPIC_KID</code>,
-  <code>EPIC_PRIVATE_KEY</code>. Cerner: the same with a <code>CERNER_</code> prefix, plus <code>CERNER_SCOPES</code>.</li>
-<li><strong>Privacy:</strong> logs record operation mode, HTTP status and counts, never request parameters or
-  FHIR bodies (<a href="../privacy/">Privacy</a>).</li>
-<li><strong>Arguments:</strong> normalizers accept common LLM aliases (<code>patientId</code> → <code>resource_id</code>; root-level
-  <code>patient</code> / <code>patientId</code> → <code>patient_id</code> and <code>sort</code> → <code>_sort</code> on <code>search_encounter</code>). Encounter
-  search requires a patient filter before any outbound call.</li>
 </ul>
 <p>The following table lists the main read and search actions:</p>
 <table>
@@ -3271,6 +3305,10 @@ Per-tenant secrets follow the <a href="../architecture/tenancy/#tenant-secrets">
 </tr>
 </tbody>
 </table>
+<p>--------|-------------|-------------------|
+| <code>read_patient</code> | You have a Patient ID | <code>{"resource_id": "12724066"}</code> |
+| <code>search_patients</code> | No ID, or name-based search | <code>{"given_name": "Nancy", "family_name": "Smart"}</code> |
+| <code>search_encounter</code> | Find medical visits | <code>{"patient_id": "12724066"}</code> |</p>
 <hr />
 <h2 id="related-documentation">Related documentation<a class="headerlink" href="#related-documentation" title="Anchor link to this section">&para;</a></h2>
 <table>
