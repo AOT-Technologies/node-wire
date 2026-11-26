@@ -267,20 +267,6 @@ SPDX-License-Identifier: Apache-2.0
                             </div>
                         </div>
 
-                        <div class="connector-card" data-mode="cerner">
-                            <div class="connector-icon bg-cerner">
-                                <!-- Real Oracle Health (Cerner) logo - red ellipse C mark -->
-                                <svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg" fill="none">
-                                  <circle cx="30" cy="30" r="30" fill="#C74634"/>
-                                  <path d="M30 12C20.06 12 12 20.06 12 30s8.06 18 18 18c6.63 0 12.43-3.58 15.57-8.93H39.4C37.3 42.3 33.87 44.4 30 44.4c-7.95 0-14.4-6.45-14.4-14.4S22.05 15.6 30 15.6c3.87 0 7.3 2.1 9.4 5.33h6.17C42.43 15.58 36.63 12 30 12z" fill="white"/>
-                                </svg>
-                            </div>
-                            <div class="connector-details">
-                                <h3>Cerner</h3>
-                                <p>Enterprise connectivity for Oracle Health Cerner ecosystems with real-time sync.</p>
-                            </div>
-                        </div>
-
                         <div class="connector-card" data-mode="slack">
                             <div class="connector-icon bg-slack">
                                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -386,55 +372,6 @@ SPDX-License-Identifier: Apache-2.0
                                 </form>
                             </div>
 
-                            <div id="cerner-panel" class="glass-card main-form-card hidden">
-                                <div class="card-title">
-                                    <h2>Cerner Consultation Summary</h2>
-                                    <span class="info-tip">Automated Post-Visit Note &#8212; Cerner FHIR R4</span>
-                                </div>
-
-                                <form id="cerner-form">
-                                    <div class="input-section">
-                                        <h3 class="section-label">Patient Identification</h3>
-                                        <div class="input-row">
-                                            <div class="field-group">
-                                                <label>Patient ID</label>
-                                                <input type="text" name="patient_id" value="12724066"
-                                                    placeholder="Cerner Patient ID...">
-                                            </div>
-                                            <div class="field-group">
-                                                <label>Encounter ID</label>
-                                                <input type="text" name="encounter_id" value="97957281"
-                                                    placeholder="Cerner Encounter ID...">
-                                            </div>
-                                        </div>
-                                        <div class="input-row">
-                                            <div class="field-group">
-                                                <label>First Name</label>
-                                                <input type="text" name="patient_given" value="Nancy">
-                                            </div>
-                                            <div class="field-group">
-                                                <label>Last Name</label>
-                                                <input type="text" name="patient_family" value="Smart">
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="input-section">
-                                        <h3 class="section-label">Clinical Documentation</h3>
-                                        <div class="field-group">
-                                            <label>Clinical Findings &amp; Plan</label>
-                                            <textarea name="note_text" rows="6">Patient presented for follow-up regarding Type 2 Diabetes Mellitus.
-Fasting glucose: 148 mg/dL (above target). HbA1c: 7.9%.
-Plan: Increase Metformin to 1000mg twice daily. Refer to dietitian. Follow-up in 4 weeks for labs.</textarea>
-                                        </div>
-                                    </div>
-
-                                    <button type="submit" id="cerner-run-btn" class="action-btn">
-                                        <span class="btn-lbl">Sync to Cerner Chart</span>
-                                        <div class="loading-spinner hidden"></div>
-                                    </button>
-                                </form>
-                            </div>
                             <div id="slack-panel" class="glass-card main-form-card hidden">
                                 <div class="card-title">
                                     <h2>Slack Orchestration</h2>

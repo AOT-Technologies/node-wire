@@ -26,6 +26,14 @@ def _split_ids(value: Any) -> List[str]:
     return [p.strip() for p in s.split(",") if p.strip()]
 
 
+def _ids_as_text(args: Dict[str, Any], *keys: str) -> None:
+    """A numeric id (12765407, not "12765407") is still an id: the playground and some models send numbers."""
+    for key in keys:
+        value = args.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            args[key] = str(int(value)) if float(value).is_integer() else str(value)
+
+
 def _is_missing_or_blank(value: Any) -> bool:
     if value is None:
         return True
@@ -65,6 +73,7 @@ def assert_encounter_query_has_patient(query_params: Dict[str, str]) -> None:
 
 def normalize_fhir_read_patient(args: Dict[str, Any]) -> None:
     """Map legacy LLM keys for FHIR read_patient."""
+    _ids_as_text(args, "resource_id", "patient_id", "patientId")
     if not (args.get("resource_id") or "").strip():
         pid = args.get("patient_id") or args.get("patientId")
         if pid is not None and str(pid).strip():
@@ -87,6 +96,7 @@ def normalize_fhir_search_encounter(args: Dict[str, Any]) -> None:
     - Root ``sort`` -> FHIR ``_sort`` (merged into ``search_params``).
     - ``sort`` inside ``search_params`` -> ``_sort``.
     """
+    _ids_as_text(args, "patient_id", "patient", "patientId")
     if not (args.get("patient_id") or "").strip():
         p = args.get("patient") or args.get("patientId")
         if p is not None and str(p).strip():
@@ -114,6 +124,8 @@ def normalize_fhir_search_encounter(args: Dict[str, Any]) -> None:
 
 def normalize_fhir_search_patients(args: Dict[str, Any]) -> None:
     """Map legacy LLM keys for FHIR search_patients."""
+    if isinstance(args.get("resource_ids"), list):
+        args["resource_ids"] = [str(x) for x in args["resource_ids"]]
     if not args.get("resource_ids"):
         raw = args.get("patient_ids") or args.get("patientIds")
         ids = _split_ids(raw)
