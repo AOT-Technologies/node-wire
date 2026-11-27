@@ -4,6 +4,7 @@
 #
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import uuid
@@ -23,6 +24,7 @@ from node_wire_runtime.caller_identity import CallerIdentity
 from node_wire_runtime.errors import ErrorMapper
 from node_wire_runtime.http_safety import SsrfBlockedError, assert_safe_destination
 from node_wire_runtime.models import ErrorCategory
+from node_wire_runtime.policy import PolicyDenied
 from node_wire_runtime.config_store import DEFAULT_TENANT, ConfigNotFoundError
 from node_wire_runtime.identity import (
     MissingTenantError,
@@ -52,6 +54,10 @@ from node_wire_salesforce.schema import (
     ReadContactInput,
     UpdateContactInput,
     DeleteContactInput,
+    CreateRecordInput,
+    DeleteRecordInput,
+    QueryInput,
+    UpdateRecordInput,
 )
 
 
@@ -126,6 +132,11 @@ class SalesforceLeadInputPlayground(BaseModel):
     first_name: Optional[str] = None
     email: Optional[str] = None
     status: str = "Open - Not Contacted"
+
+
+class SalesforceLendingInputPlayground(BaseModel):
+    loan_name: str = "Northgate%"
+    recommendation: str = "Approve"
 
 
 class SalesforceContactInputPlayground(BaseModel):
@@ -1657,6 +1668,130 @@ async def agent_chat_stream(request: Request, payload: AgentChatInput) -> Any:
             )
 
     return StreamingResponse(stream_events(), media_type="application/x-ndjson")
+
+
+@router.post("/salesforce-lending-demo", response_model=ScenarioResponse)
+async def salesforce_lending_demo_scenario(
+    payload: SalesforceLendingInputPlayground,
+    connector: SalesforceConnector = Depends(get_salesforce_connector),
+) -> ScenarioResponse:
+    """Commercial lending story: read the loan, write the recommendation, prove the other writes
+    are refused, attach the memo. Simplified: one scenario that runs every step in order."""
+    trace_id = str(uuid.uuid4())
+    steps: List[ScenarioStep] = []
+
+    def add_step(name: str, display_name: str) -> None:
+        steps.append(ScenarioStep(name=name, status="pending", display_name=display_name))
+
+    def done(details: str, data: Any = None) -> None:
+        steps[-1].status, steps[-1].details, steps[-1].data = "success", details, data
+
+    async def soql(q: str) -> list:
+        res = await run_action(connector, QueryInput(q=q))
+        return (res.body or {}).get("records", [])
+
+    async def must_be_blocked(inp: Any) -> None:
+        try:
+            await run_action(connector, inp)
+        except PolicyDenied as exc:
+            done(
+                "Refused by write_allow, as expected",
+                {"error_code": "POLICY_DENIED", "raw": str(exc)},
+            )
+            return
+        raise RuntimeError("The write was NOT blocked: check write_allow in connectors.yaml")
+
+    if not connector.config.get("write_allow"):
+        # The blocked steps would really change or delete the loan without the guard.
+        add_step("Check guard", "Check write_allow is configured")
+        steps[-1].status = "error"
+        steps[-1].details = "Set write_allow for salesforce in config/connectors.yaml first"
+        return ScenarioResponse(
+            success=False, steps=steps, trace_id=trace_id, error_message="write_allow is not set"
+        )
+    like = payload.loan_name.replace("\\", "\\\\").replace("'", "\\'")
+    add_step("Read loan", "Query loan application")
+    try:
+        loans = await soql(
+            f"SELECT Id, Name, Amount__c, Purpose__c, Stage__c, Recommendation__c FROM Loan__c "
+            f"WHERE Name LIKE '{like}' LIMIT 1"
+        )
+        if not loans:
+            raise RuntimeError(f"No Loan__c matches {payload.loan_name!r}: seed the Northgate data")
+        loan = loans[0]
+        done(f"Found {loan['Name']}", loan)
+
+        add_step("Read related", "Query guarantors and collateral")
+        guarantors = await soql(
+            f"SELECT Name, Ownership_Pct__c FROM Guarantor__c WHERE Loan__c = '{loan['Id']}'"
+        )
+        collateral = await soql(
+            f"SELECT Name, Type__c, Value__c FROM Collateral__c WHERE Loan__c = '{loan['Id']}'"
+        )
+        done(
+            f"{len(guarantors)} guarantors, {len(collateral)} collateral records",
+            {"guarantors": guarantors, "collateral": collateral},
+        )
+
+        add_step("Write recommendation", "Update Recommendation__c (allowed)")
+        await run_action(
+            connector,
+            UpdateRecordInput(
+                sobject="Loan__c",
+                record_id=loan["Id"],
+                fields={"Recommendation__c": payload.recommendation},
+            ),
+        )
+        done("Recommendation saved", {"Recommendation__c": payload.recommendation})
+
+        add_step("Block stage change", "Try to change Stage__c (must be refused)")
+        await must_be_blocked(
+            UpdateRecordInput(
+                sobject="Loan__c",
+                record_id=loan["Id"],
+                fields={"Stage__c": loan.get("Stage__c") or "Closed"},
+            )
+        )
+
+        add_step("Block delete", "Try to delete the loan (must be refused)")
+        await must_be_blocked(DeleteRecordInput(sobject="Loan__c", record_id=loan["Id"]))
+
+        add_step("Attach memo", "Upload memo and link it to the loan")
+        memo = base64.b64encode(f"Underwriting memo for {loan['Name']}".encode()).decode()
+        version = await run_action(
+            connector,
+            CreateRecordInput(
+                sobject="ContentVersion",
+                fields={
+                    "Title": "Underwriting memo",
+                    "PathOnClient": "memo.txt",
+                    "VersionData": memo,
+                },
+            ),
+        )
+        doc = await soql(
+            f"SELECT ContentDocumentId FROM ContentVersion WHERE Id = '{version.body['id']}'"
+        )
+        await run_action(
+            connector,
+            CreateRecordInput(
+                sobject="ContentDocumentLink",
+                fields={
+                    "ContentDocumentId": doc[0]["ContentDocumentId"],
+                    "LinkedEntityId": loan["Id"],
+                },
+            ),
+        )
+        done("Memo attached", {"ContentDocumentId": doc[0]["ContentDocumentId"]})
+        return ScenarioResponse(
+            success=True,
+            trace_id=trace_id,
+            steps=steps,
+            human_summary=f"Lending demo finished for {loan['Name']}",
+            final_resource_id=loan["Id"],
+        )
+    except Exception as e:
+        return _safe_error_return(e, steps, trace_id, "Lending demo failed")
 
 
 @router.post("/salesforce-create-lead", response_model=ScenarioResponse)

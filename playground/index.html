@@ -561,6 +561,7 @@ SPDX-License-Identifier: Apache-2.0
                                         <option value="read_contact">Read Contact</option>
                                         <option value="update_contact">Update Contact</option>
                                         <option value="delete_contact">Delete Contact</option>
+                                        <option value="lending_demo">Lending demo (loan, guardrails, memo)</option>
                                     </select>
                                 </div>
 
@@ -619,6 +620,21 @@ SPDX-License-Identifier: Apache-2.0
                                             <div class="field-group">
                                                 <label>Account ID (Optional)</label>
                                                 <input type="text" name="contact_account_id" placeholder="001...">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Lending demo -->
+                                    <div id="salesforce-section-lending" class="hidden">
+                                        <div class="input-section">
+                                            <h3 class="section-label">Commercial Loan</h3>
+                                            <div class="field-group">
+                                                <label>Loan name (SOQL LIKE)</label>
+                                                <input type="text" name="loan_name" value="Northgate%">
+                                            </div>
+                                            <div class="field-group">
+                                                <label>Recommendation</label>
+                                                <input type="text" name="recommendation" value="Approve">
                                             </div>
                                         </div>
                                     </div>

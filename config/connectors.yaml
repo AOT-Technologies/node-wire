@@ -89,9 +89,14 @@ connectors:
       - system/DocumentReference.write
 
   salesforce:
-    enabled: false  # opt-in: 150 actions, including password resets and bulk deletes; see expose/salesforce/
-    exposed_via: ["rest"]  # add grpc/mcp only together with an NW_EXPOSE_PROFILE
+    enabled: true  # lending demo; the shipped default is off (150 actions incl. password resets, bulk deletes)
+    exposed_via: ["rest"]  # add grpc/mcp only together with an NW_EXPOSE_PROFILE (use salesforce-lending)
     # api_version: v68.0   # optional; v68.0 is the default
+    # Lending guard: only these objects and fields can be written; every delete is refused.
+    write_allow:
+      Loan__c: [Recommendation__c]
+      ContentVersion: ["*"]
+      ContentDocumentLink: ["*"]
     auth:
       provider: oauth2
       grant_method: refresh_token
