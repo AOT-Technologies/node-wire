@@ -1,0 +1,9 @@
+# Edit select/exclude, then run: nw expose resolve. The runtime reads only `actions`.
+connector: opensanctions
+profile: opensanctions-lending
+select:
+- name:match_match_dataset_post
+- name:fetch_entity_entities_entity_id_get
+actions:
+- fetch_entity_entities_entity_id_get
+- match_match_dataset_post

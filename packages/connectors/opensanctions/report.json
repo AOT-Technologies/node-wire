@@ -1,0 +1,111 @@
+{
+  "summary": {
+    "id": "opensanctions",
+    "spec_source": "G:\\SPACE\\node-wire\\opensanctions_fixed.json",
+    "spec_version": "3.1.0",
+    "generator_version": "1.1.2",
+    "spec_content_hash": "05921d4d04c5c17c044caf5d1b42a4ffddd69ee3ac90f63da3a12a6224770b94",
+    "error": null,
+    "total_operations": 12,
+    "generated": 12,
+    "soft_dropped": 0,
+    "deprecated": 0,
+    "coverage_warning": false,
+    "default_base_url": "https://api.opensanctions.org"
+  },
+  "generated_actions": [
+    {
+      "name": "match_match_dataset_post",
+      "method": "POST",
+      "path": "/match/{dataset}",
+      "auth": true
+    },
+    {
+      "name": "search_search_dataset_get",
+      "method": "GET",
+      "path": "/search/{dataset}",
+      "auth": true
+    },
+    {
+      "name": "fetch_entity_entities_entity_id_get",
+      "method": "GET",
+      "path": "/entities/{entity_id}",
+      "auth": true
+    },
+    {
+      "name": "fetch_adjacent_entities_entities_entity_id",
+      "method": "GET",
+      "path": "/entities/{entity_id}/adjacent",
+      "auth": true
+    },
+    {
+      "name": "fetch_adjacent_by_property_entities_entity_id",
+      "method": "GET",
+      "path": "/entities/{entity_id}/adjacent/{property_name}",
+      "auth": true
+    },
+    {
+      "name": "reconcile_reconcile_dataset_get",
+      "method": "GET",
+      "path": "/reconcile/{dataset}",
+      "auth": true
+    },
+    {
+      "name": "healthz_healthz_get",
+      "method": "GET",
+      "path": "/healthz",
+      "auth": true
+    },
+    {
+      "name": "readyz_readyz_get",
+      "method": "GET",
+      "path": "/readyz",
+      "auth": true
+    },
+    {
+      "name": "catalog_catalog_get",
+      "method": "GET",
+      "path": "/catalog",
+      "auth": true
+    },
+    {
+      "name": "algorithms_algorithms_get",
+      "method": "GET",
+      "path": "/algorithms",
+      "auth": true
+    },
+    {
+      "name": "force_update_updatez_post",
+      "method": "POST",
+      "path": "/updatez",
+      "auth": true
+    },
+    {
+      "name": "statements_statements_get",
+      "method": "GET",
+      "path": "/statements",
+      "auth": true
+    }
+  ],
+  "skipped": [],
+  "auth": {
+    "scheme_name": "nw_auth",
+    "provider": "static_token",
+    "tier": "self_managed",
+    "secret_key": "OPENSANCTIONS_API_KEY",
+    "secret_keys": [
+      "OPENSANCTIONS_API_KEY"
+    ],
+    "yaml": {
+      "provider": "static_token",
+      "secret_key": "OPENSANCTIONS_API_KEY",
+      "header_name": "Authorization",
+      "prefix": ""
+    },
+    "notes": []
+  },
+  "notes": [
+    "Dropped spec parameter(s) that duplicate the connector credential: token (in query). The configured AuthProvider supplies the credential; exposing it as a call argument would ask the caller for a secret",
+    "Auth from --auth header:Authorization: the spec declares no security scheme"
+  ]
+}
