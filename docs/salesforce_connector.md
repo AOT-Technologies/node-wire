@@ -141,6 +141,7 @@ has Salesforce **disabled** and on REST only. Before you turn on `grpc` or `mcp`
 |---|---|---|
 | `salesforce-readonly` | 101 | Every read (`GET`) plus five reads that use a request body, with no password actions. Nothing changes in the org |
 | `salesforce-records` | 37 | Create, read, update and delete records, query, search and describe, plus the 8 lead and contact actions. No bulk deletes, no passwords |
+| `salesforce-lending` | 10 | Query, read and describe any object, plus `create_record` and `update_record`. No deletes, no lead or contact actions. Use with `write_allow` (below) |
 | `salesforce-leads-contacts` | 8 | Only the original lead and contact actions |
 | `salesforce-bulk` | 17 | Only Bulk API 2.0 |
 
@@ -149,6 +150,53 @@ not just a comment. It is one name for the whole server: a loaded connector with
 [Action exposure profiles](exposure.md).
 
 Also use a Salesforce user with only the permissions the deployment needs: the connector can do whatever that user can.
+
+### Commercial lending: `write_allow`
+
+`create_record` and `update_record` accept any object and field, and a profile can only hide whole actions. To limit *what* they write, set
+`write_allow` in the connector's entry in `connectors.yaml` (a top-level key, like `api_version`). It maps an object to the field names that may be written (`"*"` allows any field):
+
+```yaml
+  salesforce:
+    enabled: true
+    exposed_via: ["rest", "grpc", "mcp"]
+    write_allow:
+      Loan__c: ["Recommendation__c"]
+      ContentVersion: ["*"]
+      ContentDocumentLink: ["*"]
+```
+
+```bash
+NW_EXPOSE_PROFILE=salesforce-lending
+```
+
+With it set, a write to an unlisted object, a write that includes an unlisted field, and every delete are refused with `POLICY_DENIED` before any
+request reaches Salesforce. The lead and contact actions obey it too. Unset, nothing is limited. It covers the record actions only, so keep the
+other write actions (composite, bulk, upsert) hidden with the profile. It is a second lock: also set field-level security as below.
+
+**Attach the memo** with two `create_record` calls: `ContentVersion` (`Title`, `PathOnClient`, base64 `VersionData`; about 37 MB at most), then
+`ContentDocumentLink` (`ContentDocumentId` from `SELECT ContentDocumentId FROM ContentVersion WHERE Id = '...'`, `LinkedEntityId` = the loan Id).
+
+**Salesforce org setup** (done in the org, not by the connector):
+
+1. Custom objects: `Loan__c` (`Amount__c`, `Purpose__c`, `Term_Months__c`, `Stage__c`, `Recommendation__c` text), `Guarantor__c` (lookup `Loan__c`,
+   `Ownership_Pct__c`) and `Collateral__c` (lookup `Loan__c`, `Type__c`, `Value__c`).
+2. A dedicated integration user with a permission set: read on the three objects, **edit only on `Loan__c.Recommendation__c`**, create on
+   `ContentVersion` and `ContentDocumentLink`. No delete, no edit on `Stage__c`.
+3. A validation rule on `Loan__c` that blocks a change to `Stage__c` by the integration user.
+4. Seed the Northgate story (Developer Edition org, Anonymous Apex):
+
+```apex
+Loan__c l = new Loan__c(Name='Northgate Cold Storage LLC', Amount__c=2500000, Purpose__c='Cold storage expansion',
+                        Term_Months__c=60, Stage__c='Submitted');
+insert l;
+insert new List<Guarantor__c>{
+  new Guarantor__c(Name='Guarantor A', Loan__c=l.Id, Ownership_Pct__c=60),
+  new Guarantor__c(Name='Guarantor B', Loan__c=l.Id, Ownership_Pct__c=40)};
+insert new Collateral__c(Name='Warehouse', Loan__c=l.Id, Type__c='Real estate', Value__c=3200000);
+```
+
+This script and the permission set have not been run against a live org from this repo: check them once in your Developer Edition org.
 
 ### Upgrading from the lead and contact connector
 

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import json
 import logging
@@ -2001,3 +2002,109 @@ async def test_a_single_error_object_is_read_too(wire: Wire) -> None:
         result.message
         == "Salesforce answered 404: NOT_FOUND: The requested resource does not exist"
     )
+
+
+# ---- the lending agent: write_allow, query and the memo attachment -----------------------------
+
+LOAN_ID = "a01000000000001AAA"
+LENDING = {
+    "Loan__c": ["Recommendation__c"],
+    "ContentVersion": ["*"],
+    "ContentDocumentLink": ["*"],
+}
+
+
+async def test_soql_on_a_custom_object(wire: Wire) -> None:
+    q = "SELECT Id, Amount__c FROM Loan__c WHERE Name = 'Northgate'"
+    result = await make(write_allow=LENDING).run({"action": "query", "q": q})
+    assert result.success, result.message
+    assert wire.last.method == "GET" and wire.path.endswith("/query") and wire.query == {"q": q}
+
+
+async def test_only_the_recommendation_field_can_be_updated(wire: Wire) -> None:
+    conn = make(write_allow=LENDING)
+    ok = await conn.run(
+        {
+            "action": "update_record",
+            "sobject": "Loan__c",
+            "record_id": LOAN_ID,
+            "fields": {"Recommendation__c": "Approve"},
+        }
+    )
+    assert ok.success, ok.message
+    assert wire.body == {"Recommendation__c": "Approve"}
+    sent = len(wire.requests)
+    for fields in ({"Stage__c": "Closed"}, {"Recommendation__c": "x", "Stage__c": "y"}):
+        bad = await conn.run(
+            {
+                "action": "update_record",
+                "sobject": "Loan__c",
+                "record_id": LOAN_ID,
+                "fields": fields,
+            }
+        )
+        assert not bad.success and bad.error_code == "POLICY_DENIED"
+        assert "Stage__c" in bad.message
+    assert len(wire.requests) == sent  # nothing reached Salesforce
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        {
+            "action": "update_record",
+            "sobject": "Account",
+            "record_id": LOAN_ID,
+            "fields": {"Name": "x"},
+        },
+        {"action": "create_record", "sobject": "Loan__c", "fields": {"Amount__c": 1}},
+        {"action": "delete_record", "sobject": "Loan__c", "record_id": LOAN_ID},
+        {"action": "delete_record", "sobject": "ContentVersion", "record_id": LOAN_ID},
+        {"action": "create_lead", "last_name": "L", "company": "C"},
+        {
+            "action": "update_contact",
+            "record_id": "003000000000001AAA",
+            "fields": {"LastName": "x"},
+        },
+    ],
+)
+async def test_other_writes_are_denied(wire: Wire, call: dict[str, Any]) -> None:
+    result = await make(write_allow=LENDING).run(call)
+    assert not result.success and result.error_code == "POLICY_DENIED"
+    assert not wire.requests
+
+
+async def test_the_memo_is_attached_through_content_version_and_link(wire: Wire) -> None:
+    conn = make(write_allow=LENDING)
+    memo = base64.b64encode(b"memo").decode()
+    wire.json = {"id": "068000000000001AAA", "success": True}
+    first = await conn.run(
+        {
+            "action": "create_record",
+            "sobject": "ContentVersion",
+            "fields": {"Title": "Memo", "PathOnClient": "memo.pdf", "VersionData": memo},
+        }
+    )
+    assert first.success, first.message
+    assert wire.path.endswith("/sobjects/ContentVersion") and wire.body["VersionData"] == memo
+    link = await conn.run(
+        {
+            "action": "create_record",
+            "sobject": "ContentDocumentLink",
+            "fields": {"ContentDocumentId": "069000000000001AAA", "LinkedEntityId": LOAN_ID},
+        }
+    )
+    assert link.success, link.message
+    assert wire.path.endswith("/sobjects/ContentDocumentLink")
+
+
+async def test_without_write_allow_nothing_changes(wire: Wire) -> None:
+    result = await make().run(
+        {
+            "action": "update_record",
+            "sobject": "Account",
+            "record_id": LOAN_ID,
+            "fields": {"Name": "x"},
+        }
+    )
+    assert result.success, result.message

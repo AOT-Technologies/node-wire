@@ -21,6 +21,7 @@ import httpx
 
 from node_wire_runtime import BaseConnector, RestResponseOutput, nw_action, sdk_action
 from node_wire_runtime.models import ErrorCategory
+from node_wire_runtime.policy import PolicyDenied
 from node_wire_runtime.rest import _shared_client
 from .normalizers import (
     normalize_salesforce_read_delete_contact,
@@ -265,6 +266,29 @@ class SalesforceConnector(BaseConnector):
             raise ValueError(f"Salesforce api_version must look like v68.0, got {version!r}")
         return version
 
+    def _check_write(self, sobject: str, fields: Optional[Dict[str, Any]]) -> None:
+        """Refuse a write that the ``write_allow`` config does not list.
+
+        Simplified: ``write_allow`` maps an object to the field names that may be written, for
+        example ``{"Loan__c": ["Recommendation__c"], "ContentVersion": ["*"]}``. Unset means no
+        limit (the old behaviour). Once set, an unlisted object, an unlisted field and every
+        delete (``fields`` is None) are denied. It covers the generic and the lead and contact
+        record actions; hide the other write actions with an exposure profile. Field names only
+        go in the message, never values.
+        """
+        rules = self.config.get("write_allow")
+        if rules is None:
+            return
+        allowed = rules.get(sobject)
+        if (
+            allowed is not None
+            and fields is not None
+            and ("*" in allowed or set(fields) <= set(allowed))
+        ):
+            return
+        bad = "delete" if fields is None else ", ".join(sorted(set(fields) - set(allowed or ())))
+        raise PolicyDenied(f"write_allow does not permit {sobject}: {bad or 'this object'}")
+
     @nw_action("create_lead", http_method="POST", http_path="/sobjects/Lead")
     async def create_lead(
         self, params: CreateLeadInput, *, trace_id: str
@@ -482,8 +506,10 @@ class SalesforceConnector(BaseConnector):
     ) -> SalesforceOperationOutput:
         """The lead and contact actions: one call on ``sobjects/{path}`` through the same request
         path as every other action, answered in the original output shape."""
-        url = f"{self._get_base_url()}/services/data/{self._get_api_version()}/sobjects/{path}"
         body = {k: v for k, v in (payload or {}).items() if v is not None} or None
+        if method != "GET":
+            self._check_write(path.partition("/")[0], None if method == "DELETE" else (body or {}))
+        url = f"{self._get_base_url()}/services/data/{self._get_api_version()}/sobjects/{path}"
         response = await self._send(
             method, url, trace_id, headers={}, query={}, body=body, raw=None
         )
@@ -692,6 +718,7 @@ class SalesforceConnector(BaseConnector):
         self, params: CreateRecordInput, *, trace_id: str
     ) -> RestResponseOutput:
         """Create a record."""
+        self._check_write(params.sobject, params.fields)
         return await self._call("POST", "/sobjects/{sobject}", params, trace_id)
 
     @nw_action("get_record", http_method="GET", http_path="/sobjects/{sobject}/{record_id}")
@@ -704,6 +731,7 @@ class SalesforceConnector(BaseConnector):
         self, params: UpdateRecordInput, *, trace_id: str
     ) -> RestResponseOutput:
         """Update a record."""
+        self._check_write(params.sobject, params.fields)
         return await self._call("PATCH", "/sobjects/{sobject}/{record_id}", params, trace_id)
 
     @nw_action("delete_record", http_method="DELETE", http_path="/sobjects/{sobject}/{record_id}")
@@ -711,6 +739,7 @@ class SalesforceConnector(BaseConnector):
         self, params: DeleteRecordInput, *, trace_id: str
     ) -> RestResponseOutput:
         """Delete a record."""
+        self._check_write(params.sobject, None)
         return await self._call("DELETE", "/sobjects/{sobject}/{record_id}", params, trace_id)
 
     @nw_action(

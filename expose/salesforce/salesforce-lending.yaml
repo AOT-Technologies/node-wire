@@ -1,0 +1,28 @@
+# Lending agent: read and query, update one field, attach a memo. No deletes, no lead or contact writes.
+# Pair with `write_allow` in connectors.yaml so create_record/update_record can only touch the
+# recommendation field and the memo objects. Edit select/exclude, then run: nw expose resolve.
+connector: salesforce
+connector_version: 1.1.2
+profile: salesforce-lending
+select:
+- name:query
+- name:query_more
+- name:get_record
+- name:get_records
+- name:get_related_records
+- name:get_blob_field
+- name:describe_sobject
+- name:describe_global
+- name:create_record
+- name:update_record
+actions:
+- create_record
+- describe_global
+- describe_sobject
+- get_blob_field
+- get_record
+- get_records
+- get_related_records
+- query
+- query_more
+- update_record

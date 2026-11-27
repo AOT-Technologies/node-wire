@@ -68,7 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
         read_lead: document.getElementById('salesforce-section-id-only'),
         delete_lead: document.getElementById('salesforce-section-id-only'),
         read_contact: document.getElementById('salesforce-section-id-only'),
-        delete_contact: document.getElementById('salesforce-section-id-only')
+        delete_contact: document.getElementById('salesforce-section-id-only'),
+        lending_demo: document.getElementById('salesforce-section-lending')
     };
 
     // External Patient Viewer
@@ -183,6 +184,14 @@ document.addEventListener('DOMContentLoaded', () => {
             "Authenticate CRM",
             "Apply Partial Update",
             "Verify State Change"
+        ],
+        salesforce_lending: [
+            "Query Loan",
+            "Query Related Records",
+            "Write Recommendation",
+            "Block Stage Change",
+            "Block Delete",
+            "Attach Memo"
         ],
         salesforce_delete: [
             "Authenticate CRM",
@@ -435,6 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function salesforcePipelineLabelOverride() {
+        if (currentSalesforceSubMode === 'lending_demo') return pipelineLabels.salesforce_lending;
         if (currentSalesforceSubMode.startsWith('create')) return pipelineLabels.salesforce_create_lead;
         if (currentSalesforceSubMode.startsWith('read')) return pipelineLabels.salesforce_read;
         if (currentSalesforceSubMode.startsWith('update')) return pipelineLabels.salesforce_update;
@@ -1480,6 +1490,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (currentSalesforceSubMode === 'read_contact') {
             submitPayload = { record_id: payload.generic_record_id };
             endpoint = '/scenarios/salesforce-read-contact';
+        } else if (currentSalesforceSubMode === 'lending_demo') {
+            submitPayload = { loan_name: payload.loan_name, recommendation: payload.recommendation };
+            endpoint = '/scenarios/salesforce-lending-demo';
         } else if (currentSalesforceSubMode === 'delete_contact') {
             submitPayload = { record_id: payload.generic_record_id };
             endpoint = '/scenarios/salesforce-delete-contact';
