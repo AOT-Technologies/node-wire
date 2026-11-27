@@ -36,6 +36,7 @@ ALL_PACKAGES=(
   packages/connectors/slack
   packages/connectors/github
   packages/connectors/slack_api
+  packages/connectors/opensanctions
 )
 
 

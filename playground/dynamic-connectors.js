@@ -18,6 +18,7 @@
         salesforce: 'Salesforce',
         fhir_epic: 'Epic FHIR',
         fhir_cerner: 'Cerner FHIR',
+        opensanctions: 'OpenSanctions',
     };
     // A PEM key has line breaks, so it needs a textarea.
     const TEXTAREA_SECRETS = ['EPIC_PRIVATE_KEY', 'CERNER_PRIVATE_KEY'];

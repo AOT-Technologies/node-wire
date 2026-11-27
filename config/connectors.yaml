@@ -162,3 +162,15 @@ connectors:
     database: nwdb
     sslmode: disable
     mode: read_only           # read_only | read_write | admin (insert needs read_write)
+  opensanctions:
+    enabled: true
+    exposed_via:
+    - rest
+    - grpc
+    - mcp
+    base_url: https://api.opensanctions.org
+    auth:
+      provider: static_token
+      secret_key: OPENSANCTIONS_API_KEY
+      header_name: Authorization
+      prefix: ApiKey
