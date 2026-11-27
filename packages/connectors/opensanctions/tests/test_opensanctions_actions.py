@@ -5,10 +5,12 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
+import yaml
 
 from node_wire_opensanctions.logic import OpensanctionsConnector
 from node_wire_runtime import rest
@@ -165,3 +167,11 @@ async def test_the_status_decides_the_error_category(
     wire.status = status
     result = await make().run({"action": "healthz_healthz_get"})
     assert not result.success and result.error_category == category
+
+
+def test_the_lending_profile_is_only_match_and_fetch_entity() -> None:
+    """PRD scope: the lending agent screens and reads an entity; no writes, no probes."""
+    path = Path(__file__).resolve().parents[4] / "expose/opensanctions/opensanctions-lending.yaml"
+    actions = set(yaml.safe_load(path.read_text(encoding="utf-8"))["actions"])
+    assert actions == {"match_match_dataset_post", "fetch_entity_entities_entity_id_get"}
+    assert actions <= set(OpensanctionsConnector.nw_action_metas())
